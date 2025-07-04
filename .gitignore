@@ -1,0 +1,58 @@
+# ignore the wp-content directory index stub
+/wp-content/index.php
+
+# 1) Node & Composer dependencies
+/node_modules/
+/vendor/
+
+# 2) WordPress core directories
+/wp-admin/
+/wp-includes/
+
+# 3) Root-level WordPress core files
+/index.php
+/license.txt
+/readme.html
+/wp-*.php
+/xmlrpc.php
+
+# 4) WordPress uploads & runtime caches
+/wp-content/uploads/
+/wp-content/upgrade/
+/wp-content/cache/
+
+# 5) Regular plugins: ignore everything…
+wp-content/plugins/*
+# …but whitelist only your own plugin(s)
+!wp-content/plugins/globe-tour-block/
+!wp-content/plugins/globe-tour-block/**
+!wp-content/plugins/site-lang-switcher/
+!wp-content/plugins/site-lang-switcher/**
+
+# 6) Regular themes: ignore everything…
+wp-content/themes/*
+# …but whitelist only your own theme(s)
+!wp-content/themes/your-theme-slug/
+!wp-content/themes/your-theme-slug/**
+
+# 7) MU-plugins: track all of them (no ignore rules here)
+
+# 8) Config & environment files
+.env
+wp-config.php
+wp-config-sample.php
+
+# 9) IDE / OS artifacts
+.DS_Store
+Thumbs.db
+*.swp
+*.log
+
+node_modules/
+
+dist/
+
+# Ignore auto-managed WordPress language packs
+wp-content/languages/
+
+OldBlazorReference/
