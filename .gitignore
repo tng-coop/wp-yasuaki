@@ -28,6 +28,8 @@ wp-content/plugins/*
 !wp-content/plugins/globe-tour-block/**
 !wp-content/plugins/site-lang-switcher/
 !wp-content/plugins/site-lang-switcher/**
+!wp-content/plugins/kg-hon-map/
+!wp-content/plugins/kg-hon-map/**
 
 # 6) Regular themes: ignore everything…
 wp-content/themes/*
