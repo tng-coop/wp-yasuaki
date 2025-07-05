@@ -1,0 +1,11 @@
+{
+  "$schema": "https://schemas.wp.org/trunk/block.json",
+  "apiVersion": 3,
+  "name": "my-plugin/hello-block",
+  "title": "Hello Block",
+  "category": "text",
+  "icon": "smiley",
+  "description": "A block written with native ES modules and no build tools.",
+  "textdomain": "my-esm-block",
+  "style": "file:./style.css"
+}

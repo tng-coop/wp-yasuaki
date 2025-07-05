@@ -1,0 +1,5 @@
+/* Applies in editor and front‑end */
+.wp-block-my-plugin-hello-block {
+	font-weight: bold;
+	color: #0073aa;
+}
