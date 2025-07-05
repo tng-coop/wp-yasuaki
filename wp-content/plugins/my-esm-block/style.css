@@ -1,5 +1,6 @@
-/* Applies in editor and front‑end */
-.wp-block-my-plugin-hello-block {
-	font-weight: bold;
-	color: #0073aa;
+/* Keep canvas responsive */
+canvas.my-esm-cube {
+    max-width: 100%;
+    height: auto;
+    display: block;
 }
