@@ -15,7 +15,6 @@ add_action(
 		register_block_type( __DIR__ );
 	}
 );
-error_log( 'My ESM Block plugin loaded.' );
 add_action(
 	'enqueue_block_editor_assets',
 	function () {
