@@ -6,6 +6,5 @@
   "category": "media",
   "icon": "crop",
   "description": "A spinning 3‑D cube rendered with Three.js.",
-  "textdomain": "my-esm-block",
-  "style": "file:./style.css"
+  "textdomain": "my-esm-block"
 }

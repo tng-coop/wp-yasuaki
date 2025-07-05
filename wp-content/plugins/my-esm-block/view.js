@@ -24,9 +24,31 @@ function initCube( canvas ) {
     })();
 }
 
-/* kick‑off once DOM is ready */
-document.addEventListener( 'DOMContentLoaded', () => {
+// JavaScript: Adjust internal resolution based on CSS size
+function resizeCanvas() {
+    const canvas = document.querySelector('canvas');  // Get the canvas element
+    const rect = canvas.getBoundingClientRect();  // Get the size from CSS
+    const width = rect.width;
+    const height = rect.height;
+    console.log(`Resizing canvas to: ${width}x${height}`);
+
+    // Set the internal resolution (drawing buffer size)
+    canvas.width = window.innerWidth
+    canvas.height = window.innerHeight; 
+
+
+    // Optionally, redraw or reinitialize your canvas content
+    // Re-initialize the cube with the new size
+    initCube(canvas);
+}
+
+// Resize canvas when window is resized
+window.addEventListener('resize', resizeCanvas);
+
+// kick‑off once DOM is ready
+document.addEventListener('DOMContentLoaded', () => {
     document
-        .querySelectorAll( 'canvas.my-esm-cube' )
+        .querySelectorAll('canvas.my-esm-cube')
         .forEach( initCube );
-} );
+    resizeCanvas();  // Ensure the canvas is correctly sized when the page loads
+});

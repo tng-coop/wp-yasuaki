@@ -44,6 +44,13 @@ add_action(
                 array(),                              // standalone
                 filemtime( __DIR__ . '/view.js' )
             );
+                        // enqueue the CSS for the front-end view
+            wp_enqueue_style(
+                'my-esm-block-view-style',
+                plugins_url( 'style.css', __FILE__ ),
+                [],
+                filemtime( __DIR__ . '/style.css' )
+            );
         }
     }
 );
