@@ -6,6 +6,7 @@
   "category": "widgets",
   "icon": "media-code",
   "supports": { "html": false },
+  "style": [ "file:./style.css" ],
   "textdomain": "hero-video",
   "editorScript": "file:./index.js",
   "viewScriptModule": [
