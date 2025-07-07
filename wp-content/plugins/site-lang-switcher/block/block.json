@@ -1,0 +1,17 @@
+{
+  "apiVersion": 3,
+  "name": "sls/site-lang-switcher",
+  "title": "Site Language Switcher",
+  "description": "Header EN / JP language toggle with local‑storage memory",
+  "category": "widgets",
+  "icon": "translation",
+  "textdomain": "site-lang-switcher",
+  "keywords": [ "language", "switcher", "i18n" ],
+  "supports": {
+    "html": false
+  },
+  "editorScript": "file:./index.js",
+  "editorStyle":  "file:./editor.css",
+  "style":        "file:./style.css",
+  "viewScript":   "file:./view.js"
+}
