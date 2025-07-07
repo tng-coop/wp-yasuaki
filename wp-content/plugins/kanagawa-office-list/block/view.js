@@ -1,4 +1,4 @@
-import { getProcessedOfficeData } from '../../kanagawa-office-map/block/office-data.js';
+import { getProcessedOfficeData } from './office-data.js';
 
 window.addEventListener( 'DOMContentLoaded', () => {
   const container = document.getElementById( 'kanagawa-office-list' );

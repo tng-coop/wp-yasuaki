@@ -1,0 +1,1 @@
+../../kanagawa-office-map/block/office-data.js
