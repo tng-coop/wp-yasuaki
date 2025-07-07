@@ -3,11 +3,13 @@
     var useBlockProps = wp.blockEditor.useBlockProps;
     var __ = wp.i18n.__;
 
-    registerBlockType( 'hero/video', {  
+    registerBlockType( 'hero/video', {
         edit: function() {
+            // Apply the same container classes and ID so the editor shows the 100% × 300px box
+            var blockProps = useBlockProps({ className: 'hero-video-container', id: 'hero-video' });
             return wp.element.createElement(
                 'div',
-                useBlockProps(),
+                blockProps,
                 wp.element.createElement(
                     'p',
                     null,
