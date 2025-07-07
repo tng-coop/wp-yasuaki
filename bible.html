@@ -1,62 +1,111 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta http-equiv="X-UA-Compatible" content="IE=edge">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Hello Page</title>
+  <meta charset="UTF-8" />
+  <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Bible Reader with TTS</title>
   <!-- Bootstrap CSS -->
-  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link
+    href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css"
+    rel="stylesheet"
+  />
 </head>
+
 <body>
   <div class="container py-5">
-    <h1 class="mb-4">Hello!</h1>
+    <h1 class="mb-4">Bible Reader</h1>
     <p id="verse" class="lead">Loading verse...</p>
     <button id="new-verse" class="btn btn-primary mb-4">New Verse</button>
-    <div>
-      <h2>Available Methods</h2>
-      <ul id="methods" class="list-group"></ul>
-    </div>
+    <ul id="methods" class="list-group"></ul>
   </div>
 
-  <script type="module">
-    import bibleQuotes from 'https://esm.sh/bible-quotes@latest';
+  <script type="module" defer>
+    import bibleQuotes from 'https://esm.sh/bible-quotes@1.0.0';
+    import { EdgeTTSClient, ProsodyOptions, OUTPUT_FORMAT }
+      from 'https://esm.sh/edge-tts-client@1.0.2';
 
-    // Inspect default export for methods
-    const methodNames = Object.entries(bibleQuotes)
-      .filter(([key, val]) => typeof val === 'function')
-      .map(([key]) => key);
+    // TTS client + in-flight references
+    const tts = new EdgeTTSClient();
+    let currentTtsStream = null;
+    let currentAudio     = null;
 
-    console.log('Available methods on bibleQuotes:', methodNames);
+    // UI elements
+    const verseEl     = document.getElementById('verse');
+    const newVerseBtn = document.getElementById('new-verse');
+    const methodsEl   = document.getElementById('methods');
+    let currentVerseText = '';
 
-    // Render method names in the UI
-    const methodsEl = document.getElementById('methods');
+    // List available bible-quotes methods
+    const methodNames = Object.keys(bibleQuotes).filter(k => typeof bibleQuotes[k] === 'function');
     methodNames.forEach(name => {
       const li = document.createElement('li');
       li.textContent = name;
       li.className = 'list-group-item';
-      methodsEl.appendChild(li);
+      methodsEl.append(li);
     });
 
-    const verseEl = document.getElementById('verse');
-    const btn = document.getElementById('new-verse');
-
+    // Fetch & display a random verse
     async function showVerse() {
       try {
-        if (methodNames.length === 0) throw new Error('No methods available');
-        // Call the first available method as a test
-        const fn = bibleQuotes[methodNames[0]];
+        const fn     = bibleQuotes[methodNames[0]];
         const result = await fn();
-        verseEl.textContent = typeof result === 'string'
+        currentVerseText = typeof result === 'string'
           ? result
-          : JSON.stringify(result);
+          : JSON.stringify(result, null, 2);
+        verseEl.textContent = currentVerseText;
       } catch (err) {
         verseEl.textContent = 'Failed to load verse.';
         console.error(err);
       }
     }
 
-    btn.addEventListener('click', showVerse);
+    // Speak text, aborting any prior stream/playback
+    async function speakVerse(text) {
+      // Abort prior TTS stream
+      if (currentTtsStream) {
+        currentTtsStream.destroy?.();
+        currentTtsStream = null;
+      }
+      // Stop prior audio
+      if (currentAudio) {
+        currentAudio.pause();
+        URL.revokeObjectURL(currentAudio.src);
+        currentAudio = null;
+      }
+
+      // Configure voice & format
+      await tts.setMetadata(
+        'en-US-GuyNeural',
+        OUTPUT_FORMAT.AUDIO_24KHZ_48KBITRATE_MONO_MP3
+      );
+      const opts = new ProsodyOptions();
+      opts.pitch  = 'medium';
+      opts.rate   = 1.0;
+      opts.volume = 90;
+
+      // Start streaming
+      const chunks = [];
+      const stream = tts.toStream(text, opts);
+      currentTtsStream = stream;
+
+      stream.on('data', chunk => chunks.push(chunk));
+      stream.on('end', () => {
+        const blob  = new Blob(chunks, { type: 'audio/mpeg' });
+        const url   = URL.createObjectURL(blob);
+        const audio = new Audio(url);
+        currentAudio = audio;
+        audio.play();
+      });
+    }
+
+    // Wire up New Verse button
+    newVerseBtn.addEventListener('click', async () => {
+      await showVerse();
+      await speakVerse(currentVerseText);
+    });
+
+    // Initial load
     showVerse();
   </script>
 </body>

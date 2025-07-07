@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Edge TTS Hello World</title>
+</head>
+<body>
+  <button id="speak-btn">Speak “Hello, world!”</button>
+
+  <script type="module">
+    import {
+      EdgeTTSClient,
+      ProsodyOptions,
+      OUTPUT_FORMAT
+    } from 'https://esm.sh/edge-tts-client@1.0.2'; 
+
+    const tts = new EdgeTTSClient();
+
+    // async click handler avoids top-level await
+    document.getElementById('speak-btn').addEventListener('click', async () => {
+      // 1) Choose voice & format
+      await tts.setMetadata(
+        'en-US-GuyNeural',
+        OUTPUT_FORMAT.AUDIO_24KHZ_48KBITRATE_MONO_MP3
+      );
+
+      // 2) Set prosody options
+      const opts = new ProsodyOptions();
+      opts.pitch  = 'medium';
+      opts.rate   = 1.0;
+      opts.volume = 90;
+
+      // 3) Stream and play
+      const chunks = [];
+      const stream = tts.toStream('Hello, world!', opts);
+      stream.on('data', chunk => chunks.push(chunk));
+      stream.on('end', () => {
+        const blob = new Blob(chunks, { type: 'audio/mpeg' });
+        new Audio(URL.createObjectURL(blob)).play();
+      });
+    });
+  </script>
+</body>
+</html>
