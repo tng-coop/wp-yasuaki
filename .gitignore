@@ -30,6 +30,8 @@ wp-content/plugins/*
 !wp-content/plugins/site-lang-switcher/**
 !wp-content/plugins/my-esm-block/
 !wp-content/plugins/my-esm-block/**
+!wp-content/plugins/goat-video-config-block/
+!wp-content/plugins/goat-video-config-block/**
 
 # 6) Regular themes: ignore everything…
 wp-content/themes/*
