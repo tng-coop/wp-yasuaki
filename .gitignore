@@ -34,6 +34,8 @@ wp-content/plugins/*
 !wp-content/plugins/hero-video/**
 !wp-content/plugins/kanagawa-office-map/
 !wp-content/plugins/kanagawa-office-map/**
+!wp-content/plugins/kanagawa-office-list/
+!wp-content/plugins/kanagawa-office-list/**
 
 # 6) Regular themes: ignore everything…
 wp-content/themes/*

@@ -1,0 +1,19 @@
+{
+  "apiVersion": 3,
+  "name": "kanagawa/office-list",
+  "title": "Kanagawa Office List",
+  "description": "Displays a list of service offices across Kanagawa Prefecture in a scrollable HTML table.",
+  "category": "widgets",
+  "icon": "editor-ul",
+  "supports": {
+    "html": false,
+    "interactivity": true
+  },
+  "style": [
+    "file:./style.css"
+  ],
+  "editorScript": "file:./index.js",
+  "viewScriptModule": [
+    "file:./view.js"
+  ]
+}
