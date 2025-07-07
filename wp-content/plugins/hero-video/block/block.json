@@ -1,0 +1,16 @@
+{
+  "apiVersion": 3,
+  "name": "hero/video",  
+  "title": "Hero Video",
+  "description": "Displays the JSON configuration for the Hero Video (Goat or Waterfall video) in both editor and front-end.",
+  "category": "widgets",
+  "icon": "media-code",
+  "supports": { "html": false },
+  "textdomain": "hero-video",
+  "editorScript": "file:./index.js",
+  "viewScriptModule": [
+    "file:./view.js",
+    "file:./goat.js",
+    "file:./waterfall.js"
+  ]
+}
