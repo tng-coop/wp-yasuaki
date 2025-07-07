@@ -1,6 +1,6 @@
 /* hero-video/block/style.css */
 
-#hero-video.hero-video-container {
+.hero-video-container {
   position: relative;
   overflow: hidden;
   width: 100%;
