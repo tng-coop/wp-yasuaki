@@ -1,5 +1,3 @@
-// csvData.js
-
 import Papa from "https://esm.sh/papaparse@5.5.3";
 
 // Raw CSV strings for service offices and zipcode→coords
@@ -91,7 +89,7 @@ Zipcode,Latitude,Longitude
 `;
 
 // Function to process the CSV and return the data with region information
-export function getProcessedServiceData() {
+export function getProcessedOfficeData() {
   const { data: services } = Papa.parse(csvServiceText.trim(), {
     header: true, skipEmptyLines: "greedy"
   });

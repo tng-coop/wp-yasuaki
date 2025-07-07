@@ -5,8 +5,13 @@
   "description": "Displays a hexbin mosaic of service offices across Kanagawa Prefecture using Leaflet, D3 and PapaParse.",
   "category": "widgets",
   "icon": "location-alt",
-  "supports": { "html": false },
-  "style": [ "file:./style.css" ],
+  "supports": {
+    "html": false,
+    "interactivity": true
+  },
+  "style": [
+    "file:./style.css"
+  ],
   "editorScript": "file:./index.js",
   "viewScriptModule": [
     "file:./view.js",
