@@ -51,4 +51,3 @@ if (document.readyState === 'loading') {
   initSiteLangSwitcher();
 }
 
-export default initSiteLangSwitcher;
