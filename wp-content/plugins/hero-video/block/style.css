@@ -4,7 +4,7 @@
   position: relative;
   overflow: hidden;
   width: 100%;
-  height: 30vh;
+  height: 300px;
 }
 
 #hero-video.hero-video-container video {
