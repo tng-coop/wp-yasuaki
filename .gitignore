@@ -32,6 +32,8 @@ wp-content/plugins/*
 !wp-content/plugins/my-esm-block/**
 !wp-content/plugins/hero-video/
 !wp-content/plugins/hero-video/**
+!wp-content/plugins/kanagawa-office-map/
+!wp-content/plugins/kanagawa-office-map/**
 
 # 6) Regular themes: ignore everything…
 wp-content/themes/*
