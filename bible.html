@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Hello Page</title>
+  <!-- Bootstrap CSS -->
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+</head>
+<body>
+  <div class="container py-5">
+    <h1 class="mb-4">Hello!</h1>
+    <p id="verse" class="lead">Loading verse...</p>
+    <button id="new-verse" class="btn btn-primary mb-4">New Verse</button>
+    <div>
+      <h2>Available Methods</h2>
+      <ul id="methods" class="list-group"></ul>
+    </div>
+  </div>
+
+  <script type="module">
+    import bibleQuotes from 'https://esm.sh/bible-quotes@latest';
+
+    // Inspect default export for methods
+    const methodNames = Object.entries(bibleQuotes)
+      .filter(([key, val]) => typeof val === 'function')
+      .map(([key]) => key);
+
+    console.log('Available methods on bibleQuotes:', methodNames);
+
+    // Render method names in the UI
+    const methodsEl = document.getElementById('methods');
+    methodNames.forEach(name => {
+      const li = document.createElement('li');
+      li.textContent = name;
+      li.className = 'list-group-item';
+      methodsEl.appendChild(li);
+    });
+
+    const verseEl = document.getElementById('verse');
+    const btn = document.getElementById('new-verse');
+
+    async function showVerse() {
+      try {
+        if (methodNames.length === 0) throw new Error('No methods available');
+        // Call the first available method as a test
+        const fn = bibleQuotes[methodNames[0]];
+        const result = await fn();
+        verseEl.textContent = typeof result === 'string'
+          ? result
+          : JSON.stringify(result);
+      } catch (err) {
+        verseEl.textContent = 'Failed to load verse.';
+        console.error(err);
+      }
+    }
+
+    btn.addEventListener('click', showVerse);
+    showVerse();
+  </script>
+</body>
+</html>
