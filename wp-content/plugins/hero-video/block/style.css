@@ -11,6 +11,9 @@
   position: absolute;
   top: 30px;               /* center vertically */
   left: 30px;              /* center horizontally */
+  background-color: rgba(21, 0, 255, 0.141);
+  padding-left:20px;
+  padding-right:20px;
   max-width:80vw; 
   z-index: 1;             /* above the video */
   pointer-events: none;   /* clicks “pass through” to video controls if needed */
