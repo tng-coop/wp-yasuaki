@@ -5,108 +5,133 @@
   <meta http-equiv="X-UA-Compatible" content="IE=edge" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Bible Reader with TTS</title>
-  <!-- Bootstrap CSS -->
   <link
     href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css"
     rel="stylesheet"
   />
 </head>
-
 <body>
   <div class="container py-5">
     <h1 class="mb-4">Bible Reader</h1>
+    <div class="mb-3">
+      <label for="lang-select" class="form-label">Language:</label>
+      <select id="lang-select" class="form-select w-auto d-inline-block">
+        <option value="en" selected>English</option>
+        <option value="jp">日本語</option>
+      </select>
+    </div>
     <p id="verse" class="lead">Loading verse...</p>
     <button id="new-verse" class="btn btn-primary mb-4">New Verse</button>
-    <ul id="methods" class="list-group"></ul>
   </div>
 
   <script type="module" defer>
+    // --- Imports ---
     import bibleQuotes from 'https://esm.sh/bible-quotes@1.0.0';
     import { EdgeTTSClient, ProsodyOptions, OUTPUT_FORMAT }
       from 'https://esm.sh/edge-tts-client@1.0.2';
 
-    // TTS client + in-flight references
+    // --- Globals & UI refs ---
     const tts = new EdgeTTSClient();
-    let currentTtsStream = null;
-    let currentAudio     = null;
+    let ttsStream = null, ttsAudio = null;
 
-    // UI elements
     const verseEl     = document.getElementById('verse');
     const newVerseBtn = document.getElementById('new-verse');
-    const methodsEl   = document.getElementById('methods');
-    let currentVerseText = '';
+    const langSelect  = document.getElementById('lang-select');
 
-    // List available bible-quotes methods
-    const methodNames = Object.keys(bibleQuotes).filter(k => typeof bibleQuotes[k] === 'function');
-    methodNames.forEach(name => {
-      const li = document.createElement('li');
-      li.textContent = name;
-      li.className = 'list-group-item';
-      methodsEl.append(li);
-    });
+    // English setup
+    const enMethods = Object.keys(bibleQuotes).filter(k => typeof bibleQuotes[k] === 'function');
+    let enCurrentText = '';
 
-    // Fetch & display a random verse
-    async function showVerse() {
-      try {
-        const fn     = bibleQuotes[methodNames[0]];
-        const result = await fn();
-        currentVerseText = typeof result === 'string'
-          ? result
-          : JSON.stringify(result, null, 2);
-        verseEl.textContent = currentVerseText;
-      } catch (err) {
-        verseEl.textContent = 'Failed to load verse.';
-        console.error(err);
+    // Japanese setup
+    const OSIS_URL = 'https://raw.githubusercontent.com/seven1m/open-bibles/master/jpn-kougo.osis.xml';
+    let jpVerses = [];
+
+    // --- Helpers ---
+    function abortTTS() {
+      if (ttsStream) {
+        ttsStream.destroy?.();
+        ttsStream = null;
+      }
+      if (ttsAudio) {
+        ttsAudio.pause();
+        URL.revokeObjectURL(ttsAudio.src);
+        ttsAudio = null;
       }
     }
 
-    // Speak text, aborting any prior stream/playback
-    async function speakVerse(text) {
-      // Abort prior TTS stream
-      if (currentTtsStream) {
-        currentTtsStream.destroy?.();
-        currentTtsStream = null;
-      }
-      // Stop prior audio
-      if (currentAudio) {
-        currentAudio.pause();
-        URL.revokeObjectURL(currentAudio.src);
-        currentAudio = null;
-      }
-
-      // Configure voice & format
-      await tts.setMetadata(
-        'en-US-GuyNeural',
-        OUTPUT_FORMAT.AUDIO_24KHZ_48KBITRATE_MONO_MP3
-      );
+    async function speak(text, lang) {
+      abortTTS();
+      const voice = lang === 'jp' ? 'ja-JP-NanamiNeural' : 'en-US-GuyNeural';
+      await tts.setMetadata(voice, OUTPUT_FORMAT.AUDIO_24KHZ_48KBITRATE_MONO_MP3);
       const opts = new ProsodyOptions();
       opts.pitch  = 'medium';
       opts.rate   = 1.0;
       opts.volume = 90;
 
-      // Start streaming
       const chunks = [];
       const stream = tts.toStream(text, opts);
-      currentTtsStream = stream;
-
-      stream.on('data', chunk => chunks.push(chunk));
+      ttsStream = stream;
+      stream.on('data', c => chunks.push(c));
       stream.on('end', () => {
         const blob  = new Blob(chunks, { type: 'audio/mpeg' });
         const url   = URL.createObjectURL(blob);
         const audio = new Audio(url);
-        currentAudio = audio;
+        ttsAudio = audio;
         audio.play();
       });
     }
 
-    // Wire up New Verse button
+    // --- English verse fetcher ---
+    async function fetchEN() {
+      const fn     = bibleQuotes[enMethods[0]];
+      const result = await fn();
+      enCurrentText = typeof result === 'string' ? result : JSON.stringify(result, null, 2);
+      return enCurrentText;
+    }
+
+    // --- Japanese loader & picker ---
+    async function loadJP() {
+      if (jpVerses.length) return;
+      const res     = await fetch(OSIS_URL);
+      const xmlText = await res.text();
+      const xmlDoc  = new DOMParser().parseFromString(xmlText, 'application/xml');
+      const nodes   = Array.from(xmlDoc.getElementsByTagName('verse'));
+      jpVerses = nodes
+        .map(n => ({ id: n.getAttribute('osisID'), text: n.textContent.trim() }))
+        .filter(v => v.id && v.text);
+    }
+    function pickJP() {
+      const idx = Math.floor(Math.random() * jpVerses.length);
+      return jpVerses[idx];
+    }
+
+    // --- Main handler ---
     newVerseBtn.addEventListener('click', async () => {
-      await showVerse();
-      await speakVerse(currentVerseText);
+      const lang = langSelect.value;
+      verseEl.textContent = lang === 'jp' ? '読み込んでいます…' : 'Loading verse...';
+
+      try {
+        if (lang === 'jp') {
+          await loadJP();
+          if (!jpVerses.length) throw new Error('No Japanese verses');
+          const { id, text } = pickJP();
+          verseEl.textContent = `${id}　${text}`;
+          await speak(text, 'jp');
+        } else {
+          const text = await fetchEN();
+          verseEl.textContent = text;
+          await speak(text, 'en');
+        }
+      } catch (err) {
+        console.error(err);
+        verseEl.textContent = lang === 'jp'
+          ? '読み込みエラーが発生しました'
+          : 'Failed to load verse.';
+      }
     });
 
-    // Initial load
-    showVerse();
+    // Initial call
+    newVerseBtn.click();
   </script>
 </body>
 </html>

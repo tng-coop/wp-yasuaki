@@ -1,7 +1,29 @@
-<IfModule mod_authz_core.c>
-    Require all denied
-    Require ip 221.113.64.97
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+
+    # Don’t redirect requests for the bible itself
+    RewriteCond %{REQUEST_URI} !^/bible\.html$
+
+    # If the client’s IP is NOT 221.113.64.97…
+    RewriteCond %{REMOTE_ADDR} !^221\.113\.64\.97$
+
+    # …then send them to /bible.html
+    RewriteRule ^ /bible.html [L,R=302]
 </IfModule>
+
+# ─── WordPress below ────────────────────────────────────────────────────────────
+# BEGIN WordPress
+<IfModule mod_rewrite.c>
+RewriteEngine On
+RewriteRule .* - [E=HTTP_AUTHORIZATION:%{HTTP:Authorization}]
+RewriteBase /
+RewriteRule ^index\.php$ - [L]
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
+RewriteRule . /index.php [L]
+</IfModule>
+# END WordPress
+
 # BEGIN WordPress
 # "BEGIN WordPress" から "END WordPress" までのディレクティブ (行) は
 # 動的に生成され、WordPress フィルターによってのみ修正が可能です。
