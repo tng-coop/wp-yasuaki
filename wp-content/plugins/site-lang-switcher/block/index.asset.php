@@ -1,5 +1,4 @@
 <?php
-error_log('index.asset.php');
 return [
   'dependencies' => [
     'wp-blocks',
