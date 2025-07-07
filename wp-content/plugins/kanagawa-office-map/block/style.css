@@ -6,9 +6,7 @@
 }
 
 .hexbin { fill: steelblue; fill-opacity: 0.6; stroke: white; stroke-width: 1; }
-.boundary { fill: none; stroke: red; stroke-width: 2; }
-.boundary-green { fill: none; stroke: green; stroke-width: 2; }
-.boundary-yellow { fill: none; stroke: yellow; stroke-width: 2; }
+/* .boundary { fill: none; stroke: red; stroke-width: 2; } */
 .label-text {
   color: white;
   background: rgba(0,0,0,0.5);

@@ -61,10 +61,10 @@ export default function initOfficeMap() {
     const xMin = sw.x, yMin = ne.y;
     const width = ne.x - sw.x, height = sw.y - ne.y;
 
-    // draw boundaries
-    g.append('rect').attr('class', 'boundary')
-      .attr('x', xMin).attr('y', yMin)
-      .attr('width', width).attr('height', height);
+    // // draw boundaries
+    // g.append('rect').attr('class', 'boundary')
+    //   .attr('x', xMin).attr('y', yMin)
+    //   .attr('width', width).attr('height', height);
 
     // generate hex grid cells
     const horiz = Math.sqrt(3) * R, vert = 1.5 * R;
