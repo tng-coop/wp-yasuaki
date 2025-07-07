@@ -3,27 +3,24 @@
     var useBlockProps = wp.blockEditor.useBlockProps;
     var __ = wp.i18n.__;
 
-    registerBlockType( 'hero/video', {  // Changed block name to hero/video
+    registerBlockType( 'hero/video', {  
         edit: function() {
-            // In the block editor, show "Hero Video JSON"
             return wp.element.createElement(
                 'div',
                 useBlockProps(),
                 wp.element.createElement(
-                    'pre',
+                    'p',
                     null,
-                    __( 'Hero Video JSON:', 'hero-video' ) + '\n' +
-                    'Hero Video JSON' // Placeholder text
+                    __( 'Select Video: Goat or Waterfall', 'hero-video' )
                 )
             );
         },
 
         save: function() {
-            // In the front-end, we rely on view.js to handle rendering
             return wp.element.createElement(
-                'pre',
-                useBlockProps.save({ className: 'hero-video', id: 'hero-video' }),
-                'Hero Video JSON' // Placeholder text for front-end
+                'div',
+                useBlockProps.save({ className: 'hero-video-container', id: 'hero-video' }),
+                'Video Displayed Here'
             );
         }
     } );

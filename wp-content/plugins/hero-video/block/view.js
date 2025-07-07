@@ -39,7 +39,7 @@ async function preloadVideo(el, src) {
   return u;
 }
 
-// Function to render the video configuration
+// Function to initialize video switching
 export default function initHeroVideoConfig() {
   const container = document.getElementById('hero-video');
 
@@ -47,39 +47,62 @@ export default function initHeroVideoConfig() {
     return;
   }
 
-  // Merge both goat and waterfall video data
-  const allVideos = [
-    ...goatData.video_files,
-    ...waterfallData.video_files,
-  ];
+  // Flag to keep track of which video should be shown next
+  let useGoat = true; // Start with Waterfall (useGoat = false means Waterfall)
 
-  // Pick the best video URL (from either goat or waterfall data)
-  const videoUrl = pickBestVideoUrl(allVideos);
-
-  // Create a video element
+  // Create video element
   const videoEl = document.createElement('video');
   videoEl.autoplay = true;
-  videoEl.loop = true;
+  videoEl.loop = false;  // No auto-looping, will switch videos manually
   videoEl.muted = true;
   videoEl.style.position = 'absolute';
   videoEl.style.top = '50%';
   videoEl.style.left = '50%';
   videoEl.style.transform = 'translate(-50%, -50%)';
-  // videoEl.style.minWidth = '100%';
-  // videoEl.style.minHeight = '100%';
-  videoEl.style.width='20vw';
-  videoEl.style.width='20vh';
+  videoEl.style.width = '30vh';  // Full-screen or adjust to the size you need
+  videoEl.style.height = '30vh'; // Full-screen or adjust to the size you need
   videoEl.style.objectFit = 'cover';
   videoEl.style.pointerEvents = 'none';
   videoEl.style.zIndex = '-1';
 
-  // Preload and set the video source
-  preloadVideo(videoEl, videoUrl).then(() => {
-    container.appendChild(videoEl);
+  // Function to start the video based on the flag
+  async function playNextVideo() {
+    // Choose the dataset based on the flag (useGoat = true -> Goat, useGoat = false -> Waterfall)
+    const selectedData = useGoat ? goatData : waterfallData;
+    
+    // Pick the best video URL (from either goat or waterfall data)
+    const videoUrl = pickBestVideoUrl(selectedData.video_files);
+
+    // Preload and set the video source
+    await preloadVideo(videoEl, videoUrl);
+
+    // Reset the video element (important to make sure it plays from the start)
+    videoEl.currentTime = 0;
+
+    // Add the video element to the container (only once)
+    if (!container.contains(videoEl)) {
+      container.appendChild(videoEl);
+    }
+
+    // Play the video
+    try {
+      await videoEl.play();
+    } catch (e) {
+      console.warn('Error playing video:', e);
+    }
+  }
+
+  // Handle video switching: when one video ends, play the next
+  videoEl.addEventListener('ended', () => {
+    // Switch between Goat and Waterfall videos
+    useGoat = !useGoat;  // Toggle between Goat and Waterfall
+
+    // Play the next video (either Goat or Waterfall)
+    playNextVideo();
   });
 
-  // Pretty-print the JSON for the video (both goat and waterfall data)
-  container.textContent = JSON.stringify({ goatData, waterfallData }, null, 2);
+  // Start by playing the first video (Waterfall)
+  playNextVideo();
 }
 
 // Auto-initialize when the DOM is ready
