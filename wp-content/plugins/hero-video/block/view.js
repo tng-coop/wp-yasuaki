@@ -94,24 +94,10 @@ async function switchVideos(videos) {
   switching = false;
 }
 
-// Create a digital clock overlay
-function createClock() {
-  const clock = document.createElement('div');
-  clock.className = 'hero-video-clock';
-  function update() {
-    clock.textContent = new Date().toLocaleTimeString();
-  }
-  update();
-  setInterval(update, 1000);
-  document.body.appendChild(clock);
-}
 
 export default async function initHeroVideoConfig() {
   const container = document.getElementById('hero-video');
   if (!container) return;
-
-  // 1. Clock overlay
-  createClock();
 
   // 2. Create two video elements for crossfade
   const videos = [
@@ -124,19 +110,6 @@ export default async function initHeroVideoConfig() {
     v.muted       = true;
     v.playsInline = true;
     v.preload     = 'auto';
-    Object.assign(v.style, {
-      position:      'absolute',
-      top:           '50%',
-      left:          '50%',
-      transform:     'translate(-50%, -50%)',
-      minWidth:      '100%',
-      minHeight:     '100%',
-      objectFit:     'cover',
-      pointerEvents: 'none',
-      zIndex:        '-1',
-      opacity:       '0',    // hidden initially
-      transition:    'none', // disable for initial reveal
-    });
   });
 
   // 3. Insert both videos into the container

@@ -20,7 +20,6 @@
             return wp.element.createElement(
                 'div',
                 useBlockProps.save({ className: 'hero-video-container', id: 'hero-video' }),
-                'Video Displayed Here'
             );
         }
     } );

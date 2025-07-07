@@ -21,14 +21,3 @@
   transition: opacity 0.5s ease;
 }
 
-.hero-video-clock {
-  position: fixed;
-  left: 10px;
-  bottom: 10px;
-  background: rgba(0, 0, 0, 0.5);
-  color: #fff;
-  padding: 4px 8px;
-  font-family: monospace;
-  border-radius: 4px;
-  z-index: 9999;
-}
