@@ -8,5 +8,9 @@
   "supports": { "html": false },
   "textdomain": "goat-video-config",
   "editorScript": "file:./index.js",
-  "viewScriptModule": "file:./view.js"
+  "viewScriptModule": [
+    "file:./view.js",
+    "file:./goat.js",
+    "file:./waterfall.js"
+    ]
 }
