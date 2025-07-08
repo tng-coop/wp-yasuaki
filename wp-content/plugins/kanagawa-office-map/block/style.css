@@ -18,5 +18,5 @@
   fill: white;
   font-size: 10px;
   font-weight: bold;
-  /* pointer-events: none; */
+  pointer-events: none;
 }
