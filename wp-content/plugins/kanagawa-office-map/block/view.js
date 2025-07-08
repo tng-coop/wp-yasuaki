@@ -1,4 +1,3 @@
-// view.js
 const link = document.createElement('link');
 link.rel = 'stylesheet';
 link.href = 'https://esm.sh/leaflet@1.9.3/dist/leaflet.css';
@@ -149,7 +148,7 @@ export default function initOfficeMap() {
           el.scrollIntoView({ behavior: 'smooth', block: 'center' });
         });
 
-      // label with the same real ID
+      // label with the new ID2 field
       g.append('text')
         .attr('class', 'hex-label')
         .attr(
@@ -158,7 +157,7 @@ export default function initOfficeMap() {
         )
         .attr('dy', '.35em')
         .attr('text-anchor', 'middle')
-        .text(d.id);
+        .text(d.id2);
     });
   }
 }
