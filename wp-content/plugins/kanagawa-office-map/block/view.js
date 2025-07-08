@@ -15,6 +15,7 @@ export default function initOfficeMap() {
 
   const rawData = getProcessedOfficeData();
 
+  // 1) Initialize Leaflet
   const map = L.map('kanagawa-office-map', {
     attributionControl: false,
     maxZoom: 18,
@@ -31,86 +32,115 @@ export default function initOfficeMap() {
     zoomControl: false,
   });
 
-  // Allow clicks again
+  // allow clicks only on overlayPane
   map.getContainer().style.pointerEvents = 'auto';
   map.getPanes().overlayPane.style.pointerEvents = 'all';
 
-  L.tileLayer('https://cyberjapandata.gsi.go.jp/xyz/seamlessphoto/{z}/{x}/{y}.jpg', { maxZoom: 18 }).addTo(map);
-  L.control.attribution({ prefix: false }).addAttribution('出典：国土地理院').addTo(map);
+  L.tileLayer(
+    'https://cyberjapandata.gsi.go.jp/xyz/seamlessphoto/{z}/{x}/{y}.jpg',
+    { maxZoom: 18 }
+  ).addTo(map);
 
+  L.control.attribution({ prefix: false })
+   .addAttribution('出典：国土地理院')
+   .addTo(map);
+
+  // 2) Fit to extremes
   const extremes = [
     { name: 'Northernmost', coords: [35.6518, 139.1418] },
     { name: 'Southernmost', coords: [35.1389, 139.6264] },
     { name: 'Easternmost',  coords: [35.5229, 139.7762] },
     { name: 'Westernmost',  coords: [35.2606, 139.0045] }
   ];
-  const markers = extremes.map(ext => L.marker(ext.coords, {
-    icon: L.divIcon({ html: `<div class="label-text">${ext.name}</div>`, iconAnchor: [0, -10] })
-  }));
+  const markers = extremes.map(ext =>
+    L.marker(ext.coords, {
+      icon: L.divIcon({
+        html: `<div class="label-text">${ext.name}</div>`,
+        iconAnchor: [0, -10]
+      })
+    })
+  );
   const group = L.featureGroup(markers);
-  map.fitBounds(group.getBounds(), { padding: [0, 0], animate: false });
+  map.fitBounds(group.getBounds(), { padding: [0,0], animate: false });
 
-  L.svg().addTo(map);
-  const svg = d3.select(map.getPanes().overlayPane).select('svg');
-  const g = svg.append('g').attr('class', 'hexbin-layer');
+  // redraw on map events
+  map.on('moveend zoomend resize', updateGrid);
+  map.once('load', updateGrid);
+  map.fire('load');
 
   function updateGrid() {
-    g.selectAll('*').remove();
+    // 1) clear old overlay
+    d3.select(map.getPanes().overlayPane).select('svg').remove();
 
-    const R = 20;
+    // 2) compute pane bounds
+    const tl = map.latLngToLayerPoint(map.getBounds().getNorthWest());
+    const br = map.latLngToLayerPoint(map.getBounds().getSouthEast());
+    const width  = br.x - tl.x;
+    const height = br.y - tl.y;
+
+    // 3) append SVG & G
+    const overlay = d3.select(map.getPanes().overlayPane)
+                      .append('svg')
+                        .attr('class','leaflet-zoom-hide')
+                        .attr('width',  width)
+                        .attr('height', height)
+                        .style('left',  `${tl.x}px`)
+                        .style('top',   `${tl.y}px`);
+    const g = overlay.append('g')
+                     .attr('class','hexbin-layer')
+                     .attr('transform', `translate(${-tl.x},${-tl.y})`);
+
+    // 4) derive our grid bounds from the extremes group
     const bounds = group.getBounds();
     const sw = map.latLngToLayerPoint(bounds.getSouthWest());
     const ne = map.latLngToLayerPoint(bounds.getNorthEast());
     const xMin = sw.x, yMin = ne.y;
-    const width  = ne.x - sw.x;
-    const height = sw.y - ne.y;
+    const w    = ne.x - sw.x, h    = sw.y - ne.y;
 
-    // bump container height to match
-    const mapEl = map.getContainer();
-    mapEl.style.height = `${height}px`;
-    map.invalidateSize(false);
-
-    // draw boundaries
-    // g.append('rect').attr('class', 'boundary')
-    //   .attr('x', xMin).attr('y', yMin)
-    //   .attr('width', width).attr('height', height);
-
-    // generate hex grid cells
-    const horiz = Math.sqrt(3) * R, vert = 1.5 * R;
+    // 5) build hex‐grid cell centers
+    const R     = 20;
+    const horiz = Math.sqrt(3) * R;
+    const vert  = 1.5 * R;
     const cells = [];
     for (let j = 0; ; j++) {
       const cy = yMin + R + j * vert;
-      if (cy > yMin + height - R) break;
+      if (cy > yMin + h - R) break;
       const xOff = (j % 2) * (horiz / 2);
       for (let i = 0; ; i++) {
         const cx = xMin + R + i * horiz + xOff;
-        if (cx > xMin + width - R) break;
+        if (cx > xMin + w - R) break;
         cells.push({ cx, cy, used: false });
       }
     }
-
-    const points = rawData.map(d => map.latLngToLayerPoint([d.lat, d.lon]));
     const hexgen = d3Hexbin().radius(R);
 
-    points.forEach((pt, idx) => {
+    // 6) place one hex per office & attach click
+    rawData.forEach((d, idx) => {
+      // find best cell
+      const pt = map.latLngToLayerPoint([d.lat, d.lon]);
       let best = { dist: Infinity, cell: null };
       cells.forEach(c => {
         if (!c.used) {
-          const dx = c.cx - pt.x, dy = c.cy - pt.y;
-          const d2 = dx*dx + dy*dy;
+          const dx = c.cx - pt.x,
+                dy = c.cy - pt.y,
+                d2 = dx*dx + dy*dy;
           if (d2 < best.dist) best = { dist: d2, cell: c };
         }
       });
       if (!best.cell) return;
       best.cell.used = true;
 
-      // create clickable hex group
-      const cell = g.append('g')
-        .attr('transform', `translate(${best.cell.cx},${best.cell.cy})`)
-        .style('cursor', 'pointer')
-        .attr('pointer-events', 'all')
+      // draw the clickable hexagon path
+      g.append('path')
+        .attr('class', 'hexbin')
+        .attr('d', hexgen.hexagon())
+        .attr(
+          'transform',
+          `translate(${best.cell.cx},${best.cell.cy})`
+        )
+        .style('pointer-events', 'all')
         .on('click', () => {
-          const id = rawData[idx].id;              // e.g. "K03"
+          const id = d.id;  // your real ID field
           const el = document.getElementById(`tile-${id}`);
           if (!el) {
             console.warn(`No element with ID tile-${id}`);
@@ -119,28 +149,21 @@ export default function initOfficeMap() {
           el.scrollIntoView({ behavior: 'smooth', block: 'center' });
         });
 
-      cell.append('path')
-        .attr('class', 'hexbin')
-        .attr('d', hexgen.hexagon())
-        .attr('pointer-events', 'all');
-
-      cell.append('text')
+      // label with the same real ID
+      g.append('text')
         .attr('class', 'hex-label')
+        .attr(
+          'transform',
+          `translate(${best.cell.cx},${best.cell.cy})`
+        )
         .attr('dy', '.35em')
         .attr('text-anchor', 'middle')
-        .text(rawData[idx].id2);
+        .text(d.id);
     });
   }
-
-  updateGrid();
-  map.on('moveend zoomend', updateGrid);
-  window.addEventListener('resize', () => {
-    map.invalidateSize(false);
-    updateGrid();
-  });
 }
 
-// Auto-init
+// auto-init
 if (document.readyState === 'loading') {
   document.addEventListener('DOMContentLoaded', initOfficeMap);
 } else {
