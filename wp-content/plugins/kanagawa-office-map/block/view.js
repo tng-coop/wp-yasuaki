@@ -32,7 +32,7 @@ export default function initOfficeMap() {
     zoomControl: false,
   });
 
-  // allow clicks only on overlayPane
+  // allow pointer events only on the overlay pane
   map.getContainer().style.pointerEvents = 'auto';
   map.getPanes().overlayPane.style.pointerEvents = 'all';
 
@@ -75,29 +75,46 @@ export default function initOfficeMap() {
     // 2) compute pane bounds
     const tl = map.latLngToLayerPoint(map.getBounds().getNorthWest());
     const br = map.latLngToLayerPoint(map.getBounds().getSouthEast());
-    const width  = br.x - tl.x;
-    const height = br.y - tl.y;
+    const paneW = br.x - tl.x;
+    const paneH = br.y - tl.y;
 
-    // 3) append SVG & G
-    const overlay = d3.select(map.getPanes().overlayPane)
-                      .append('svg')
-                        .attr('class','leaflet-zoom-hide')
-                        .attr('width',  width)
-                        .attr('height', height)
-                        .style('left',  `${tl.x}px`)
-                        .style('top',   `${tl.y}px`);
-    const g = overlay.append('g')
-                     .attr('class','hexbin-layer')
-                     .attr('transform', `translate(${-tl.x},${-tl.y})`);
-
-    // 4) derive our grid bounds from the extremes group
+    // 3) derive the pixel‐bounds of our extremes rectangle
     const bounds = group.getBounds();
     const sw = map.latLngToLayerPoint(bounds.getSouthWest());
     const ne = map.latLngToLayerPoint(bounds.getNorthEast());
     const xMin = sw.x, yMin = ne.y;
     const w    = ne.x - sw.x, h    = sw.y - ne.y;
 
-    // 5) build hex‐grid cell centers
+    // 4) resize only the height of the map container to fit that boundary,
+    //    then bail so Leaflet emits 'resize' and calls updateGrid() again
+    const targetH = Math.round(h);
+    if (container.offsetHeight !== targetH) {
+      container.style.height = `${targetH}px`;
+      map.invalidateSize(false);
+      return;
+    }
+
+    // 5) append SVG & G
+    const overlay = d3.select(map.getPanes().overlayPane)
+                      .append('svg')
+                        .attr('class','leaflet-zoom-hide')
+                        .attr('width',  paneW)
+                        .attr('height', paneH)
+                        .style('left',  `${tl.x}px`)
+                        .style('top',   `${tl.y}px`);
+    const g = overlay.append('g')
+                     .attr('class','hexbin-layer')
+                     .attr('transform', `translate(${-tl.x},${-tl.y})`);
+
+    // // 6) draw the red boundary
+    // g.append('rect')
+    //   .attr('class','boundary')
+    //   .attr('x',      xMin)
+    //   .attr('y',      yMin)
+    //   .attr('width',  w)
+    //   .attr('height', h);
+
+    // 7) build hex‐grid cell centers
     const R     = 20;
     const horiz = Math.sqrt(3) * R;
     const vert  = 1.5 * R;
@@ -114,9 +131,8 @@ export default function initOfficeMap() {
     }
     const hexgen = d3Hexbin().radius(R);
 
-    // 6) place one hex per office & attach click
+    // 8) place one hex per office & attach click
     rawData.forEach((d) => {
-      // find best cell
       const pt = map.latLngToLayerPoint([d.lat, d.lon]);
       let best = { dist: Infinity, cell: null };
       cells.forEach(c => {
@@ -130,42 +146,25 @@ export default function initOfficeMap() {
       if (!best.cell) return;
       best.cell.used = true;
 
+      // hexagon
       g.append('path')
         .attr('class', 'hexbin')
         .attr('d', hexgen.hexagon())
         .attr('transform', `translate(${best.cell.cx},${best.cell.cy})`)
         .style('pointer-events', 'all')
         .on('click', () => {
-          const id = d.id;
-          const el = document.getElementById(`tile-${id}`);
-          if (!el) {
-            console.warn(`No element with ID tile-${id}`);
-            return;
-          }
+          const el = document.getElementById(`tile-${d.id}`);
+          if (!el) return console.warn(`No element with ID tile-${d.id}`);
 
-          // calculate absolute Y of the tile
           const rect      = el.getBoundingClientRect();
           const absoluteY = rect.top + window.scrollY;
-
-          // dynamically get the map’s height
           const mapHeight = container.getBoundingClientRect().height;
-          // (or: const mapHeight = container.offsetHeight;)
+          const offsetY   = absoluteY - mapHeight;
 
-          // subtract that instead of 500
-          const offsetY = absoluteY - mapHeight;
-
-          console.log(
-            `tile-${id}: absoluteY=${absoluteY.toFixed(1)}px, ` +
-            `mapHeight=${mapHeight.toFixed(1)}px, ` +
-            `scrolling to ${offsetY.toFixed(1)}px`
-          );
-
-          window.scrollTo({
-            top:      offsetY,
-            behavior: 'smooth'
-          });
+          window.scrollTo({ top: offsetY, behavior: 'smooth' });
         });
 
+      // label
       g.append('text')
         .attr('class', 'hex-label')
         .attr('transform', `translate(${best.cell.cx},${best.cell.cy})`)
