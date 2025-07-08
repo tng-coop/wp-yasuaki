@@ -1,3 +1,4 @@
+// load Leaflet CSS dynamically
 const link = document.createElement('link');
 link.rel = 'stylesheet';
 link.href = 'https://esm.sh/leaflet@1.9.3/dist/leaflet.css';
@@ -114,7 +115,7 @@ export default function initOfficeMap() {
     const hexgen = d3Hexbin().radius(R);
 
     // 6) place one hex per office & attach click
-    rawData.forEach((d, idx) => {
+    rawData.forEach((d) => {
       // find best cell
       const pt = map.latLngToLayerPoint([d.lat, d.lon]);
       let best = { dist: Infinity, cell: null };
@@ -129,32 +130,38 @@ export default function initOfficeMap() {
       if (!best.cell) return;
       best.cell.used = true;
 
-      // draw the clickable hexagon path
       g.append('path')
         .attr('class', 'hexbin')
         .attr('d', hexgen.hexagon())
-        .attr(
-          'transform',
-          `translate(${best.cell.cx},${best.cell.cy})`
-        )
+        .attr('transform', `translate(${best.cell.cx},${best.cell.cy})`)
         .style('pointer-events', 'all')
         .on('click', () => {
-          const id = d.id;  // your real ID field
+          const id = d.id;
           const el = document.getElementById(`tile-${id}`);
           if (!el) {
             console.warn(`No element with ID tile-${id}`);
             return;
           }
-          el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+
+          // calculate absolute Y and apply 500px offset
+          const rect = el.getBoundingClientRect();
+          const absoluteY = rect.top + window.scrollY;
+          const offsetY = absoluteY - 500;
+
+          console.log(
+            `tile-${id}: absoluteY=${absoluteY.toFixed(1)}px, ` +
+            `scrolling to ${offsetY.toFixed(1)}px`
+          );
+
+          window.scrollTo({
+            top: offsetY,
+            behavior: 'smooth'
+          });
         });
 
-      // label with the new ID2 field
       g.append('text')
         .attr('class', 'hex-label')
-        .attr(
-          'transform',
-          `translate(${best.cell.cx},${best.cell.cy})`
-        )
+        .attr('transform', `translate(${best.cell.cx},${best.cell.cy})`)
         .attr('dy', '.35em')
         .attr('text-anchor', 'middle')
         .text(d.id2);
