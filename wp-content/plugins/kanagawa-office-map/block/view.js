@@ -143,18 +143,25 @@ export default function initOfficeMap() {
             return;
           }
 
-          // calculate absolute Y and apply 500px offset
-          const rect = el.getBoundingClientRect();
+          // calculate absolute Y of the tile
+          const rect      = el.getBoundingClientRect();
           const absoluteY = rect.top + window.scrollY;
-          const offsetY = absoluteY - 500;
+
+          // dynamically get the map’s height
+          const mapHeight = container.getBoundingClientRect().height;
+          // (or: const mapHeight = container.offsetHeight;)
+
+          // subtract that instead of 500
+          const offsetY = absoluteY - mapHeight;
 
           console.log(
             `tile-${id}: absoluteY=${absoluteY.toFixed(1)}px, ` +
+            `mapHeight=${mapHeight.toFixed(1)}px, ` +
             `scrolling to ${offsetY.toFixed(1)}px`
           );
 
           window.scrollTo({
-            top: offsetY,
+            top:      offsetY,
             behavior: 'smooth'
           });
         });
