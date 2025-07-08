@@ -8,7 +8,6 @@ import * as L from 'https://esm.sh/leaflet@1.9.3?bundle';
 import * as d3 from 'https://esm.sh/d3@7?bundle';
 import { hexbin as d3Hexbin } from 'https://esm.sh/d3-hexbin?bundle';
 import { getProcessedOfficeData } from './office-data.js';
-console.log("aa")
 export default function initOfficeMap() {
   const container = document.getElementById('kanagawa-office-map');
   if (!container) return;
@@ -61,7 +60,13 @@ export default function initOfficeMap() {
     const xMin = sw.x, yMin = ne.y;
     const width = ne.x - sw.x, height = sw.y - ne.y;
 
-    // // draw boundaries
+    // bump the container’s height to match the calculated region
+    const mapEl = map.getContainer();
+    mapEl.style.height = `${height}px`;
+    // let Leaflet re-compute its internals
+    map.invalidateSize(false);
+
+    // draw boundaries
     // g.append('rect').attr('class', 'boundary')
     //   .attr('x', xMin).attr('y', yMin)
     //   .attr('width', width).attr('height', height);
