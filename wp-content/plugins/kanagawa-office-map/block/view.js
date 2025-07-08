@@ -8,11 +8,13 @@ import * as L from 'https://esm.sh/leaflet@1.9.3?bundle';
 import * as d3 from 'https://esm.sh/d3@7?bundle';
 import { hexbin as d3Hexbin } from 'https://esm.sh/d3-hexbin?bundle';
 import { getProcessedOfficeData } from './office-data.js';
+
 export default function initOfficeMap() {
   const container = document.getElementById('kanagawa-office-map');
   if (!container) return;
 
   const rawData = getProcessedOfficeData();
+
   const map = L.map('kanagawa-office-map', {
     attributionControl: false,
     maxZoom: 18,
@@ -29,7 +31,8 @@ export default function initOfficeMap() {
     zoomControl: false,
   });
 
-  map.getContainer().style.pointerEvents = 'none';
+  // Allow clicks again
+  map.getContainer().style.pointerEvents = 'auto';
   map.getPanes().overlayPane.style.pointerEvents = 'all';
 
   L.tileLayer('https://cyberjapandata.gsi.go.jp/xyz/seamlessphoto/{z}/{x}/{y}.jpg', { maxZoom: 18 }).addTo(map);
@@ -38,8 +41,8 @@ export default function initOfficeMap() {
   const extremes = [
     { name: 'Northernmost', coords: [35.6518, 139.1418] },
     { name: 'Southernmost', coords: [35.1389, 139.6264] },
-    { name: 'Easternmost', coords: [35.5229, 139.7762] },
-    { name: 'Westernmost', coords: [35.2606, 139.0045] }
+    { name: 'Easternmost',  coords: [35.5229, 139.7762] },
+    { name: 'Westernmost',  coords: [35.2606, 139.0045] }
   ];
   const markers = extremes.map(ext => L.marker(ext.coords, {
     icon: L.divIcon({ html: `<div class="label-text">${ext.name}</div>`, iconAnchor: [0, -10] })
@@ -53,17 +56,18 @@ export default function initOfficeMap() {
 
   function updateGrid() {
     g.selectAll('*').remove();
+
     const R = 20;
     const bounds = group.getBounds();
     const sw = map.latLngToLayerPoint(bounds.getSouthWest());
     const ne = map.latLngToLayerPoint(bounds.getNorthEast());
     const xMin = sw.x, yMin = ne.y;
-    const width = ne.x - sw.x, height = sw.y - ne.y;
+    const width  = ne.x - sw.x;
+    const height = sw.y - ne.y;
 
-    // bump the container’s height to match the calculated region
+    // bump container height to match
     const mapEl = map.getContainer();
     mapEl.style.height = `${height}px`;
-    // let Leaflet re-compute its internals
     map.invalidateSize(false);
 
     // draw boundaries
@@ -85,26 +89,46 @@ export default function initOfficeMap() {
       }
     }
 
-    // place one office per cell
     const points = rawData.map(d => map.latLngToLayerPoint([d.lat, d.lon]));
     const hexgen = d3Hexbin().radius(R);
+
     points.forEach((pt, idx) => {
       let best = { dist: Infinity, cell: null };
       cells.forEach(c => {
         if (!c.used) {
           const dx = c.cx - pt.x, dy = c.cy - pt.y;
-          const d2 = dx * dx + dy * dy;
+          const d2 = dx*dx + dy*dy;
           if (d2 < best.dist) best = { dist: d2, cell: c };
         }
       });
-      if (best.cell) {
-        best.cell.used = true;
-        const cell = g.append('g').attr('transform', `translate(${best.cell.cx},${best.cell.cy})`);
-        cell.append('path').attr('class', 'hexbin').attr('d', hexgen.hexagon());
-        cell.append('text').attr('class', 'hex-label')
-          .attr('dy', '.35em').attr('text-anchor', 'middle')
-          .text(rawData[idx].id2);
-      }
+      if (!best.cell) return;
+      best.cell.used = true;
+
+      // create clickable hex group
+      const cell = g.append('g')
+        .attr('transform', `translate(${best.cell.cx},${best.cell.cy})`)
+        .style('cursor', 'pointer')
+        .attr('pointer-events', 'all')
+        .on('click', () => {
+          const id = rawData[idx].id;              // e.g. "K03"
+          const el = document.getElementById(`tile-${id}`);
+          if (!el) {
+            console.warn(`No element with ID tile-${id}`);
+            return;
+          }
+          el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        });
+
+      cell.append('path')
+        .attr('class', 'hexbin')
+        .attr('d', hexgen.hexagon())
+        .attr('pointer-events', 'all');
+
+      cell.append('text')
+        .attr('class', 'hex-label')
+        .attr('dy', '.35em')
+        .attr('text-anchor', 'middle')
+        .text(rawData[idx].id2);
     });
   }
 
