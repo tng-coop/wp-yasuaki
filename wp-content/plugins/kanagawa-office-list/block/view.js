@@ -52,6 +52,8 @@ window.addEventListener('DOMContentLoaded', () => {
 
     const card = document.createElement('div');
     card.className = 'card h-100 shadow-sm';
+    // Assign an ID to each card for easy scrolling/debugging using regular id
+    card.id = `tile-${d.id}`;
 
     const body = document.createElement('div');
     body.className = 'card-body';
@@ -64,7 +66,7 @@ window.addEventListener('DOMContentLoaded', () => {
 
     const sub = document.createElement('h6');
     sub.className = 'card-subtitle mb-2 text-muted';
-    sub.textContent = `ID: ${d.id2}`;
+    sub.textContent = `ID: ${d.id}`;
     body.appendChild(sub);
 
     // Contact info list
