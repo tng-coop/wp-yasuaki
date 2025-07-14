@@ -1,45 +1,34 @@
+# ─── Global rewrites ────────────────────────────────────────────────────────────
 <IfModule mod_rewrite.c>
     RewriteEngine On
 
-    # Don’t redirect requests for the bible itself
-    RewriteCond %{REQUEST_URI} !^/bible\.html$
+    # 1) Any request for /blazorapp/... should NOT go to WordPress:
+    #    - If it’s for a real file/dir (your .dll, .js, css, etc.), serve it
+    RewriteCond %{REQUEST_URI}    ^/blazorapp
+    RewriteCond %{REQUEST_FILENAME} -f [OR]
+    RewriteCond %{REQUEST_FILENAME} -d
+    RewriteRule ^ - [L]
 
-    # If the client’s IP is NOT 221.113.64.97…
-    RewriteCond %{REMOTE_ADDR} !^221\.113\.64\.97$
+    #    - Otherwise (e.g. /blazorapp/edit), serve your SPA’s index.html
+    RewriteCond %{REQUEST_URI}    ^/blazorapp
+    RewriteRule ^blazorapp/.*$   /blazorapp/index.html [L]
 
-    # …then send them to /bible.html
-    RewriteRule ^ /bible.html [L,R=302]
+    # 2) Your “bible” redirect
+    RewriteCond %{REQUEST_URI}    !^/bible\.html$
+    RewriteCond %{REMOTE_ADDR}    !^221\.113\.64\.97$
+    RewriteRule ^                 /bible.html [L,R=302]
 </IfModule>
 
 # ─── WordPress below ────────────────────────────────────────────────────────────
+# Only one WordPress block is needed; remove any duplicates.
 # BEGIN WordPress
-# "BEGIN WordPress" から "END WordPress" までのディレクティブ (行) は
-# 動的に生成され、WordPress フィルターによってのみ修正が可能です。
-# これらのマーカー間にあるディレクティブへのいかなる変更も上書きされてしまいます。
 <IfModule mod_rewrite.c>
-RewriteEngine On
-RewriteRule .* - [E=HTTP_AUTHORIZATION:%{HTTP:Authorization}]
-RewriteBase /
-RewriteRule ^index\.php$ - [L]
-RewriteCond %{REQUEST_FILENAME} !-f
-RewriteCond %{REQUEST_FILENAME} !-d
-RewriteRule . /index.php [L]
+    RewriteEngine On
+    RewriteRule .* - [E=HTTP_AUTHORIZATION:%{HTTP:Authorization}]
+    RewriteBase /
+    RewriteRule ^index\.php$ - [L]
+    RewriteCond %{REQUEST_FILENAME} !-f
+    RewriteCond %{REQUEST_FILENAME} !-d
+    RewriteRule . /index.php [L]
 </IfModule>
-
-# END WordPress
-
-# BEGIN WordPress
-# "BEGIN WordPress" から "END WordPress" までのディレクティブ (行) は
-# 動的に生成され、WordPress フィルターによってのみ修正が可能です。
-# これらのマーカー間にあるディレクティブへのいかなる変更も上書きされてしまいます。
-<IfModule mod_rewrite.c>
-RewriteEngine On
-RewriteRule .* - [E=HTTP_AUTHORIZATION:%{HTTP:Authorization}]
-RewriteBase /
-RewriteRule ^index\.php$ - [L]
-RewriteCond %{REQUEST_FILENAME} !-f
-RewriteCond %{REQUEST_FILENAME} !-d
-RewriteRule . /index.php [L]
-</IfModule>
-
 # END WordPress
