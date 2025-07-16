@@ -5,8 +5,7 @@
  *
  * After uploading the PDF and preview images, inject metadata
  * exactly as set-meta-1064.php does, with logging and ensuring
- * both the full preview and thumbnails are correctly recognized,
- * using getimagesize fallback where necessary.
+ * a proper 'full' preview entry replaces the PDF as the base image.
  * Access restricted to Editors and Administrators.
  */
 
@@ -27,31 +26,31 @@ function mp_log($msg) {
 }
 
 function mp_handle_pdf_with_previews(WP_REST_Request $request) {
-    // Load WP media functions
     require_once ABSPATH.'wp-admin/includes/file.php';
     require_once ABSPATH.'wp-admin/includes/media.php';
     require_once ABSPATH.'wp-admin/includes/image.php';
 
+    // Fetch uploads and dimensions
     $files    = $request->get_file_params();
     $dims_map = json_decode($request->get_param('dimensions'), true) ?: [];
 
     // Step 1: upload PDF
-    if(empty($files['pdf'])) {
+    if (empty($files['pdf'])) {
         return new WP_Error('no_pdf','No PDF file received',['status'=>400]);
     }
     mp_log('=== Starting metadata injection ===');
     $move_pdf = wp_handle_upload($files['pdf'], ['test_form'=>false]);
-    if(isset($move_pdf['error'])) {
+    if (isset($move_pdf['error'])) {
         mp_log('Error uploading PDF: '.$move_pdf['error']);
         return new WP_Error('upload_error',$move_pdf['error'],['status'=>500]);
     }
     mp_log('PDF uploaded: '.$move_pdf['file']);
 
-    // Determine relative path and base URL
+    // Determine upload paths
     $upload_dir = wp_upload_dir();
     $relative   = ltrim(str_replace($upload_dir['basedir'], '', $move_pdf['file']), '/\\');
     $year_month = dirname($relative);
-    $baseurl    = trailingslashit($upload_dir['baseurl']).$year_month.'/';
+    $baseurl    = trailingslashit($upload_dir['baseurl']) . $year_month . '/';
 
     // Step 2: create attachment
     $attach_id = wp_insert_attachment([
@@ -61,20 +60,20 @@ function mp_handle_pdf_with_previews(WP_REST_Request $request) {
     ], $move_pdf['file']);
     mp_log('Attachment ID: '.$attach_id);
 
-    // Set attached file meta
+    // Update the attached file reference to the PDF
     update_post_meta($attach_id, '_wp_attached_file', $relative);
     mp_log('_wp_attached_file set: '.$relative);
 
-    // Initialize metadata
+    // Prepare metadata container
     $meta = [
-        'file'       => basename($move_pdf['file']),
-        'width'      => $dims_map['full']['width'] ?? null,
-        'height'     => $dims_map['full']['height'] ?? null,
+        'file'       => '',
+        'width'      => null,
+        'height'     => null,
         'sizes'      => [],
         'image_meta' => [],
     ];
 
-    // Map preview keys to WP size names
+    // Size name mapping
     $size_map = [
         'full'     => 'full',
         '150x106'  => 'thumbnail',
@@ -82,9 +81,9 @@ function mp_handle_pdf_with_previews(WP_REST_Request $request) {
         '1024x724' => 'large',
     ];
 
-    // Step 3: handle previews
-    if(!empty($files['previews']['tmp_name'])) {
-        // Ensure previews save to same folder
+    // Step 3: handle previews (move files and build sizes)
+    if (!empty($files['previews']['tmp_name'])) {
+        // Ensure previews go into same folder as PDF
         add_filter('upload_dir', function($dirs) use($year_month) {
             $dirs['subdir'] = '/'.$year_month;
             $dirs['path']   = $dirs['basedir'].'/'.$year_month;
@@ -92,7 +91,7 @@ function mp_handle_pdf_with_previews(WP_REST_Request $request) {
             return $dirs;
         });
 
-        foreach($files['previews']['tmp_name'] as $key => $tmp_path) {
+        foreach ($files['previews']['tmp_name'] as $key => $tmp_path) {
             $one = [
                 'name'     => $files['previews']['name'][$key],
                 'type'     => $files['previews']['type'][$key],
@@ -101,24 +100,29 @@ function mp_handle_pdf_with_previews(WP_REST_Request $request) {
                 'size'     => $files['previews']['size'][$key],
             ];
             $moved = wp_handle_upload($one, ['test_form'=>false]);
-            if(isset($moved['error'])) {
+            if (isset($moved['error'])) {
                 mp_log("Error uploading preview {$key}: {$moved['error']}");
                 continue;
             }
             mp_log("Preview {$key} uploaded: {$moved['file']}");
 
-            $size_name = $size_map[$key] ?? $key;
-            // Determine dimensions, fallback to server-side
+            $size_name = isset($size_map[$key]) ? $size_map[$key] : $key;
+            // Determine dimensions: prefer client, fallback getimagesize
             $w = $dims_map[$key]['width'] ?? null;
             $h = $dims_map[$key]['height'] ?? null;
-            if($w === null || $h === null) {
+            if (is_null($w) || is_null($h)) {
                 $info = getimagesize($moved['file']);
-                if($info) {
-                    $w = $info[0];
-                    $h = $info[1];
-                }
+                if ($info) { list($w,$h) = $info; }
             }
 
+            // Set the base 'file','width','height' from 'full' preview
+            if ($key === 'full') {
+                $meta['file']   = basename($moved['file']);
+                $meta['width']  = $w;
+                $meta['height'] = $h;
+            }
+
+            // Register each size
             $meta['sizes'][$size_name] = [
                 'file'      => basename($moved['file']),
                 'width'     => $w,
@@ -126,16 +130,16 @@ function mp_handle_pdf_with_previews(WP_REST_Request $request) {
                 'mime_type' => $moved['type'],
             ];
         }
-        remove_all_filters('upload_dir');
+        remove_filter('upload_dir', '__return_false');
     }
 
-    // Step 4: write metadata
+    // Step 4: persist metadata
     delete_post_meta($attach_id, '_wp_attachment_metadata');
     update_post_meta($attach_id, '_wp_attachment_metadata', $meta);
     mp_log('_wp_attachment_metadata written with sizes: '.implode(',', array_keys($meta['sizes'])));
 
     // Step 5: update GUID
-    $guid = $baseurl.basename($move_pdf['file']);
+    $guid = $baseurl . basename($move_pdf['file']);
     wp_update_post(['ID'=>$attach_id,'guid'=>$guid]);
     mp_log("GUID updated: {$guid}");
     mp_log('=== Completed metadata injection ===');
