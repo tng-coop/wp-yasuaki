@@ -1,0 +1,16 @@
+.preview-image {
+  border: 5px solid purple;
+  display: block;
+  margin: 0 auto;
+  max-width: 100%;
+}
+.preview-wrapper {
+  display: flex;
+  justify-content: center;
+  overflow: hidden;
+}
+
+.wp-size-previews img {
+  display: block;
+  max-width: 100%;
+}

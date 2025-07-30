@@ -1,0 +1,151 @@
+@page "/pcl-demo"
+@using WordPressPCL
+@inject LocalStorageJsInterop StorageJs
+@inject IJSRuntime JS
+@inject JwtService JwtService
+
+<PageTitle>PCL Demo</PageTitle>
+
+<h1>PCL Demo</h1>
+
+@if (client == null)
+{
+    <p>No WordPress endpoint verified. Visit <NavLink href="/">Home</NavLink> first.</p>
+}
+else
+{
+    <div class="accordion" id="pclAccordion">
+        @for (int i = 0; i < endpoints.Count; i++)
+        {
+            var ep = endpoints[i];
+            var collapseId = $"pclcollapse{i}";
+            <div class="accordion-item">
+                <h2 class="accordion-header" id="heading@i">
+                    <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#@collapseId" aria-expanded="false" aria-controls="@collapseId">
+                        @ep.Name
+                    </button>
+                </h2>
+                <div id="@collapseId" class="accordion-collapse collapse">
+                    <div class="accordion-body">
+                        <button class="btn btn-sm btn-primary" @onclick="() => InvokeGet(ep)">GET</button>
+                        <button class="btn btn-sm btn-secondary ms-2" @onclick="() => CopyCurl(ep)">Copy Curl</button>
+                        <span class="ms-2 small"><code>@GetCurlCommand(ep)</code></span>
+                        @if (!string.IsNullOrEmpty(ep.Result))
+                        {
+                            <pre class="json-view mt-2">@ep.Result</pre>
+                        }
+                    </div>
+                </div>
+            </div>
+        }
+    </div>
+}
+
+@code {
+    private WordPressClient? client;
+    private string? baseUrl;
+    private List<ApiEndpoint> endpoints = new();
+    private string? jwtToken;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var endpoint = await StorageJs.GetItemAsync("wpEndpoint");
+        if (string.IsNullOrEmpty(endpoint))
+        {
+            return;
+        }
+
+        baseUrl = endpoint.TrimEnd('/') + "/wp-json/";
+        client = new WordPressClient(baseUrl);
+        jwtToken = await JwtService.GetCurrentJwtAsync();
+        if (!string.IsNullOrEmpty(jwtToken))
+        {
+            client.Auth.SetJWToken(jwtToken);
+        }
+
+        endpoints = new()
+        {
+            new ApiEndpoint("Posts", "wp/v2/posts", async c => await c.Posts.GetAllAsync()),
+            new ApiEndpoint("Pages", "wp/v2/pages", async c => await c.Pages.GetAllAsync()),
+            new ApiEndpoint("Comments", "wp/v2/comments", async c => await c.Comments.GetAllAsync()),
+            new ApiEndpoint("Categories", "wp/v2/categories", async c => await c.Categories.GetAllAsync()),
+            new ApiEndpoint("Tags", "wp/v2/tags", async c => await c.Tags.GetAllAsync()),
+            new ApiEndpoint("Users", "wp/v2/users", async c => await c.Users.GetAllAsync()),
+            new ApiEndpoint("Media", "wp/v2/media", async c => await c.Media.GetAllAsync()),
+            new ApiEndpoint("Taxonomies", "wp/v2/taxonomies", async c => await c.Taxonomies.GetAllAsync()),
+            new ApiEndpoint("Post Types", "wp/v2/types", async c => await c.PostTypes.GetAllAsync()),
+            new ApiEndpoint("Post Statuses", "wp/v2/statuses", async c => await c.PostStatuses.GetAllAsync()),
+            // new ApiEndpoint("Settings", "wp/v2/settings", async c => await c.Settings.GetAsync()),
+            new ApiEndpoint("Plugins", "wp/v2/plugins", async c => await c.Plugins.GetAllAsync()),
+            new ApiEndpoint("Themes", "wp/v2/themes", async c => await c.Themes.GetAllAsync())
+        };
+    }
+
+    private async Task InvokeGet(ApiEndpoint ep)
+    {
+        if (client == null)
+        {
+            return;
+        }
+
+        jwtToken = await JwtService.GetCurrentJwtAsync();
+        if (!string.IsNullOrEmpty(jwtToken))
+        {
+            client.Auth.SetJWToken(jwtToken);
+        }
+
+        try
+        {
+            var data = await ep.Loader(client);
+            ep.Result = JsonSerializer.Serialize(data, new JsonSerializerOptions { WriteIndented = true });
+        }
+        catch (Exception ex)
+        {
+            ep.Result = $"Error: {ex.Message}";
+        }
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private async Task CopyCurl(ApiEndpoint ep)
+    {
+        if (baseUrl == null)
+        {
+            return;
+        }
+
+        jwtToken = await JwtService.GetCurrentJwtAsync();
+        var command = GetCurlCommand(ep);
+        await JS.InvokeVoidAsync("navigator.clipboard.writeText", command);
+    }
+
+    private string GetCurlCommand(ApiEndpoint ep)
+    {
+        if (baseUrl == null)
+        {
+            return string.Empty;
+        }
+
+        var urlPart = $"{baseUrl}{ep.Path}";
+        if (string.IsNullOrEmpty(jwtToken))
+        {
+            return $"curl {urlPart}";
+        }
+
+        return $"curl -H \"Authorization: Bearer {jwtToken}\" {urlPart}";
+    }
+
+    private class ApiEndpoint
+    {
+        public string Name { get; }
+        public string Path { get; }
+        public Func<WordPressClient, Task<object?>> Loader { get; }
+        public string? Result { get; set; }
+
+        public ApiEndpoint(string name, string path, Func<WordPressClient, Task<object?>> loader)
+        {
+            Name = name;
+            Path = path;
+            Loader = loader;
+        }
+    }
+}

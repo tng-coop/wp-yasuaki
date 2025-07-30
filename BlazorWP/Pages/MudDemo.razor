@@ -1,0 +1,31 @@
+@page "/mud-demo"
+
+<h3>MudBlazor Demo: TreeView with Context Menu</h3>
+
+<MudMenu PositionAtCursor="true" ActivationEvent="MouseEvent.RightClick">
+    <ActivatorContent>
+        <MudTreeView T="string">
+            <MudTreeViewItem T="string" Text="Parent 1" Expanded="true" Icon="@Icons.Material.Filled.Folder">
+                <MudTreeViewItem T="string" Text="Child 1" Icon="@Icons.Material.Filled.Description" />
+                <MudTreeViewItem T="string" Text="Child 2" Icon="@Icons.Material.Filled.Description" />
+            </MudTreeViewItem>
+            <MudTreeViewItem T="string" Text="Parent 2" Icon="@Icons.Material.Filled.Folder" />
+        </MudTreeView>
+    </ActivatorContent>
+    <ChildContent>
+        <MudMenuItem OnClick="@OnEdit">Edit</MudMenuItem>
+        <MudMenuItem OnClick="@OnDelete">Delete</MudMenuItem>
+    </ChildContent>
+</MudMenu>
+
+@code {
+    private void OnEdit()
+    {
+        //Console.WriteLine("Edit action triggered");
+    }
+
+    private void OnDelete()
+    {
+        //Console.WriteLine("Delete action triggered");
+    }
+}

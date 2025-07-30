@@ -1,0 +1,176 @@
+@inherits LayoutComponentBase
+
+@implements IAsyncDisposable
+
+<MudPopoverProvider />
+
+<div class="page">
+    <div class="sidebar">
+        <NavMenu />
+    </div>
+
+    <main>
+        <div class="top-row px-4">
+            @if (!string.IsNullOrEmpty(currentEndpoint))
+            {
+                <span>@currentEndpoint</span>
+            }
+            @if (!string.IsNullOrEmpty(currentUsername))
+            {
+                <span class="ms-2">@currentUsername</span>
+            }
+            <div class="form-check form-switch ms-2">
+                <input class="form-check-input" type="checkbox" id="hostInWpToggle" @bind="hostInWp" @bind:after="OnHostInWpChanged" />
+                <label class="form-check-label" for="hostInWpToggle">Hosted on WP</label>
+            </div>
+            @if (hostInWp)
+            {
+                <span class="ms-2">Nonce: @nonceMessage</span>
+            }
+        </div>
+
+        <article class="content px-4">
+            @Body
+        </article>
+    </main>
+</div>
+
+@code {
+    [Inject]
+    private LocalStorageJsInterop StorageJs { get; set; } = default!;
+    [Inject]
+    private WpNonceJsInterop NonceJs { get; set; } = default!;
+    [Inject]
+    private WpEndpointSyncJsInterop EndpointSyncJs { get; set; } = default!;
+
+    private string? currentEndpoint;
+    private string? currentUsername;
+    private const string HostInWpKey = "hostInWp";
+    private bool hostInWp = true;
+    private string? nonceMessage;
+    private DotNetObjectReference<object>? _objRef;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        var endpoint = await StorageJs.GetItemAsync("wpEndpoint");
+        string? username = null;
+        if (!string.IsNullOrEmpty(endpoint))
+        {
+            username = await GetUsernameAsync(endpoint);
+        }
+        var hostPref = await StorageJs.GetItemAsync(HostInWpKey);
+
+        var changed = false;
+        if (endpoint != currentEndpoint)
+        {
+            currentEndpoint = endpoint;
+            changed = true;
+        }
+        if (username != currentUsername)
+        {
+            currentUsername = username;
+            changed = true;
+        }
+        var hostVal = !string.IsNullOrEmpty(hostPref) && bool.TryParse(hostPref, out var hv) ? hv : true;
+        if (hostVal != hostInWp)
+        {
+            hostInWp = hostVal;
+            changed = true;
+            if (hostInWp)
+            {
+                await FetchNonce();
+            }
+            else
+            {
+                nonceMessage = null;
+            }
+        }
+
+        if (firstRender)
+        {
+            _objRef = DotNetObjectReference.Create<object>(this);
+            await EndpointSyncJs.RegisterAsync(_objRef);
+            if (hostInWp)
+            {
+                await FetchNonce();
+            }
+        }
+
+        if (changed)
+        {
+            StateHasChanged();
+        }
+    }
+
+    [JSInvokable]
+    public void UpdateEndpoint(string? endpoint)
+    {
+        if (endpoint != currentEndpoint)
+        {
+            currentEndpoint = endpoint;
+            InvokeAsync(StateHasChanged);
+        }
+    }
+
+    private async Task<string?> GetUsernameAsync(string endpoint)
+    {
+        var json = await StorageJs.GetItemAsync("siteinfo");
+        if (string.IsNullOrEmpty(json))
+        {
+            return null;
+        }
+
+        try
+        {
+            using var doc = JsonDocument.Parse(json);
+            if (doc.RootElement.TryGetProperty(endpoint, out var info) &&
+                info.TryGetProperty("Username", out var user))
+            {
+                return user.GetString();
+            }
+        }
+        catch
+        {
+        }
+
+        return null;
+    }
+
+    private async Task OnHostInWpChanged()
+    {
+        await StorageJs.SetItemAsync(HostInWpKey, hostInWp.ToString().ToLowerInvariant());
+        if (hostInWp)
+        {
+            await FetchNonce();
+        }
+        else
+        {
+            nonceMessage = null;
+            await InvokeAsync(StateHasChanged);
+        }
+    }
+
+    private async Task FetchNonce()
+    {
+        nonceMessage = "Loading...";
+        try
+        {
+            var nonce = await NonceJs.GetNonceAsync();
+            nonceMessage = !string.IsNullOrEmpty(nonce) ? nonce : "Could not retrieve nonce";
+        }
+        catch
+        {
+            nonceMessage = "Could not retrieve nonce";
+        }
+        await InvokeAsync(StateHasChanged);
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        if (_objRef != null)
+        {
+            await EndpointSyncJs.UnregisterAsync();
+            _objRef.Dispose();
+        }
+    }
+}

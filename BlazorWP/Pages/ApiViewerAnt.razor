@@ -1,0 +1,239 @@
+@page "/api-ant"
+@using System.Text.Json
+@inject HttpClient Http
+@inject LocalStorageJsInterop StorageJs
+
+<PageTitle>Ant Design API Viewer</PageTitle>
+
+<h1>Ant Design API Viewer</h1>
+
+@if (loading)
+{
+    <p><em>Loading...</em></p>
+}
+else if (error != null)
+{
+    <p class="text-danger">@error</p>
+}
+    else if (rootNodes != null)
+    {
+        <Tree TItem="AntJsonNode" DataSource="@rootNodes" KeyExpression="n => n.Id" ChildrenExpression="n => n.DataItem.Children"
+              TitleTemplate="@TitleWithFavorite"></Tree>
+    }
+else if (formattedJson != null)
+{
+    <pre class="json-view">@formattedJson</pre>
+}
+else
+{
+    <p>No WordPress endpoint verified. Visit <NavLink href="/">Home</NavLink> first.</p>
+}
+
+@code {
+    private string? formattedJson;
+    private string? error;
+    private bool loading = true;
+    private List<AntJsonNode>? rootNodes;
+    private RenderFragment<TreeNode<AntJsonNode>> TitleWithFavorite => node =>
+        @<div class="d-flex justify-content-between align-items-center">
+            <span>@node.DataItem.Title</span>
+            <button class="btn btn-link btn-sm" @onclick="async () => await ToggleFavorite(node.DataItem)" title="Toggle favorite">
+                @(node.DataItem.IsFavorite ? "★" : "☆")
+            </button>
+        </div>;
+
+    private async Task ToggleFavorite(AntJsonNode node)
+    {
+        //Console.WriteLine($"[ToggleFavorite] Toggling {node.Path}");
+        var endpoint = await StorageJs.GetItemAsync("wpEndpoint");
+        //Console.WriteLine($"[ToggleFavorite] Endpoint: {endpoint}");
+        if (string.IsNullOrEmpty(endpoint))
+        {
+            return;
+        }
+
+        var json = await StorageJs.GetItemAsync("favoriteApis");
+        //Console.WriteLine($"[ToggleFavorite] Current JSON: {json}");
+        Dictionary<string, List<string>> data;
+        if (!string.IsNullOrEmpty(json))
+        {
+            try
+            {
+                data = JsonSerializer.Deserialize<Dictionary<string, List<string>>>(json) ?? new();
+            }
+            catch
+            {
+                data = new();
+            }
+        }
+        else
+        {
+            data = new();
+        }
+
+        if (!data.TryGetValue(endpoint, out var list))
+        {
+            list = new List<string>();
+            data[endpoint] = list;
+        }
+
+        var normalized = NormalizePath(node.Path);
+
+        if (list.Contains(normalized))
+        {
+            list.Remove(normalized);
+            node.IsFavorite = false;
+        }
+        else
+        {
+            list.Add(normalized);
+            node.IsFavorite = true;
+        }
+
+        var serialized = JsonSerializer.Serialize(data);
+        await StorageJs.SetItemAsync("favoriteApis", serialized);
+        await InvokeAsync(StateHasChanged);
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        var endpoint = await StorageJs.GetItemAsync("wpEndpoint");
+        if (string.IsNullOrEmpty(endpoint))
+        {
+            loading = false;
+            return;
+        }
+
+        var rootEndpoint = endpoint;
+        if (rootEndpoint.EndsWith("/wp-json/wp/v2", StringComparison.OrdinalIgnoreCase))
+        {
+            rootEndpoint = rootEndpoint[..^"/wp-json/wp/v2".Length];
+        }
+        else if (rootEndpoint.EndsWith("/wp-json", StringComparison.OrdinalIgnoreCase))
+        {
+            rootEndpoint = rootEndpoint[..^"/wp-json".Length];
+        }
+
+        rootEndpoint = rootEndpoint.TrimEnd('/') + "/wp-json";
+
+        try
+        {
+            var json = await Http.GetStringAsync(rootEndpoint);
+            using var doc = JsonDocument.Parse(json);
+            formattedJson = JsonSerializer.Serialize(doc.RootElement, new JsonSerializerOptions { WriteIndented = true });
+            var root = BuildNode(doc.RootElement, "root", "");
+            rootNodes = root.Children;
+
+            var favJson = await StorageJs.GetItemAsync("favoriteApis");
+            if (!string.IsNullOrEmpty(favJson) &&
+                JsonSerializer.Deserialize<Dictionary<string, List<string>>>(favJson) is { } favData &&
+                favData.TryGetValue(endpoint, out var favs))
+            {
+                var set = new HashSet<string>(favs);
+                MarkFavorites(rootNodes, set);
+            }
+        }
+        catch (Exception ex)
+        {
+            error = ex.Message;
+        }
+        finally
+        {
+            loading = false;
+        }
+    }
+
+    private static AntJsonNode BuildNode(JsonElement element, string name, string path)
+    {
+        var node = new AntJsonNode { Id = Guid.NewGuid().ToString(), Title = name, Path = path };
+        switch (element.ValueKind)
+        {
+            case JsonValueKind.Object:
+                foreach (var prop in element.EnumerateObject())
+                {
+                    string childPath;
+                    var isRoutes = path == "routes" || path.EndsWith("/routes");
+                    if (isRoutes && prop.Name.StartsWith("/"))
+                    {
+                        childPath = prop.Name;
+                    }
+                    else
+                    {
+                        childPath = string.IsNullOrEmpty(path)
+                            ? prop.Name
+                            : (prop.Name.StartsWith("/") ? $"{path}{prop.Name}" : $"{path}/{prop.Name}");
+                    }
+                    node.Children.Add(BuildNode(prop.Value, prop.Name, childPath));
+                }
+                break;
+            case JsonValueKind.Array:
+                var index = 0;
+                foreach (var val in element.EnumerateArray())
+                {
+                    var childPath = $"{path}/{index}";
+                    node.Children.Add(BuildNode(val, $"[{index}]", childPath));
+                    index++;
+                }
+                break;
+            default:
+                node.Title = $"{name}: {element}";
+                break;
+        }
+        return node;
+    }
+
+    private static void MarkFavorites(IEnumerable<AntJsonNode> nodes, HashSet<string> favorites)
+    {
+        foreach (var node in nodes)
+        {
+            if (favorites.Contains(node.Path))
+            {
+                node.IsFavorite = true;
+            }
+
+            if (node.Children.Count > 0)
+            {
+                MarkFavorites(node.Children, favorites);
+            }
+        }
+    }
+
+    private static string NormalizePath(string path)
+    {
+        if (string.IsNullOrEmpty(path))
+        {
+            return path;
+        }
+
+        if (path.StartsWith("/routes/", StringComparison.OrdinalIgnoreCase))
+        {
+            path = path["/routes".Length..];
+        }
+        else if (path.StartsWith("routes/", StringComparison.OrdinalIgnoreCase))
+        {
+            path = "/" + path["routes/".Length..];
+        }
+
+        var idx = path.IndexOf("/routes/", StringComparison.OrdinalIgnoreCase);
+        if (idx >= 0)
+        {
+            var prefix = path[..idx];
+            var after = path[(idx + "/routes".Length)..];
+            if (after.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
+            {
+                path = prefix + after[prefix.Length..];
+            }
+        }
+
+        return path;
+    }
+
+    public class AntJsonNode
+    {
+        public string Id { get; set; } = Guid.NewGuid().ToString();
+        public string Title { get; set; } = string.Empty;
+        public string Path { get; set; } = string.Empty;
+        public List<AntJsonNode> Children { get; set; } = new();
+        public bool IsFavorite { get; set; }
+    }
+}

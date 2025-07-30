@@ -1,0 +1,32 @@
+@page "/media"
+@inject WpMediaJsInterop MediaJs
+
+    <h3 id="media-library-label" class="px-4 mb-2">Media Library</h3>
+
+    <!-- overlay (no spinner any more) -->
+    <div @ref="overlayEl" class="media-overlay"></div>
+    <iframe
+      @ref="iframeEl"
+      src="/wp-admin/upload.php"
+      class="media-iframe">
+    </iframe>
+
+@code {
+  private ElementReference iframeEl;
+  private ElementReference overlayEl;
+
+  protected override async Task OnAfterRenderAsync(bool firstRender)
+  {
+    if (firstRender)
+    {
+      await MediaJs.InitMediaPageAsync(iframeEl, overlayEl);
+    }
+  }
+
+  public async ValueTask DisposeAsync()
+  {
+    await MediaJs.DisposeAsync();
+  }
+
+
+}
