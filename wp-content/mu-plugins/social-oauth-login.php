@@ -69,7 +69,6 @@ function sol_get_oauth_url($provider) {
             'client_id'     => SOL_GOOGLE_CLIENT_ID,
             'redirect_uri'  => SOL_OAUTH_REDIRECT_URI,
             'response_type' => 'code',
-            // include profile to get name fields
             'scope'         => 'openid email profile',
             'state'         => 'google',
             'access_type'   => 'online',
@@ -157,7 +156,6 @@ function sol_exchange_code_for_token($provider, $code) {
 // -----------------------------------------------------------------------------
 function sol_fetch_user_profile($provider, $token) {
     if ($provider==='github') {
-        // 1) grab the basic profile
         $resp = wp_remote_get('https://api.github.com/user', [
             'headers'=>[
                 'Authorization'=>'token ' . $token,
@@ -166,7 +164,6 @@ function sol_fetch_user_profile($provider, $token) {
             'timeout'=>15,
         ]);
         $profile = json_decode(wp_remote_retrieve_body($resp));
-        // 2) if no email on the profile object, fetch /user/emails
         if (empty($profile->email)) {
             $resp2 = wp_remote_get('https://api.github.com/user/emails', [
                 'headers'=>[
@@ -185,57 +182,50 @@ function sol_fetch_user_profile($provider, $token) {
         }
         return $profile;
     }
-    // default: google userinfo
     $resp = wp_remote_get('https://www.googleapis.com/oauth2/v3/userinfo', ['headers'=>['Authorization'=>'Bearer ' . $token],'timeout'=>15]);
     return json_decode(wp_remote_retrieve_body($resp));
 }
 
 // -----------------------------------------------------------------------------
-// FIND, LINK, OR CREATE WP USER
+// FIND, LINK, OR CREATE WP USER (ALLOW DUPLICATE EMAILS)
 // -----------------------------------------------------------------------------
 function sol_find_or_create_wp_user($provider, $profile) {
-    $meta_key = $provider . '_id';
-    $linked   = get_users(['meta_key'=>$meta_key,'meta_value'=>sanitize_text_field($profile->id),'fields'=>'ID']);
-    if ($linked) {
+    $meta_key   = $provider . '_id';
+    $profile_id = sanitize_text_field($profile->id);
+
+    // 1) If a WP user is already linked by this provider ID, return it
+    $linked = get_users([ 'meta_key' => $meta_key, 'meta_value' => $profile_id, 'fields' => 'ID' ]);
+    if (!empty($linked)) {
         $uid = $linked[0];
-        // update name fields
         if (!empty($profile->name)) {
-            $parts = explode(' ',sanitize_text_field($profile->name),2);
-            wp_update_user(['ID'=>$uid,'first_name'=>$parts[0],'last_name'=>$parts[1]??'','display_name'=>$parts[0].($parts[1]?' '.$parts[1]:'')]);
+            list($first, $last) = array_pad(explode(' ', sanitize_text_field($profile->name), 2), 2, '');
+            wp_update_user([ 'ID' => $uid, 'first_name' => $first, 'last_name' => $last, 'display_name' => trim("$first $last") ]);
+        }
+        if (!empty($profile->avatar_url)) {
+            update_user_meta($uid, 'profile_picture', esc_url_raw($profile->avatar_url));
         }
         return $uid;
     }
-    $email = sanitize_email($profile->email ?? '');
-    if ($email) {
-        $existing = get_user_by('email',$email);
-        if ($existing) {
-            update_user_meta($existing->ID,$meta_key,sanitize_text_field($profile->id));
-            if (!empty($profile->name)) {
-                $parts = explode(' ',sanitize_text_field($profile->name),2);
-                wp_update_user(['ID'=>$existing->ID,'first_name'=>$parts[0],'last_name'=>$parts[1]??'','display_name'=>$parts[0].($parts[1]?' '.$parts[1]:'')]);
-            }
-            if (!empty($profile->avatar_url)) {
-                update_user_meta($existing->ID,'profile_picture',esc_url_raw($profile->avatar_url));
-            }
-            return $existing->ID;
-        }
-    }
-    // create new user
-    $username = sanitize_user($provider . '_' . $profile->id,true);
-    $pass     = wp_generate_password();
-    $uid      = wp_create_user($username,$pass,$email);
+
+    // 2) Create a new WP user even if the email already exists
+    $email    = sanitize_email($profile->email ?? '');
+    $username = sanitize_user($provider . '_' . $profile_id, true);
+    $password = wp_generate_password();
+    $uid      = wp_create_user($username, $password, $email);
     if (is_wp_error($uid)) {
         return $uid;
     }
-    // link and set name/meta
-    update_user_meta($uid,$meta_key,sanitize_text_field($profile->id));
+
+    // 3) Link provider ID and set meta
+    update_user_meta($uid, $meta_key, $profile_id);
     if (!empty($profile->name)) {
-        $parts = explode(' ',sanitize_text_field($profile->name),2);
-        wp_update_user(['ID'=>$uid,'first_name'=>$parts[0],'last_name'=>$parts[1]??'','display_name'=>$parts[0].($parts[1]?' '.$parts[1]:'')]);
+        list($first, $last) = array_pad(explode(' ', sanitize_text_field($profile->name), 2), 2, '');
+        wp_update_user([ 'ID' => $uid, 'first_name' => $first, 'last_name' => $last, 'display_name' => trim("$first $last") ]);
     }
     if (!empty($profile->avatar_url)) {
-        update_user_meta($uid,'profile_picture',esc_url_raw($profile->avatar_url));
+        update_user_meta($uid, 'profile_picture', esc_url_raw($profile->avatar_url));
     }
+
     return $uid;
 }
 
