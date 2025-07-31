@@ -12,6 +12,23 @@
 defined('ABSPATH') || exit;
 
 // -----------------------------------------------------------------------------
+// UTILITY: REDIRECT TO LOGIN WITH ERROR MESSAGE
+// -----------------------------------------------------------------------------
+function sol_redirect_with_error($msg) {
+    $url = add_query_arg('sol_err', rawurlencode($msg), wp_login_url());
+    wp_safe_redirect($url);
+    exit;
+}
+
+add_filter('login_errors', function($errors) {
+    if (! empty($_GET['sol_err'])) {
+        $err_msg = sanitize_text_field(wp_unslash($_GET['sol_err']));
+        $errors .= '<p class="sol-error">' . esc_html($err_msg) . '</p>';
+    }
+    return $errors;
+});
+
+// -----------------------------------------------------------------------------
 // CONFIG: Fixed redirect URI (must match OAuth provider settings)
 // -----------------------------------------------------------------------------
 define('SOL_OAUTH_REDIRECT_URI', site_url('wp-login.php'));
@@ -101,7 +118,7 @@ function sol_handle_callback() {
     $token    = sol_exchange_code_for_token($provider, $code);
     if (! $token) {
         error_log('Social OAuth Login: No token for ' . $provider);
-        return;
+        sol_redirect_with_error(__('OAuth authentication failed.', 'sol'));
     }
     $profile = sol_fetch_user_profile($provider, $token);
     error_log(print_r($profile, true));
@@ -110,12 +127,12 @@ function sol_handle_callback() {
     }
     if (empty($profile->id)) {
         error_log('Social OAuth Login: Missing profile ID for ' . $provider);
-        return;
+        sol_redirect_with_error(__('Unable to retrieve profile from provider.', 'sol'));
     }
     $uid = sol_find_or_create_wp_user($provider, $profile);
     if (is_wp_error($uid)) {
         error_log('Social OAuth Login: User linking error: ' . $uid->get_error_message());
-        return;
+        sol_redirect_with_error($uid->get_error_message());
     }
     wp_set_current_user($uid);
     wp_set_auth_cookie($uid);
