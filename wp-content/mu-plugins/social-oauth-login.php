@@ -21,23 +21,15 @@ function sol_redirect_with_error($msg) {
 }
 
 add_filter('login_errors', function($errors) {
-    if (! empty($_GET['sol_err'])) {
-        $err_msg = sanitize_text_field(wp_unslash($_GET['sol_err']));
-        $errors .= '<p class="sol-error">' . esc_html($err_msg) . '</p>';
+    if ( ! empty( $_GET['sol_err'] ) ) {
+        $err_msg = sanitize_text_field( wp_unslash( $_GET['sol_err'] ) );
+        // Append the message so WordPress wraps it in the standard
+        // <div id="login_error" class="notice notice-error"><p>...</p></div>
+        $errors .= esc_html( $err_msg ) . '<br />';
     }
+
     return $errors;
 });
-
-// -----------------------------------------------------------------------------
-// SHOW QUERY ERROR EVEN WHEN NO LOGIN ATTEMPT
-// -----------------------------------------------------------------------------
-add_filter('login_message', function($message) {
-    if (! empty($_GET['sol_err'])) {
-        $err_msg = sanitize_text_field(wp_unslash($_GET['sol_err']));
-        $message = '<p class="sol-error">' . esc_html($err_msg) . '</p>' . $message;
-    }
-    return $message;
-}, 5);
 
 // -----------------------------------------------------------------------------
 // CONFIG: Fixed redirect URI (must match OAuth provider settings)
