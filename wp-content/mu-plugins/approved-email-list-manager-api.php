@@ -122,7 +122,21 @@ class Approved_Email_List_Manager_API {
      * Remove an approved email
      */
     public function remove_email( $request ) {
-        $email  = strtolower( $request->get_param( 'email' ) );
+        $email = $request->get_param( 'email' );
+
+        // WP doesn't parse JSON bodies for DELETE by default, so check manually.
+        if ( empty( $email ) ) {
+            $json = $request->get_json_params();
+            if ( isset( $json['email'] ) ) {
+                $email = $json['email'];
+            }
+        }
+
+        if ( empty( $email ) ) {
+            return new WP_Error( 'missing_email', 'Email parameter is required.', array( 'status' => 400 ) );
+        }
+
+        $email  = strtolower( $email );
         $emails = get_option( self::OPTION_NAME, array() );
 
         if ( ! in_array( $email, $emails, true ) ) {
