@@ -207,8 +207,11 @@ function sol_find_or_create_wp_user($provider, $profile) {
         return $uid;
     }
 
-    // 2) Create a new WP user even if the email already exists
+    // 2) Create a new WP user only if the email is approved
     $email    = sanitize_email($profile->email ?? '');
+    if (! empty($email) && function_exists('ael_is_email_approved') && ! ael_is_email_approved($email)) {
+        return new WP_Error('email_not_approved', 'This email address is not approved.');
+    }
     $username = sanitize_user($provider . '_' . $profile_id, true);
     $password = wp_generate_password();
     $uid      = wp_create_user($username, $password, $email);
