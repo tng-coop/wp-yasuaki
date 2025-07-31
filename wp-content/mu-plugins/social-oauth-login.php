@@ -29,6 +29,17 @@ add_filter('login_errors', function($errors) {
 });
 
 // -----------------------------------------------------------------------------
+// SHOW QUERY ERROR EVEN WHEN NO LOGIN ATTEMPT
+// -----------------------------------------------------------------------------
+add_filter('login_message', function($message) {
+    if (! empty($_GET['sol_err'])) {
+        $err_msg = sanitize_text_field(wp_unslash($_GET['sol_err']));
+        $message = '<p class="sol-error">' . esc_html($err_msg) . '</p>' . $message;
+    }
+    return $message;
+}, 5);
+
+// -----------------------------------------------------------------------------
 // CONFIG: Fixed redirect URI (must match OAuth provider settings)
 // -----------------------------------------------------------------------------
 define('SOL_OAUTH_REDIRECT_URI', site_url('wp-login.php'));
