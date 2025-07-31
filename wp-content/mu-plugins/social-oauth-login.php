@@ -23,7 +23,9 @@ function sol_redirect_with_error($msg) {
 add_filter('login_errors', function($errors) {
     if (! empty($_GET['sol_err'])) {
         $err_msg = sanitize_text_field(wp_unslash($_GET['sol_err']));
-        $errors .= '<p class="sol-error">' . esc_html($err_msg) . '</p>';
+        $markup  = '<div id="login_error" class="notice notice-error"><p>'
+                 . esc_html($err_msg) . '</p></div>';
+        $errors .= $markup;
     }
     return $errors;
 });
@@ -34,7 +36,9 @@ add_filter('login_errors', function($errors) {
 add_filter('login_message', function($message) {
     if (! empty($_GET['sol_err'])) {
         $err_msg = sanitize_text_field(wp_unslash($_GET['sol_err']));
-        $message = '<p class="sol-error">' . esc_html($err_msg) . '</p>' . $message;
+        $markup  = '<div id="login_error" class="notice notice-error"><p>'
+                 . esc_html($err_msg) . '</p></div>';
+        $message = $markup . $message;
     }
     return $message;
 }, 5);
