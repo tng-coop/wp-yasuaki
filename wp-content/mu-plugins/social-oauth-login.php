@@ -4,7 +4,7 @@
  * Description: Enables Google and GitHub OAuth login & registration on WP login screens,
  *              styled with Bootstrap via esm.sh and custom brand colors, with HEREDOC
  *              separators. Includes enhanced error handling and account linking.
- * Version:     1.5.7
+ * Version:     1.5.8
  * Author:      Your Name
  */
 
@@ -20,24 +20,20 @@ function sol_redirect_with_error($msg) {
     exit;
 }
 
-add_filter('login_errors', function($errors) {
-    if (! empty($_GET['sol_err'])) {
-        $err_msg = sanitize_text_field(wp_unslash($_GET['sol_err']));
-        $errors .= '<p class="sol-error">' . esc_html($err_msg) . '</p>';
+// -----------------------------------------------------------------------------
+// SURFACE OAUTH ERRORS USING STANDARD WP_Error HANDLING
+// -----------------------------------------------------------------------------
+add_action('login_init', function() {
+    if (empty($_GET['sol_err'])) {
+        return;
     }
-    return $errors;
+    $err_msg = sanitize_text_field(wp_unslash($_GET['sol_err']));
+    global $errors;
+    if (empty($errors) || ! ($errors instanceof WP_Error)) {
+        $errors = new WP_Error();
+    }
+    $errors->add('sol_error', $err_msg);
 });
-
-// -----------------------------------------------------------------------------
-// SHOW QUERY ERROR EVEN WHEN NO LOGIN ATTEMPT
-// -----------------------------------------------------------------------------
-add_filter('login_message', function($message) {
-    if (! empty($_GET['sol_err'])) {
-        $err_msg = sanitize_text_field(wp_unslash($_GET['sol_err']));
-        $message = '<p class="sol-error">' . esc_html($err_msg) . '</p>' . $message;
-    }
-    return $message;
-}, 5);
 
 // -----------------------------------------------------------------------------
 // CONFIG: Fixed redirect URI (must match OAuth provider settings)
