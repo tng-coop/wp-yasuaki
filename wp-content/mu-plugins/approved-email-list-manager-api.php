@@ -65,8 +65,9 @@ class Approved_Email_List_Manager_API {
             'args'                => array(
                 'email' => array(
                     'required'          => true,
+                    'sanitize_callback' => 'rawurldecode',
                     'validate_callback' => function( $param ) {
-                        return is_email( $param );
+                        return (bool) is_email( $param );
                     },
                 ),
             ),
@@ -78,8 +79,9 @@ class Approved_Email_List_Manager_API {
             'permission_callback' => array( $this, 'permissions_check' ),
             'args'                => array(
                 'email' => array(
+                    'sanitize_callback' => 'rawurldecode',
                     'validate_callback' => function( $param ) {
-                        return is_email( $param );
+                        return (bool) is_email( $param );
                     },
                 ),
             ),
