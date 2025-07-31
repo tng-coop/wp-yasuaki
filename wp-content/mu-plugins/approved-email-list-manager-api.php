@@ -72,18 +72,37 @@ class Approved_Email_List_Manager_API {
             ),
         ) );
 
-        register_rest_route( self::REST_NAMESPACE, '/approved-emails/(?P<email>[^/]+)', array(
-            'methods'             => 'DELETE',
-            'callback'            => array( $this, 'remove_email' ),
-            'permission_callback' => array( $this, 'permissions_check' ),
-            'args'                => array(
-                'email' => array(
-                    'validate_callback' => function( $param ) {
-                        return is_email( $param );
-                    },
-                ),
-            ),
-        ) );
+
+register_rest_route(
+    self::REST_NAMESPACE,
+    '/approved-emails/(?P<email>[^/]+)',
+    [
+        'methods'             => 'DELETE',
+        'callback'            => [ $this, 'remove_email' ],
+        'permission_callback' => [ $this, 'permissions_check' ],
+        'args'                => [
+            'email' => [
+                'required'          => true,
+                'validate_callback' => function( $param, $request, $param_key ) {
+                    // Decode %40 → @
+                    $decoded = rawurldecode( $param );
+                    // Log both the key and the actual email
+                    // Return true/false strictly
+                    return false !== filter_var( $decoded, FILTER_VALIDATE_EMAIL );
+                },
+                'sanitize_callback' => function( $param, $request, $param_key ) {
+                    // Decode first, then sanitize
+                    return sanitize_email( rawurldecode( $param ) );
+                },
+            ],
+        ],
+    ]
+);
+
+
+
+
+
     }
 
     /**
