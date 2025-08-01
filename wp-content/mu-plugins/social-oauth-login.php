@@ -114,14 +114,17 @@ function sol_handle_callback() {
     }
 
     $uid = sol_find_or_create_wp_user($provider, $profile);
-    if (is_wp_error($uid)) {
-        // Redirect back to wp-login.php carrying only the error code
+    if ( is_wp_error( $uid ) ) {
+        // Redirect back to login with error code *and* the attempted email
         $code      = $uid->get_error_code(); // e.g. 'email_not_approved'
-        $login_url = add_query_arg('auth_error', $code, wp_login_url());
-        wp_safe_redirect($login_url);
+        $email     = rawurlencode( sanitize_email( $profile->email ?? '' ) );
+        $login_url = add_query_arg(
+            [ 'auth_error' => $code, 'auth_email' => $email ],
+            wp_login_url()
+        );
+        wp_safe_redirect( $login_url );
         exit;
     }
-
 
     wp_set_current_user($uid);
     wp_set_auth_cookie($uid);
@@ -242,11 +245,22 @@ function sol_find_or_create_wp_user($provider, $profile) {
 // CONVERT ?auth_error=… INTO A REAL WP_Error FOR NATIVE DISPLAY
 // -----------------------------------------------------------------------------
 add_filter('wp_login_errors', function (WP_Error $errors) {
-    if (isset($_GET['auth_error']) && 'email_not_approved' === $_GET['auth_error']) {
-        $errors->add(
-            'email_not_approved',
-            __('This email address is not approved for registration.', 'social-oauth-login')
-        );
+    if ( isset( $_GET['auth_error'] ) && 'email_not_approved' === $_GET['auth_error'] ) {
+        // Grab the email we passed
+        $email = isset( $_GET['auth_email'] )
+            ? sanitize_email( wp_unslash( $_GET['auth_email'] ) )
+            : '';
+
+        // Build a message including it
+        $msg = $email
+            ? sprintf(
+                /* translators: %s = attempted email address */
+                __( 'The email address <strong>%s</strong> is not approved for registration.', 'social-oauth-login' ),
+                esc_html( $email )
+            )
+            : __( 'This email address is not approved for registration.', 'social-oauth-login' );
+
+        $errors->add( 'email_not_approved', wp_kses_post( $msg ) );
     }
     return $errors;
-}, 10, 1);
+}, 10, 1 );
