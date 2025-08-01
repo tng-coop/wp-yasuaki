@@ -112,11 +112,17 @@ function sol_handle_callback() {
         error_log('Social OAuth Login: Missing profile ID for ' . $provider);
         return;
     }
+
     $uid = sol_find_or_create_wp_user($provider, $profile);
     if (is_wp_error($uid)) {
-        error_log('Social OAuth Login: User linking error: ' . $uid->get_error_message());
-        return;
+        // Redirect back to wp-login.php carrying only the error code
+        $code      = $uid->get_error_code(); // e.g. 'email_not_approved'
+        $login_url = add_query_arg('auth_error', $code, wp_login_url());
+        wp_safe_redirect($login_url);
+        exit;
     }
+
+
     wp_set_current_user($uid);
     wp_set_auth_cookie($uid);
     wp_redirect(home_url());
@@ -232,3 +238,15 @@ function sol_find_or_create_wp_user($provider, $profile) {
     return $uid;
 }
 
+// -----------------------------------------------------------------------------
+// CONVERT ?auth_error=… INTO A REAL WP_Error FOR NATIVE DISPLAY
+// -----------------------------------------------------------------------------
+add_filter('wp_login_errors', function (WP_Error $errors) {
+    if (isset($_GET['auth_error']) && 'email_not_approved' === $_GET['auth_error']) {
+        $errors->add(
+            'email_not_approved',
+            __('This email address is not approved for registration.', 'social-oauth-login')
+        );
+    }
+    return $errors;
+}, 10, 1);
