@@ -199,21 +199,10 @@ function sol_fetch_user_profile($provider, $token) {
 // FIND, LINK, OR CREATE WP USER (ALLOW DUPLICATE EMAILS)
 // -----------------------------------------------------------------------------
 function sol_find_or_create_wp_user($provider, $profile) {
-    $meta_key   = $provider . '_id';
     $profile_id = sanitize_text_field($profile->id);
-
-    // 1) If a WP user is already linked by this provider ID, return it
-    $linked = get_users([ 'meta_key' => $meta_key, 'meta_value' => $profile_id, 'fields' => 'ID' ]);
-    if (!empty($linked)) {
-        $uid = $linked[0];
-        if (!empty($profile->name)) {
-            list($first, $last) = array_pad(explode(' ', sanitize_text_field($profile->name), 2), 2, '');
-            wp_update_user([ 'ID' => $uid, 'first_name' => $first, 'last_name' => $last, 'display_name' => trim("$first $last") ]);
-        }
-        if (!empty($profile->avatar_url)) {
-            update_user_meta($uid, 'profile_picture', esc_url_raw($profile->avatar_url));
-        }
-        return $uid;
+    $provider_login = "{$provider}_" . $profile_id;
+    if ($user = get_user_by('login', $provider_login)) {
+        return $user->ID;
     }
 
     // 2) Create a new WP user only if the email is approved
@@ -221,15 +210,13 @@ function sol_find_or_create_wp_user($provider, $profile) {
     if (! empty($email) && function_exists('ael_is_email_approved') && ! ael_is_email_approved($email)) {
         return new WP_Error('email_not_approved', 'This email address is not approved.');
     }
-    $username = sanitize_user($provider . '_' . $profile_id, true);
     $password = wp_generate_password();
-    $uid      = wp_create_user($username, $password, $email);
+    $uid      = wp_create_user($provider_login, $password, $email);
     if (is_wp_error($uid)) {
         return $uid;
     }
 
-    // 3) Link provider ID and set meta
-    update_user_meta($uid, $meta_key, $profile_id);
+    // 3) Set meta
     if (!empty($profile->name)) {
         list($first, $last) = array_pad(explode(' ', sanitize_text_field($profile->name), 2), 2, '');
         wp_update_user([ 'ID' => $uid, 'first_name' => $first, 'last_name' => $last, 'display_name' => trim("$first $last") ]);
