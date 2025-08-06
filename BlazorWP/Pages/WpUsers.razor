@@ -1,0 +1,91 @@
+@page "/wp-users"
+@using WordPressPCL
+@using WordPressPCL.Models
+@inject LocalStorageJsInterop StorageJs
+@inject JwtService JwtService
+
+<PageTitle>WordPress Users</PageTitle>
+
+@if (client == null)
+{
+    <p>No WordPress endpoint verified. Visit <NavLink href="/">Home</NavLink> first.</p>
+}
+else if (users == null && string.IsNullOrEmpty(error))
+{
+    <p><em>Loading...</em></p>
+}
+else if (!string.IsNullOrEmpty(error))
+{
+    <p class="text-danger">Error: @error</p>
+}
+else
+{
+    <div class="row">
+        <div class="col-3">
+            <ul class="list-group">
+                @foreach (var u in users)
+                {
+                    <li class="list-group-item @GetActiveClass(u)"
+                        @onclick="() => SelectUser(u)">
+                        @u.Name
+                    </li>
+                }
+            </ul>
+        </div>
+        <div class="col">
+            @if (selectedUser != null)
+            {
+                <h3>@selectedUser.Name</h3>
+                <p><strong>Email:</strong> @selectedUser.Email</p>
+                <p><strong>Slug:</strong> @selectedUser.Slug</p>
+                <p><strong>Link:</strong> <a href="@selectedUser.Link" target="_blank">@selectedUser.Link</a></p>
+            }
+            else
+            {
+                <p>Select a user from the sidebar.</p>
+            }
+        </div>
+    </div>
+}
+
+@code {
+    private WordPressClient? client;
+    private IList<User>? users;
+    private User? selectedUser;
+    private string? error;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var endpoint = await StorageJs.GetItemAsync("wpEndpoint");
+        if (string.IsNullOrEmpty(endpoint))
+        {
+            return;
+        }
+
+        var baseUrl = endpoint.TrimEnd('/') + "/wp-json/";
+        client = new WordPressClient(baseUrl);
+
+        var token = await JwtService.GetCurrentJwtAsync();
+        if (!string.IsNullOrEmpty(token))
+        {
+            client.Auth.SetJWToken(token);
+        }
+
+        try
+        {
+            users = await client.Users.GetAllAsync();
+        }
+        catch (Exception ex)
+        {
+            error = ex.Message;
+        }
+    }
+
+    private void SelectUser(User user)
+    {
+        selectedUser = user;
+    }
+
+    private string GetActiveClass(User user) => selectedUser?.Id == user.Id ? "active" : string.Empty;
+}
+
