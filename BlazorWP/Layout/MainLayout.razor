@@ -42,6 +42,8 @@
     private WpNonceJsInterop NonceJs { get; set; } = default!;
     [Inject]
     private WpEndpointSyncJsInterop EndpointSyncJs { get; set; } = default!;
+    [Inject]
+    private IConfiguration Config { get; set; } = default!;
 
     private string? currentEndpoint;
     private string? currentUsername;
@@ -53,6 +55,15 @@
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
         var endpoint = await StorageJs.GetItemAsync("wpEndpoint");
+        if (string.IsNullOrEmpty(endpoint))
+        {
+            var configEndpoint = Config["WordPress:Url"];
+            if (!string.IsNullOrEmpty(configEndpoint))
+            {
+                endpoint = configEndpoint;
+                await StorageJs.SetItemAsync("wpEndpoint", endpoint);
+            }
+        }
         string? username = null;
         if (!string.IsNullOrEmpty(endpoint))
         {
