@@ -123,12 +123,10 @@ window.myTinyMceConfig = {
         alert('No media source selected');
         return { items: [], totalPages: page };
       }
-      const token = localStorage.getItem('jwtToken');
-      const url = source.replace(/\/?$/, '') + `/wp-json/wp/v2/media?per_page=100&page=${page}`;
+      const apiPath = `/wp-json/wp/v2/media?per_page=100&page=${page}`;
+      const url = source.replace(/\/?$/, '') + apiPath;
       try {
-        const res = await fetch(url, {
-          headers: token ? { 'Authorization': 'Bearer ' + token } : {}
-        });
+        const res = await apiFetch(url, { method: 'GET' });
         if (!res.ok) {
           alert('Failed to load media: ' + res.status);
           return { items: [], totalPages: page };
