@@ -1,9 +1,6 @@
 @page "/wp-api-proxy-demo"
-@using WordPressPCL
 @inject IJSRuntime JS
-@inject JwtService JwtService
 @inject LocalStorageJsInterop StorageJs
-@inject AuthMessageHandler AuthHandler
 
 <PageTitle>WP API Proxy Demo</PageTitle>
 
@@ -64,23 +61,9 @@
 
     private async Task CallViaProxyAsync()
     {
-        if (string.IsNullOrEmpty(endpoint))
-        {
-            proxyResult = "No endpoint configured.";
-            return;
-        }
-        var baseUrl = endpoint.TrimEnd('/') + "/wp-json/";
-        var httpClient = new HttpClient(AuthHandler) { BaseAddress = new Uri(baseUrl) };
-        var client = new WordPressClient(httpClient);
         try
         {
-            var token = await JwtService.GetCurrentJwtAsync();
-            if (!string.IsNullOrEmpty(token))
-            {
-                client.Auth.SetJWToken(token);
-            }
-            var me = await client.Users.GetCurrentUserAsync();
-            proxyResult = JsonSerializer.Serialize(me, new JsonSerializerOptions { WriteIndented = true });
+            proxyResult = await JS.InvokeAsync<string>("fetchProxy", "/wp-json/wp/v2/users/me");
         }
         catch (Exception ex)
         {
