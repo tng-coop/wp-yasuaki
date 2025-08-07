@@ -26,35 +26,35 @@ window.myTinyMceConfig = {
       const sizes = item.media_details?.sizes || {};
       const valid = Object.values(sizes).filter(sz => sz.source_url && sz.width);
       const srcset = valid.map(sz => `${sz.source_url} ${sz.width}w`).join(', ');
-      const med = sizes.medium;
-      if (!med) {
-        return `<img src="${item.source_url}" />`;
-      }
-      return (`<img loading="lazy" decoding="async"` +
-              ` src="${med.source_url}"` +
-              ` srcset="${srcset}"` +
-              ` sizes="(max-width: ${med.width}px) 100vw, ${med.width}px"` +
-              ` width="${med.width}" height="${med.height}"` +
-              ` class="attachment-medium size-medium"` +
-              (item.alt_text ? ` alt="${item.alt_text}"` : ``) +
-              ` />`);
-    }
+  const lg  = sizes.large;
+  if (!lg) {
+    return `<img src="${item.source_url}" />`;
+  }
+  return (`<img loading="lazy" decoding="async"` +
+          ` src="${lg.source_url}"` +
+          ` srcset="${srcset}"` +
+          ` sizes="(max-width: ${lg.width}px) 100vw, ${lg.width}px"` +
+          ` width="${lg.width}" height="${lg.height}"` +
+          ` class="attachment-large size-large"` +
+          (item.alt_text ? ` alt="${item.alt_text}"` : ``) +
+          ` />`);
+ }
 
     function openMediaDialog(items, totalPages) {
       let page = 1;
 
       function itemHtml(i) {
         // debug: inspect available fields
-        console.log('Media Item details:', {
-          id:           i.id,
-          source_url:   i.source_url,
-          mime_type:    i.mime_type,
-          media_type:   i.media_type,
-          alt_text:     i.alt_text,
-          title:        i.title?.rendered,
-          description:  i.description?.rendered,
-          sizes:        i.media_details?.sizes
-        });
+        // console.log('Media Item details:', {
+        //   id:           i.id,
+        //   source_url:   i.source_url,
+        //   mime_type:    i.mime_type,
+        //   media_type:   i.media_type,
+        //   alt_text:     i.alt_text,
+        //   title:        i.title?.rendered,
+        //   description:  i.description?.rendered,
+        //   sizes:        i.media_details?.sizes
+        // });
 
         const thumb = (i.media_details && i.media_details.sizes && i.media_details.sizes.thumbnail)
           ? i.media_details.sizes.thumbnail.source_url
