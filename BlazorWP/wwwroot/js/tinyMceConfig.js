@@ -21,14 +21,57 @@ window.myTinyMceConfig = {
       }
     });
 
+    // Helper to build a correct <img> from media_details.sizes
+    function buildImageTag(item) {
+      const sizes = item.media_details?.sizes || {};
+      const valid = Object.values(sizes).filter(sz => sz.source_url && sz.width);
+      const srcset = valid.map(sz => `${sz.source_url} ${sz.width}w`).join(', ');
+  const lg  = sizes.large;
+  if (!lg) {
+    return `<img src="${item.source_url}" />`;
+  }
+  return (`<img loading="lazy" decoding="async"` +
+          ` src="${lg.source_url}"` +
+          ` srcset="${srcset}"` +
+          ` sizes="(max-width: ${lg.width}px) 100vw, ${lg.width}px"` +
+          ` width="${lg.width}" height="${lg.height}"` +
+          ` class="attachment-large size-large"` +
+          (item.alt_text ? ` alt="${item.alt_text}"` : ``) +
+          ` />`);
+ }
+
     function openMediaDialog(items, totalPages) {
       let page = 1;
 
       function itemHtml(i) {
+        // debug: inspect available fields
+        // console.log('Media Item details:', {
+        //   id:           i.id,
+        //   source_url:   i.source_url,
+        //   mime_type:    i.mime_type,
+        //   media_type:   i.media_type,
+        //   alt_text:     i.alt_text,
+        //   title:        i.title?.rendered,
+        //   description:  i.description?.rendered,
+        //   sizes:        i.media_details?.sizes
+        // });
+
         const thumb = (i.media_details && i.media_details.sizes && i.media_details.sizes.thumbnail)
           ? i.media_details.sizes.thumbnail.source_url
           : i.source_url;
-        const desc = encodeURIComponent(i.description && i.description.rendered ? i.description.rendered : `<img src="${i.source_url}" />`);
+        let desc;
+        if (i.mime_type === 'application/pdf' || (i.media_type && i.media_type !== 'image')) {
+          // PDF: wrap our correct <img> in a link
+          const linkedImg = `<a href="${i.source_url}" target="_blank">${buildImageTag(i)}</a>`;
+          desc = encodeURIComponent(linkedImg);
+        } else {
+          // Image: use existing description/rendered HTML
+          desc = encodeURIComponent(
+            i.description && i.description.rendered
+              ? i.description.rendered
+              : `<img src="${i.source_url}" />`
+          );
+        }
         return `<img src="${thumb}" data-desc="${desc}" style="width:100px;height:100px;object-fit:cover;margin:4px;cursor:pointer;" />`;
       }
 
@@ -146,3 +189,4 @@ window.registerTinyEditorCallbacks = function (dotNetHelper) {
     editor.on('change', changeHandler);
   }
 };
+
