@@ -33,7 +33,18 @@ window.myTinyMceConfig = {
           const text = (i.title && i.title.rendered) ? i.title.rendered : 'Download PDF';
           desc = encodeURIComponent(`<a href="${i.source_url}" target="_blank">${text}</a>`);
         } else {
-          desc = encodeURIComponent(i.description && i.description.rendered ? i.description.rendered : `<img src="${i.source_url}" />`);
+          let src = i.source_url;
+          try {
+            const srcUrl = new URL(src);
+            const mediaSource = getMediaSource();
+            if (mediaSource) {
+              const mediaOrigin = new URL(mediaSource).origin;
+              if (srcUrl.origin === mediaOrigin) {
+                src = srcUrl.pathname + srcUrl.search + srcUrl.hash;
+              }
+            }
+          } catch (err) { }
+          desc = encodeURIComponent(`<img src="${src}" />`);
         }
         return `<img src="${thumb}" data-desc="${desc}" style="width:100px;height:100px;object-fit:cover;margin:4px;cursor:pointer;" />`;
       }
