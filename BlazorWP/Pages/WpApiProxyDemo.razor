@@ -44,12 +44,16 @@
         var url = endpoint.TrimEnd('/') + "/wp-json/wp/v2/users/me";
         try
         {
-            var script = @$"fetch('{url}')
-                .then(async res => {{
-                    const text = await res.text();
-                    return res.ok ? text : res.status + ' ' + res.statusText + ': ' + text;
-                }})
-                .catch(err => 'Error: ' + err)";
+            var scriptLines = new[]
+            {
+                $"fetch('{url}')",
+                ".then(async res => {",
+                "    const text = await res.text();",
+                "    return res.ok ? text : res.status + ' ' + res.statusText + ': ' + text;",
+                "})",
+                ".catch(err => 'Error: ' + err)"
+            };
+            var script = string.Join("\n", scriptLines);
             jsResult = await JS.InvokeAsync<string>("eval", script);
         }
         catch (Exception ex)
@@ -75,7 +79,7 @@
             {
                 client.Auth.SetJWToken(token);
             }
-            var me = await client.Users.GetCurrentUser();
+            var me = await client.Users.GetCurrentUserAsync();
             proxyResult = JsonSerializer.Serialize(me, new JsonSerializerOptions { WriteIndented = true });
         }
         catch (Exception ex)
