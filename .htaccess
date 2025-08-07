@@ -47,10 +47,10 @@
     RewriteCond %{REQUEST_URI}    ^/blazorapp
     RewriteRule ^blazorapp/.*$   /blazorapp/index.html [L]
 
-    # 2) Your “bible” redirect
-    RewriteCond %{REQUEST_URI}    !^/bible\.html$
-    RewriteCond %{REMOTE_ADDR}    !^221\.113\.64\.97$
-    RewriteRule ^                 /bible.html [L,R=302]
+    ## 2) Your “bible” redirect
+    #RewriteCond %{REQUEST_URI}    !^/bible\.html$
+    #RewriteCond %{REMOTE_ADDR}    !^221\.113\.64\.97$
+    #RewriteRule ^                 /bible.html [L,R=302]
 </IfModule>
 
 # ─── WordPress below ────────────────────────────────────────────────────────────

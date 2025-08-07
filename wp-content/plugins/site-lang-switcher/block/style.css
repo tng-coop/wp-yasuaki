@@ -3,7 +3,7 @@
 
 /* 2) Pin the switcher */
 #site-lang-switcher {
-  position: fixed;
+  position: absolute;
   top: 10px;
   right: 10px;
   display: flex;
@@ -20,13 +20,14 @@
 }
 
 .lang-btn {
-  background: none;
+  background-color: rgba(0, 0, 0, 0.4);
   border: none;
   padding: .25em .75em;
   cursor: pointer;
   font-size: .9rem;
-  color: #0073aa;
+  color: #71bde2;
   transition: background .2s, color .2s;
+  outline: none;
 }
 
 .lang-btn.active {

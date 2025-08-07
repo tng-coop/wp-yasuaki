@@ -6,27 +6,29 @@
  * Network: true
  */
 
-add_filter( 'render_block_core/navigation-link', 'mu_remove_blazorapp_path_links_if_logged_out', 10, 2 );
-
-function mu_remove_blazorapp_path_links_if_logged_out( $html, $block ) {
-    // Only suppress for users NOT logged in
-    if ( is_user_logged_in() ) {
+/**
+ * Remove <a> tags pointing at /blazorapp/* for anyone who cannot edit posts.
+ */
+function mu_remove_blazorapp_path_links_for_low_roles( $html, $block ) {
+    $url = $block['attrs']['url'] ?? '';
+    if ( ! $url ) {
         return $html;
     }
 
-    $url = $block['attrs']['url'] ?? '';
-
-    if ( $url ) {
-        // Parse the path from the URL
-        $path = parse_url( $url, PHP_URL_PATH ) ?: '';
-
-        // Normalize leading slash and check if it starts with /blazorapp
-        if ( preg_match( '#^/blazorapp(/|$)#i', $path ) ) {
-            return '';
-        }
+    // Only target links whose path begins with /blazorapp
+    $path = parse_url( $url, PHP_URL_PATH ) ?: '';
+    if ( ! preg_match( '#^/blazorapp(/|$)#i', $path ) ) {
+        return $html;
     }
 
-    // Keep original HTML if conditions aren't met
+    // If the current user cannot edit posts (i.e. is not a Contributor or higher), strip the link
+    if ( ! current_user_can( 'edit_posts' ) ) {
+        return '';
+    }
+
+    // Otherwise, leave the HTML intact
     return $html;
 }
+// Adjust the hook name/place as appropriate for your block/render setup:
+add_filter( 'render_block', 'mu_remove_blazorapp_path_links_for_low_roles', 10, 2 );
 
