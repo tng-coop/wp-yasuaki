@@ -68,3 +68,5 @@ OldBlazorReference/
 blazorapp/
 
 blazor-publish/
+
+/backup

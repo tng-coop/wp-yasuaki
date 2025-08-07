@@ -1,3 +1,10 @@
+# ─── Block all access to /backup ───────────────────────────────────────────────
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+    # If the request URI starts with “backup” then abort with 403 Forbidden
+    RewriteRule ^backup(/|$) - [F,L]
+</IfModule>
+
 <FilesMatch "composer\.(json|lock)$">
   <IfModule mod_authz_core.c>
     Require all denied
@@ -56,13 +63,17 @@
 # ─── WordPress below ────────────────────────────────────────────────────────────
 # Only one WordPress block is needed; remove any duplicates.
 # BEGIN WordPress
+# "BEGIN WordPress" から "END WordPress" までのディレクティブ (行) は
+# 動的に生成され、WordPress フィルターによってのみ修正が可能です。
+# これらのマーカー間にあるディレクティブへのいかなる変更も上書きされてしまいます。
 <IfModule mod_rewrite.c>
-    RewriteEngine On
-    RewriteRule .* - [E=HTTP_AUTHORIZATION:%{HTTP:Authorization}]
-    RewriteBase /
-    RewriteRule ^index\.php$ - [L]
-    RewriteCond %{REQUEST_FILENAME} !-f
-    RewriteCond %{REQUEST_FILENAME} !-d
-    RewriteRule . /index.php [L]
+RewriteEngine On
+RewriteRule .* - [E=HTTP_AUTHORIZATION:%{HTTP:Authorization}]
+RewriteBase /
+RewriteRule ^index\.php$ - [L]
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
+RewriteRule . /index.php [L]
 </IfModule>
+
 # END WordPress
