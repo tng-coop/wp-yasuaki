@@ -28,7 +28,13 @@ window.myTinyMceConfig = {
         const thumb = (i.media_details && i.media_details.sizes && i.media_details.sizes.thumbnail)
           ? i.media_details.sizes.thumbnail.source_url
           : i.source_url;
-        const desc = encodeURIComponent(i.description && i.description.rendered ? i.description.rendered : `<img src="${i.source_url}" />`);
+        let desc;
+        if (i.mime_type === 'application/pdf' || (i.media_type && i.media_type !== 'image')) {
+          const text = (i.title && i.title.rendered) ? i.title.rendered : 'Download PDF';
+          desc = encodeURIComponent(`<a href="${i.source_url}" target="_blank">${text}</a>`);
+        } else {
+          desc = encodeURIComponent(i.description && i.description.rendered ? i.description.rendered : `<img src="${i.source_url}" />`);
+        }
         return `<img src="${thumb}" data-desc="${desc}" style="width:100px;height:100px;object-fit:cover;margin:4px;cursor:pointer;" />`;
       }
 
