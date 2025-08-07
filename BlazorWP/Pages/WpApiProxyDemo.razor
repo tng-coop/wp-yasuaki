@@ -1,0 +1,86 @@
+@page "/wp-api-proxy-demo"
+@using WordPressPCL
+@inject IJSRuntime JS
+@inject JwtService JwtService
+@inject LocalStorageJsInterop StorageJs
+@inject AuthMessageHandler AuthHandler
+
+<PageTitle>WP API Proxy Demo</PageTitle>
+
+<h3>WP API Proxy Demo</h3>
+
+<div class="mb-3">
+    <button class="btn btn-secondary me-2" @onclick="DirectJsCall">Direct JS Call</button>
+    <button class="btn btn-primary" @onclick="CallViaProxyAsync">Call via Proxy</button>
+</div>
+
+<div class="mb-3">
+    <h5>JS Fetch Result</h5>
+    <pre>@jsResult</pre>
+</div>
+
+<div class="mb-3">
+    <h5>Proxy Result</h5>
+    <pre>@proxyResult</pre>
+</div>
+
+@code {
+    private string? endpoint;
+    private string jsResult = string.Empty;
+    private string proxyResult = string.Empty;
+
+    protected override async Task OnInitializedAsync()
+    {
+        endpoint = await StorageJs.GetItemAsync("wpEndpoint");
+    }
+
+    private async Task DirectJsCall()
+    {
+        if (string.IsNullOrEmpty(endpoint))
+        {
+            jsResult = "No endpoint configured.";
+            return;
+        }
+        var url = endpoint.TrimEnd('/') + "/wp-json/wp/v2/users/me";
+        try
+        {
+            var script = @$"fetch('{url}')
+                .then(async res => {{
+                    const text = await res.text();
+                    return res.ok ? text : res.status + ' ' + res.statusText + ': ' + text;
+                }})
+                .catch(err => 'Error: ' + err)";
+            jsResult = await JS.InvokeAsync<string>("eval", script);
+        }
+        catch (Exception ex)
+        {
+            jsResult = $"Error: {ex.Message}";
+        }
+    }
+
+    private async Task CallViaProxyAsync()
+    {
+        if (string.IsNullOrEmpty(endpoint))
+        {
+            proxyResult = "No endpoint configured.";
+            return;
+        }
+        var baseUrl = endpoint.TrimEnd('/') + "/wp-json/";
+        var httpClient = new HttpClient(AuthHandler) { BaseAddress = new Uri(baseUrl) };
+        var client = new WordPressClient(httpClient);
+        try
+        {
+            var token = await JwtService.GetCurrentJwtAsync();
+            if (!string.IsNullOrEmpty(token))
+            {
+                client.Auth.SetJWToken(token);
+            }
+            var me = await client.Users.GetCurrentUser();
+            proxyResult = JsonSerializer.Serialize(me, new JsonSerializerOptions { WriteIndented = true });
+        }
+        catch (Exception ex)
+        {
+            proxyResult = $"Error: {ex.Message}";
+        }
+    }
+}
