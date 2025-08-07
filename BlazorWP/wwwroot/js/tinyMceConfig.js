@@ -21,19 +21,56 @@ window.myTinyMceConfig = {
       }
     });
 
+    // Helper to build a correct <img> from media_details.sizes
+    function buildImageTag(item) {
+      const sizes = item.media_details?.sizes || {};
+      const valid = Object.values(sizes).filter(sz => sz.source_url && sz.width);
+      const srcset = valid.map(sz => `${sz.source_url} ${sz.width}w`).join(', ');
+      const med = sizes.medium;
+      if (!med) {
+        return `<img src="${item.source_url}" />`;
+      }
+      return (`<img loading="lazy" decoding="async"` +
+              ` src="${med.source_url}"` +
+              ` srcset="${srcset}"` +
+              ` sizes="(max-width: ${med.width}px) 100vw, ${med.width}px"` +
+              ` width="${med.width}" height="${med.height}"` +
+              ` class="attachment-medium size-medium"` +
+              (item.alt_text ? ` alt="${item.alt_text}"` : ``) +
+              ` />`);
+    }
+
     function openMediaDialog(items, totalPages) {
       let page = 1;
 
       function itemHtml(i) {
+        // debug: inspect available fields
+        console.log('Media Item details:', {
+          id:           i.id,
+          source_url:   i.source_url,
+          mime_type:    i.mime_type,
+          media_type:   i.media_type,
+          alt_text:     i.alt_text,
+          title:        i.title?.rendered,
+          description:  i.description?.rendered,
+          sizes:        i.media_details?.sizes
+        });
+
         const thumb = (i.media_details && i.media_details.sizes && i.media_details.sizes.thumbnail)
           ? i.media_details.sizes.thumbnail.source_url
           : i.source_url;
         let desc;
         if (i.mime_type === 'application/pdf' || (i.media_type && i.media_type !== 'image')) {
-          const text = (i.title && i.title.rendered) ? i.title.rendered : 'Download PDF';
-          desc = encodeURIComponent(`<a href="${i.source_url}" target="_blank">${text}</a>`);
+          // PDF: wrap our correct <img> in a link
+          const linkedImg = `<a href="${i.source_url}" target="_blank">${buildImageTag(i)}</a>`;
+          desc = encodeURIComponent(linkedImg);
         } else {
-          desc = encodeURIComponent(i.description && i.description.rendered ? i.description.rendered : `<img src="${i.source_url}" />`);
+          // Image: use existing description/rendered HTML
+          desc = encodeURIComponent(
+            i.description && i.description.rendered
+              ? i.description.rendered
+              : `<img src="${i.source_url}" />`
+          );
         }
         return `<img src="${thumb}" data-desc="${desc}" style="width:100px;height:100px;object-fit:cover;margin:4px;cursor:pointer;" />`;
       }
@@ -152,3 +189,4 @@ window.registerTinyEditorCallbacks = function (dotNetHelper) {
     editor.on('change', changeHandler);
   }
 };
+
