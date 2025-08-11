@@ -14,7 +14,7 @@ function mu_remove_blazorapp_path_links_for_low_roles( $html, $block ) {
     if ( ! $url ) {
         return $html;
     }
-
+	
     // Only target links whose path begins with /blazorapp
     $path = parse_url( $url, PHP_URL_PATH ) ?: '';
     if ( ! preg_match( '#^/blazorapp(/|$)#i', $path ) ) {
@@ -25,6 +25,24 @@ function mu_remove_blazorapp_path_links_for_low_roles( $html, $block ) {
     if ( ! current_user_can( 'edit_posts' ) ) {
         return '';
     }
+
+
+    $user = wp_get_current_user();
+
+    // 2) Build a little debug string
+    $roles_str   = ! empty( $user->roles ) ? implode( ',', $user->roles ) : 'none';
+    $can_edit    = current_user_can( 'edit_posts' ) ? 'yes' : 'no';
+
+    // 3) Log it (go check your PHP error log)
+    error_log( sprintf(
+        '[blazorapp‐debug] user_id=%d user_login=%s roles=[%s] can_edit_posts=%s',
+        $user->ID,
+        $user->user_login,
+        $roles_str,
+        $can_edit
+    ) );
+
+
 
     // Otherwise, leave the HTML intact
     return $html;
