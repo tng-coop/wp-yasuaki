@@ -70,3 +70,6 @@ blazorapp/
 blazor-publish/
 
 /backup
+
+wp-content/wflogs/
+
