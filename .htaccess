@@ -1,3 +1,100 @@
+# === Block any dot-path (files or directories), except /.well-known/ ===
+<IfModule mod_rewrite.c>
+  RewriteEngine On
+  # If any segment begins with a dot, deny (but allow ACME challenges)
+  RewriteCond %{REQUEST_URI} "(^|/)\.(?!well-known/)" [NC]
+  RewriteRule .* - [F]
+
+  # ⬇️ NEW: Block direct HTTP access to MU plugins directory (still loads via PHP internally)
+  RewriteRule ^wp-content/mu-plugins/ - [F,L]
+</IfModule>
+
+# Belt-and-suspenders: block .git explicitly
+RedirectMatch 404 "(^|/)\.git(/|$)"
+
+# Protect wp-config.php
+<Files "wp-config.php">
+  Require all denied
+</Files>
+
+# Avoid odd content negotiation issues
+<IfModule mod_negotiation.c>
+  Options -MultiViews
+</IfModule>
+
+# 1) Block debug/log/backup dumps
+<FilesMatch "(^debug\.log$|error_log|\.sql(\.gz)?$|\.tar(\.gz)?$|\.zip$|\.bak$|\.old$)">
+  Require all denied
+</FilesMatch>
+
+# 2) Hide readme.html
+<Files "readme.html">
+  Require all denied
+</Files>
+
+# 3) Stop access to mu-plugins (still loads via PHP internally)
+#    Option A: block directory listing globally (recommended site-wide)
+Options -Indexes
+
+# === Harden WordPress front door ===
+<IfModule mod_rewrite.c>
+  RewriteEngine On
+
+  # Block any dot-path (except ACME)
+  RewriteCond %{REQUEST_URI} "(^|/)\.(?!well-known/)" [NC]
+  RewriteRule .* - [F]
+
+  # Block direct HTTP access to MU plugins
+  RewriteRule ^wp-content/mu-plugins/ - [F,L]
+
+
+  # Block PHP in wp-includes (public shouldn’t run these directly)
+  RewriteRule ^wp-includes/[^/]+\.php$ - [F]
+</IfModule>
+
+# No .git ever
+RedirectMatch 404 "(^|/)\.git(/|$)"
+
+# Protect configs
+<Files "wp-config.php">
+  Require all denied
+</Files>
+<FilesMatch "(^(\.env|composer\.(json|lock)|package\.json)$|wp-config\.sample\.php$)">
+  Require all denied
+</FilesMatch>
+
+# Lean routing
+<IfModule mod_negotiation.c>
+  Options -MultiViews
+</IfModule>
+
+# Logs / dumps / archives
+<FilesMatch "(^debug\.log$|error_log|\.sql(\.gz)?$|\.tar(\.gz)?$|\.zip$|\.bak$|\.old$)">
+  Require all denied
+</FilesMatch>
+
+# Hide readme
+<Files "readme.html">
+  Require all denied
+</Files>
+
+# Stop direct cron hits; local only (pair with DISABLE_WP_CRON)
+<Files "wp-cron.php">
+  Require ip 127.0.0.1 ::1
+</Files>
+
+# Global: no directory listings
+Options -Indexes
+
+# Security headers (ok to move to vhost)
+<IfModule mod_headers.c>
+  Header always set X-Content-Type-Options "nosniff"
+  Header always set X-Frame-Options "SAMEORIGIN"
+  Header always set Referrer-Policy "strict-origin-when-cross-origin"
+  Header always set Permissions-Policy "camera=(), microphone=(), geolocation=()"
+</IfModule>
+
+
 # ─── Block all access to /backup ───────────────────────────────────────────────
 <IfModule mod_rewrite.c>
     RewriteEngine On
