@@ -2,13 +2,13 @@
 /**
  * MU Plugin: Office CPT (public, meta-driven, with editor + robust REST)
  * Description: Public CPT "office-cpt" with address meta. Includes a dedicated REST endpoint to set/get address reliably.
- * Version: 1.7.0
+ * Version: 1.7.1
  * Author: You
  */
 
 if (!defined('ABSPATH')) { exit; }
 
-define('OFFICE_CPT_MU_VERSION', '1.7.0');
+define('OFFICE_CPT_MU_VERSION', '1.7.1');
 define('OFFICE_CPT_MU_OPTION',  'office_cpt_mu_version');
 
 /** -----------------------------
@@ -60,7 +60,7 @@ function office_cpt_register() {
 add_action('init', 'office_cpt_register', 10);
 
 /** -----------------------------
- *  Frontend Render Helpers
+ *  Frontend Render Helpers (inject once)
  * ------------------------------*/
 function office_cpt_address_html($post_id = null) {
     $post_id = $post_id ?: get_the_ID();
@@ -72,17 +72,40 @@ function office_cpt_address_html($post_id = null) {
          . '</address>';
 }
 
+/**
+ * Ensure we prepend address only once on single Office pages,
+ * regardless of whether the_content or render_block fires first.
+ */
+function office_cpt_maybe_prepend_address($content_or_block) {
+    static $office_cpt_address_injected = false;
+
+    // Only act on single Office pages (avoid archives/lists and other contexts)
+    if (!is_singular('office-cpt')) {
+        return $content_or_block;
+    }
+
+    if ($office_cpt_address_injected) {
+        return $content_or_block;
+    }
+
+    $addr = office_cpt_address_html();
+    if ($addr) {
+        $office_cpt_address_injected = true;
+        return $addr . $content_or_block;
+    }
+
+    return $content_or_block;
+}
+
 // Classic themes: prepend to the_content
 add_filter('the_content', function ($content) {
-    if (get_post_type() !== 'office-cpt') return $content;
-    return office_cpt_address_html() . $content;
+    return office_cpt_maybe_prepend_address($content);
 }, 1);
 
 // Block themes: inject before core/post-content
 add_filter('render_block', function ($block_content, $block) {
-    if (get_post_type() !== 'office-cpt') return $block_content;
     if (!empty($block['blockName']) && $block['blockName'] === 'core/post-content') {
-        return office_cpt_address_html() . $block_content;
+        return office_cpt_maybe_prepend_address($block_content);
     }
     return $block_content;
 }, 1, 2);
@@ -131,7 +154,6 @@ add_action('rest_api_init', function () {
                 if (!is_string($address)) {
                     return new WP_Error('invalid_param', 'Address must be a string', ['status' => 400]);
                 }
-                // Sanitize similarly to the registered meta
                 $address = sanitize_textarea_field($address);
                 update_post_meta($post_id, 'address', $address);
                 return [
