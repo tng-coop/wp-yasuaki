@@ -1,33 +1,37 @@
 <?php
 /**
- * MU Plugin: Office CPT (API-only JSON)
- * Description: Minimal CPT "office-cpt" for JSON data only. No frontend routes. One unified "data" meta exposed via REST + custom endpoints.
- * Version: 2.0.1
+ * MU Plugin: Office CPT (API + Web)
+ * Description: "office-cpt" with public web views and JSON API. One unified "data" meta exposed via REST + custom endpoints.
+ * Version: 3.0.0
  * Author: You
  */
 
 if (!defined('ABSPATH')) { exit; }
 
-define('OFFICE_CPT_MU_VERSION', '2.0.1');
+define('OFFICE_CPT_MU_VERSION', '3.0.0');
 define('OFFICE_CPT_MU_OPTION',  'office_cpt_mu_version');
+define('OFFICE_CPT_SLUG',       'offices'); // public URL base: /offices/*
 
-/** Register API-only CPT and a single "data" meta object */
-function office_cpt_register_api_only() {
+/** Register CPT and a single "data" meta object */
+function office_cpt_register_web_enabled() {
     register_post_type('office-cpt', [
         'label'               => 'Offices',
         'labels'              => ['singular_name' => 'Office'],
-        // API-only: no public pages
-        'public'              => false,
-        'publicly_queryable'  => false,
-        'exclude_from_search' => true,
-        'show_ui'             => true,            // keep editable in wp-admin
+        // Web-enabled + API
+        'public'              => true,
+        'publicly_queryable'  => true,
+        'exclude_from_search' => false,                 // include in site search
+        'show_ui'             => true,
         'show_in_menu'        => true,
         'menu_icon'           => 'dashicons-database',
-        'has_archive'         => false,
-        'rewrite'             => false,
-        'show_in_rest'        => true,            // expose via /wp-json/wp/v2/offices
+        'has_archive'         => true,                  // /offices/
+        'rewrite'             => [
+            'slug'       => OFFICE_CPT_SLUG,           // /offices/{post-slug}
+            'with_front' => false,
+        ],
+        'show_in_rest'        => true,                  // /wp-json/wp/v2/offices
         'rest_base'           => 'offices',
-        'supports'            => ['title'],       // title only
+        'supports'            => ['title'],             // keep minimal; expand if needed
         'map_meta_cap'        => true,
     ]);
 
@@ -62,7 +66,21 @@ function office_cpt_register_api_only() {
         },
     ]);
 }
-add_action('init', 'office_cpt_register_api_only', 10);
+add_action('init', 'office_cpt_register_web_enabled', 10);
+
+/** Add permalink to core REST objects for convenience */
+add_action('rest_api_init', function () {
+    register_rest_field('office-cpt', 'permalink', [
+        'get_callback' => function($obj) {
+            return isset($obj['id']) ? get_permalink((int)$obj['id']) : '';
+        },
+        'schema' => [
+            'description' => 'Public URL for this Office',
+            'type'        => 'string',
+            'context'     => ['view'],
+        ],
+    ]);
+});
 
 /** Custom REST: simple JSON for one post and list (default = show all) */
 add_action('rest_api_init', function () {
@@ -79,10 +97,11 @@ add_action('rest_api_init', function () {
                 }
                 $p = get_post($id);
                 return [
-                    'id'    => $id,
-                    'slug'  => $p ? $p->post_name : '',
-                    'title' => $p ? get_the_title($id) : '',
-                    'data'  => get_post_meta($id, 'data', true) ?: (object)[],
+                    'id'       => $id,
+                    'slug'     => $p ? $p->post_name : '',
+                    'title'    => $p ? get_the_title($id) : '',
+                    'permalink'=> $p ? get_permalink($id) : '',
+                    'data'     => get_post_meta($id, 'data', true) ?: (object)[],
                 ];
             },
         ],
@@ -102,10 +121,14 @@ add_action('rest_api_init', function () {
                 }
                 $data = $req->get_param('data');
                 update_post_meta($id, 'data', $data);
+                $p = get_post($id);
                 return [
-                    'ok'    => true,
-                    'id'    => $id,
-                    'data'  => get_post_meta($id, 'data', true) ?: (object)[],
+                    'ok'       => true,
+                    'id'       => $id,
+                    'slug'     => $p ? $p->post_name : '',
+                    'title'    => $p ? get_the_title($id) : '',
+                    'permalink'=> $p ? get_permalink($id) : '',
+                    'data'     => get_post_meta($id, 'data', true) ?: (object)[],
                 ];
             },
         ],
@@ -145,10 +168,11 @@ add_action('rest_api_init', function () {
             $items = array_map(function($id){
                 $p = get_post($id);
                 return [
-                    'id'    => $id,
-                    'slug'  => $p ? $p->post_name : '',
-                    'title' => $p ? get_the_title($id) : '',
-                    'data'  => get_post_meta($id, 'data', true) ?: (object)[],
+                    'id'        => $id,
+                    'slug'      => $p ? $p->post_name : '',
+                    'title'     => $p ? get_the_title($id) : '',
+                    'permalink' => $p ? get_permalink($id) : '',
+                    'data'      => get_post_meta($id, 'data', true) ?: (object)[],
                 ];
             }, $q->posts);
 
@@ -158,17 +182,40 @@ add_action('rest_api_init', function () {
                 'total_pages' => ($per === -1) ? 1 : (int) $q->max_num_pages,
                 'page'        => (int) $pg,
                 'per_page'    => (int) $per,
+                'archive'     => get_post_type_archive_link('office-cpt'),
+                'base'        => home_url( '/' . OFFICE_CPT_SLUG . '/' ),
+            ];
+        }
+    ]);
+
+    // Utility: surface base + archive URLs
+    register_rest_route('office/v1', '/urls', [
+        'methods'  => 'GET',
+        'permission_callback' => '__return_true',
+        'callback' => function () {
+            return [
+                'archive' => get_post_type_archive_link('office-cpt'),
+                'base'    => home_url( '/' . OFFICE_CPT_SLUG . '/' ),
             ];
         }
     ]);
 });
 
-/** One-time maintenance flag */
+/** One-time maintenance flag + flush rewrites when version changes */
 add_action('admin_init', function () {
     if (!current_user_can('manage_options')) return;
     $stored_version = get_option(OFFICE_CPT_MU_OPTION);
     if ($stored_version !== OFFICE_CPT_MU_VERSION) {
         update_option(OFFICE_CPT_MU_OPTION, OFFICE_CPT_MU_VERSION, true);
+        // Ensure new /offices/* routes work immediately
+        if (function_exists('flush_rewrite_rules')) {
+            flush_rewrite_rules(false);
+        }
     }
 });
 
+add_action('pre_get_posts', function($query) {
+    if (!is_admin() && $query->is_main_query() && is_post_type_archive('office-cpt')) {
+        $query->set('posts_per_page', -1); // -1 means "no limit"
+    }
+});
