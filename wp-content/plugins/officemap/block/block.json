@@ -1,0 +1,13 @@
+{
+  "apiVersion": 3,
+  "name": "officemap/nonce",
+  "title": "OfficeMap (Nonce Starter)",
+  "description": "Outputs a container with a server nonce and runs an ESM view script on front and editor.",
+  "category": "widgets",
+  "icon": "location",
+  "supports": { "html": false },
+  "style": [ "file:./style.css" ],
+  "editorScript": "file:./index.js",
+  "viewScriptModule": [ "file:./view.js" ],
+  "render": "file:./render.php"
+}

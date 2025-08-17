@@ -1,0 +1,7 @@
+.officemap-nonce {
+  padding: 12px;
+  border: 1px dashed #88a;
+  background: #f7faff;
+  border-radius: 6px;
+}
+.officemap-nonce code { user-select: all; }
