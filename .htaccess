@@ -133,6 +133,7 @@ Options -Indexes
 
   SetEnv GITHUB_CLIENT_ID     "Iv23li64oBIuclX7b9dp"
   SetEnv GITHUB_CLIENT_SECRET "a2fed1c3a8d720e81d8a449f186aac2b1ec987d2"
+  SetEnv PEXELS_API_KEY "JpXswTnudF41NghnH7sVtvxaaRNW7cDuR73jQvvs1YA57K0iwVpALtCn"
 </IfModule>
 
 

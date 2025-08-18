@@ -1,17 +1,16 @@
 {
   "apiVersion": 3,
-  "name": "hero/video",  
+  "name": "hero/video",
   "title": "Hero Video",
-  "description": "Displays the JSON configuration for the Hero Video (Goat or Waterfall video) in both editor and front-end.",
   "category": "widgets",
   "icon": "media-code",
   "supports": { "html": false },
   "style": [ "file:./style.css" ],
-  "textdomain": "hero-video",
   "editorScript": "file:./index.js",
-  "viewScriptModule": [
-    "file:./view.js",
-    "file:./goat.js",
-    "file:./waterfall.js"
-  ]
+  "viewScriptModule": [ "file:./view.js" ],
+  "render": "file:./render.php",
+  "attributes": {
+    "goatId":      { "type": "number", "default": 30646036 },
+    "waterfallId": { "type": "number", "default": 6394054 }
+  }
 }
