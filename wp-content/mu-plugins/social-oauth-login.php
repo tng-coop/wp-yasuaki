@@ -4,69 +4,108 @@
  * Description: Enables Google and GitHub OAuth login & registration on WP login screens,
  *              styled with Bootstrap via esm.sh and custom brand colors, with HEREDOC
  *              separators. Includes enhanced error handling and account linking.
- * Version:     1.5.8
+ * Version:     1.5.9
  * Author:      Your Name
  */
 
-// Prevent direct access
 defined('ABSPATH') || exit;
 
 // -----------------------------------------------------------------------------
 // CONFIG: Fixed redirect URI (must match OAuth provider settings)
 // -----------------------------------------------------------------------------
-define('SOL_OAUTH_REDIRECT_URI', site_url('wp-login.php'));
-
-// -----------------------------------------------------------------------------
-// LOAD CREDENTIALS FROM ENVIRONMENT VARIABLES
-// -----------------------------------------------------------------------------
-$google_client_id     = getenv('GOOGLE_CLIENT_ID');
-$google_client_secret = getenv('GOOGLE_CLIENT_SECRET');
-$github_client_id     = getenv('GITHUB_CLIENT_ID');
-$github_client_secret = getenv('GITHUB_CLIENT_SECRET');
-
-if (!$google_client_id || !$google_client_secret || !$github_client_id || !$github_client_secret) {
-    error_log('Social OAuth Login: Missing OAuth env vars ' .
-        json_encode(compact('google_client_id','google_client_secret','github_client_id','github_client_secret'))
-    );
+if ( ! defined('SOL_OAUTH_REDIRECT_URI') ) {
+    define('SOL_OAUTH_REDIRECT_URI', site_url('wp-login.php'));
 }
 
-// Define constants
-!defined('SOL_GOOGLE_CLIENT_ID')     && define('SOL_GOOGLE_CLIENT_ID', $google_client_id);
-!defined('SOL_GOOGLE_CLIENT_SECRET') && define('SOL_GOOGLE_CLIENT_SECRET', $google_client_secret);
-!defined('SOL_GITHUB_CLIENT_ID')     && define('SOL_GITHUB_CLIENT_ID', $github_client_id);
-!defined('SOL_GITHUB_CLIENT_SECRET') && define('SOL_GITHUB_CLIENT_SECRET', $github_client_secret);
+// -----------------------------------------------------------------------------
+// HELPERS (lazy, only used during login/register)
+// -----------------------------------------------------------------------------
+function sol_is_login_request(): bool {
+    if (defined('WP_CLI') && WP_CLI) return false;
+    if (wp_doing_cron() || wp_doing_ajax()) return false;
+    if (defined('REST_REQUEST') && REST_REQUEST) return false;
+    $script = $_SERVER['SCRIPT_NAME'] ?? '';
+    return (substr($script, -14) === '/wp-login.php') || (basename($script) === 'wp-login.php');
+}
+
+function sol_env($key) {
+    // Read from getenv/$_SERVER/$_ENV or a constant of the same name.
+    $v = getenv($key);
+    if ($v === false && isset($_SERVER[$key])) $v = $_SERVER[$key];
+    if ($v === false && isset($_ENV[$key]))    $v = $_ENV[$key];
+    if ($v === false && defined($key))         $v = constant($key);
+    return $v ?: false;
+}
+
+function sol_get_creds(string $provider): array {
+    $p = strtoupper($provider);
+    return [
+        'id'     => sol_env("{$p}_CLIENT_ID"),
+        'secret' => sol_env("{$p}_CLIENT_SECRET"),
+    ];
+}
+
+function sol_require_creds_or_redirect(string $provider) {
+    $c = sol_get_creds($provider);
+    if ($c['id'] && $c['secret']) return $c;
+
+    // Log only on actual login requests to avoid spam
+    if (sol_is_login_request()) {
+        error_log('Social OAuth Login: Missing OAuth config for ' . $provider . ' ' . json_encode([
+            strtolower("{$provider}_client_id")     => (bool) $c['id'],
+            strtolower("{$provider}_client_secret") => (bool) $c['secret'],
+        ]));
+    }
+
+    // Bounce back to login with a friendly error
+    $login_url = add_query_arg(
+        ['auth_error' => 'missing_config', 'auth_provider' => rawurlencode($provider)],
+        wp_login_url()
+    );
+    wp_safe_redirect($login_url);
+    exit;
+}
 
 // -----------------------------------------------------------------------------
 // ENQUEUE STYLES (login only) with Bootstrap from esm.sh
 // -----------------------------------------------------------------------------
-add_action('login_enqueue_scripts', function() {
+add_action('login_enqueue_scripts', function () {
     wp_enqueue_style('sol-bootstrap-css', 'https://esm.sh/bootstrap@5.3.0/dist/css/bootstrap.min.css', [], null);
 }, 20);
 
 // -----------------------------------------------------------------------------
 // RENDER LOGIN BUTTONS + SEPARATOR
 // -----------------------------------------------------------------------------
-add_filter('login_message', function($message) {
+add_filter('login_message', function ($message) {
     $action = $_GET['action'] ?? 'login';
-    if (! in_array($action, ['login','register'], true)) {
-        return $message;
-    }
+    if (!in_array($action, ['login', 'register'], true)) return $message;
+
     $gurl = sol_get_oauth_url('google');
     $hurl = sol_get_oauth_url('github');
+
     $html  = "<p><a class='btn btn-primary w-100 mb-2' href='" . esc_url($gurl) . "'>Continue with Google</a></p>";
-    $html .= "<p><a class='btn btn-dark w-100 mb-2' href='"   . esc_url($hurl) . "'>Continue with GitHub</a></p>";
+    $html .= "<p><a class='btn btn-dark w-100 mb-2'   href='" . esc_url($hurl) . "'>Continue with GitHub</a></p>";
     $html .= "<div class='d-flex align-items-center my-3'><hr class='flex-grow-1'/><span class='mx-2 text-muted'>OR</span><hr class='flex-grow-1'/></div>";
     return $html . $message;
 });
 
 // -----------------------------------------------------------------------------
-// BUILD OAUTH URL
+// BUILD OAUTH URL (only called on login screen)
 // -----------------------------------------------------------------------------
 function sol_get_oauth_url($provider) {
+    $creds = sol_get_creds($provider);
+    if (!$creds['id']) {
+        // No hard redirect here; just show a link that returns with a message
+        return add_query_arg(
+            ['auth_error' => 'missing_config', 'auth_provider' => rawurlencode($provider)],
+            wp_login_url()
+        );
+    }
+
     if ($provider === 'google') {
         $base   = 'https://accounts.google.com/o/oauth2/v2/auth';
         $params = [
-            'client_id'     => SOL_GOOGLE_CLIENT_ID,
+            'client_id'     => $creds['id'],
             'redirect_uri'  => SOL_OAUTH_REDIRECT_URI,
             'response_type' => 'code',
             'scope'         => 'openid email profile',
@@ -77,14 +116,16 @@ function sol_get_oauth_url($provider) {
     } else {
         $base   = 'https://github.com/login/oauth/authorize';
         $params = [
-            'client_id'    => SOL_GITHUB_CLIENT_ID,
+            'client_id'    => $creds['id'],
             'redirect_uri' => SOL_OAUTH_REDIRECT_URI,
             'scope'        => 'read:user user:email',
             'state'        => 'github',
         ];
     }
+
     $url = add_query_arg($params, $base);
-    error_log(sprintf('Social OAuth Login: Generated %s URL: %s', $provider, $url));
+    // Safe to log (contains client_id but not secret)
+    error_log(sprintf('Social OAuth Login: Generated %s URL', $provider));
     return $url;
 }
 
@@ -105,39 +146,35 @@ function sol_log_login_attempt($provider, $email, $status, $extra = '') {
         $status,
         $extra
     );
-
-    // PHP error log
     error_log('Social OAuth Login Attempt: ' . $log_entry);
-
-    // Optional: also write to a dedicated file. Uncomment if desired.
+    // Optional dedicated file:
     // @file_put_contents(WP_CONTENT_DIR . '/sol-login.log', $log_entry . PHP_EOL, FILE_APPEND | LOCK_EX);
 }
 
 // -----------------------------------------------------------------------------
-// HANDLE OAUTH CALLBACK
+// HANDLE OAUTH CALLBACK (runs during wp-login.php only)
 // -----------------------------------------------------------------------------
 add_action('login_init', 'sol_handle_callback');
 function sol_handle_callback() {
-    // Only handle OAuth callbacks that include state+code
-    if (empty($_GET['state']) || empty($_GET['code'])) {
-        return;
-    }
+    if (empty($_GET['state']) || empty($_GET['code'])) return;
 
     $provider = sanitize_text_field(wp_unslash($_GET['state']));
     $code     = sanitize_text_field(wp_unslash($_GET['code']));
 
-    $token    = sol_exchange_code_for_token($provider, $code);
-    if (! $token) {
-        // Could not exchange code for token
+    // Ensure credentials exist (will redirect with error if not)
+    $creds = sol_require_creds_or_redirect($provider);
+
+    $token = sol_exchange_code_for_token($provider, $code, $creds);
+    if (!$token) {
         sol_log_login_attempt($provider, '', 'failure', 'no_token');
         error_log('Social OAuth Login: No token for ' . $provider);
         return;
     }
 
     $profile = sol_fetch_user_profile($provider, $token);
-    error_log(print_r($profile, true));
+    error_log('Social OAuth Login: Retrieved profile for ' . $provider);
 
-    if ($provider==='google' && isset($profile->sub)) {
+    if ($provider === 'google' && isset($profile->sub)) {
         $profile->id = $profile->sub;
     }
     if (empty($profile->id)) {
@@ -147,24 +184,22 @@ function sol_handle_callback() {
     }
 
     $uid = sol_find_or_create_wp_user($provider, $profile);
-    if ( is_wp_error( $uid ) ) {
-        // Redirect back to login with error code *and* the attempted email
-        $code_err  = $uid->get_error_code(); // e.g. 'email_not_approved'
-        $email     = sanitize_email( $profile->email ?? '' );
+    if (is_wp_error($uid)) {
+        $code_err = $uid->get_error_code(); // e.g. 'email_not_approved'
+        $email    = sanitize_email($profile->email ?? '');
 
         sol_log_login_attempt($provider, $email, 'failure', $code_err);
 
         $login_url = add_query_arg(
-            [ 'auth_error' => $code_err, 'auth_email' => rawurlencode($email) ],
+            ['auth_error' => $code_err, 'auth_email' => rawurlencode($email)],
             wp_login_url()
         );
-        wp_safe_redirect( $login_url );
+        wp_safe_redirect($login_url);
         exit;
     }
 
     // Success
     sol_log_login_attempt($provider, $profile->email ?? '', 'success', 'user_id=' . $uid);
-
     wp_set_current_user($uid);
     wp_set_auth_cookie($uid);
     wp_redirect(home_url());
@@ -172,30 +207,42 @@ function sol_handle_callback() {
 }
 
 // -----------------------------------------------------------------------------
-// EXCHANGE CODE FOR TOKEN
+// EXCHANGE CODE FOR TOKEN (no secrets in logs)
 // -----------------------------------------------------------------------------
-function sol_exchange_code_for_token($provider, $code) {
-    $endpoint = $provider==='google'
+function sol_exchange_code_for_token($provider, $code, array $creds) {
+    $endpoint = ($provider === 'google')
         ? 'https://oauth2.googleapis.com/token'
         : 'https://github.com/login/oauth/access_token';
+
     $fields = [
         'code'          => $code,
-        'client_id'     => constant('SOL_' . strtoupper($provider) . '_CLIENT_ID'),
-        'client_secret' => constant('SOL_' . strtoupper($provider) . '_CLIENT_SECRET'),
+        'client_id'     => $creds['id'],
+        'client_secret' => $creds['secret'],
     ];
-    if ($provider==='google') {
+    if ($provider === 'google') {
         $fields['redirect_uri'] = SOL_OAUTH_REDIRECT_URI;
         $fields['grant_type']   = 'authorization_code';
     }
-    error_log('Social OAuth Login: Token request for ' . $provider . ': ' . json_encode($fields));
-    $resp = wp_remote_post($endpoint, ['body'=>$fields,'headers'=>['Accept'=>'application/json'],'timeout'=>15]);
+
+    // Log without secrets
+    $log_fields = $fields;
+    unset($log_fields['client_secret']);
+    error_log('Social OAuth Login: Token request for ' . $provider . ': ' . json_encode($log_fields));
+
+    $resp = wp_remote_post($endpoint, [
+        'body'    => $fields,
+        'headers' => ['Accept' => 'application/json'],
+        'timeout' => 15,
+    ]);
     if (is_wp_error($resp)) {
         error_log('Social OAuth Login: HTTP error: ' . $resp->get_error_message());
         return null;
     }
-    $body = wp_remote_retrieve_body($resp);
-    error_log('Social OAuth Login: Token response ' . $provider . ' HTTP ' . wp_remote_retrieve_response_code($resp) . ': ' . $body);
-    $data = json_decode($body,true);
+    $code_http = wp_remote_retrieve_response_code($resp);
+    $body      = wp_remote_retrieve_body($resp);
+    error_log('Social OAuth Login: Token response ' . $provider . ' HTTP ' . $code_http);
+
+    $data = json_decode($body, true);
     return $data['access_token'] ?? null;
 }
 
@@ -203,24 +250,18 @@ function sol_exchange_code_for_token($provider, $code) {
 // FETCH USER PROFILE
 // -----------------------------------------------------------------------------
 function sol_fetch_user_profile($provider, $token) {
-    if ($provider==='github') {
+    if ($provider === 'github') {
         $resp = wp_remote_get('https://api.github.com/user', [
-            'headers'=>[
-                'Authorization'=>'token ' . $token,
-                'User-Agent'=>'WP-SOL'
-            ],
-            'timeout'=>15,
+            'headers' => ['Authorization' => 'token ' . $token, 'User-Agent' => 'WP-SOL'],
+            'timeout' => 15,
         ]);
         $profile = json_decode(wp_remote_retrieve_body($resp));
         if (empty($profile->email)) {
             $resp2 = wp_remote_get('https://api.github.com/user/emails', [
-                'headers'=>[
-                    'Authorization'=>'token ' . $token,
-                    'User-Agent'=>'WP-SOL'
-                ],
-                'timeout'=>15,
+                'headers' => ['Authorization' => 'token ' . $token, 'User-Agent' => 'WP-SOL'],
+                'timeout' => 15,
             ]);
-            $emails = json_decode(wp_remote_retrieve_body($resp2),true);
+            $emails = json_decode(wp_remote_retrieve_body($resp2), true);
             if (is_array($emails)) {
                 foreach ($emails as $e) {
                     if (!empty($e['primary']) && !empty($e['verified'])) {
@@ -232,7 +273,11 @@ function sol_fetch_user_profile($provider, $token) {
         }
         return $profile;
     }
-    $resp = wp_remote_get('https://www.googleapis.com/oauth2/v3/userinfo', ['headers'=>['Authorization'=>'Bearer ' . $token],'timeout'=>15]);
+
+    $resp = wp_remote_get('https://www.googleapis.com/oauth2/v3/userinfo', [
+        'headers' => ['Authorization' => 'Bearer ' . $token],
+        'timeout' => 15,
+    ]);
     return json_decode(wp_remote_retrieve_body($resp));
 }
 
@@ -240,27 +285,30 @@ function sol_fetch_user_profile($provider, $token) {
 // FIND, LINK, OR CREATE WP USER (ALLOW DUPLICATE EMAILS)
 // -----------------------------------------------------------------------------
 function sol_find_or_create_wp_user($provider, $profile) {
-    $profile_id = sanitize_text_field($profile->id);
+    $profile_id    = sanitize_text_field($profile->id);
     $provider_login = "{$provider}_" . $profile_id;
+
     if ($user = get_user_by('login', $provider_login)) {
         return $user->ID;
     }
 
-    // 2) Create a new WP user only if the email is approved
-    $email    = sanitize_email($profile->email ?? '');
-    if (! empty($email) && function_exists('ael_is_email_approved') && ! ael_is_email_approved($email)) {
+    $email = sanitize_email($profile->email ?? '');
+    if (!empty($email) && function_exists('ael_is_email_approved') && !ael_is_email_approved($email)) {
         return new WP_Error('email_not_approved', 'This email address is not approved.');
     }
+
     $password = wp_generate_password();
     $uid      = wp_create_user($provider_login, $password, $email);
-    if (is_wp_error($uid)) {
-        return $uid;
-    }
+    if (is_wp_error($uid)) return $uid;
 
-    // 3) Set meta
     if (!empty($profile->name)) {
         list($first, $last) = array_pad(explode(' ', sanitize_text_field($profile->name), 2), 2, '');
-        wp_update_user([ 'ID' => $uid, 'first_name' => $first, 'last_name' => $last, 'display_name' => trim("$first $last") ]);
+        wp_update_user([
+            'ID'           => $uid,
+            'first_name'   => $first,
+            'last_name'    => $last,
+            'display_name' => trim("$first $last"),
+        ]);
     }
     if (!empty($profile->avatar_url)) {
         update_user_meta($uid, 'profile_picture', esc_url_raw($profile->avatar_url));
@@ -270,25 +318,33 @@ function sol_find_or_create_wp_user($provider, $profile) {
 }
 
 // -----------------------------------------------------------------------------
-// CONVERT ?auth_error=… INTO A REAL WP_Error FOR NATIVE DISPLAY
+// SURFACE FRIENDLY ERRORS ON LOGIN SCREEN
 // -----------------------------------------------------------------------------
 add_filter('wp_login_errors', function (WP_Error $errors) {
-    if ( isset( $_GET['auth_error'] ) && 'email_not_approved' === $_GET['auth_error'] ) {
-        // Grab the email we passed
-        $email = isset( $_GET['auth_email'] )
-            ? sanitize_email( wp_unslash( $_GET['auth_email'] ) )
-            : '';
-
-        // Build a message including it
-        $msg = $email
+    if (isset($_GET['auth_error']) && 'email_not_approved' === $_GET['auth_error']) {
+        $email = isset($_GET['auth_email']) ? sanitize_email(wp_unslash($_GET['auth_email'])) : '';
+        $msg   = $email
             ? sprintf(
                 /* translators: %s = attempted email address */
-                __( 'The email address <strong>%s</strong> is not approved for registration.', 'social-oauth-login' ),
-                esc_html( $email )
+                __('The email address <strong>%s</strong> is not approved for registration.', 'social-oauth-login'),
+                esc_html($email)
             )
-            : __( 'This email address is not approved for registration.', 'social-oauth-login' );
-
-        $errors->add( 'email_not_approved', wp_kses_post( $msg ) );
+            : __('This email address is not approved for registration.', 'social-oauth-login');
+        $errors->add('email_not_approved', wp_kses_post($msg));
     }
+
+    if (isset($_GET['auth_error']) && 'missing_config' === $_GET['auth_error']) {
+        $provider = isset($_GET['auth_provider']) ? esc_html(sanitize_text_field(wp_unslash($_GET['auth_provider']))) : '';
+        $provider_label = $provider ? ucfirst($provider) : __('OAuth', 'social-oauth-login');
+        $errors->add(
+            'missing_config',
+            wp_kses_post(sprintf(
+                /* translators: %s = provider name */
+                __('<strong>%s login isn’t available.</strong> The site’s OAuth credentials are not configured.', 'social-oauth-login'),
+                $provider_label
+            ))
+        );
+    }
+
     return $errors;
-}, 10, 1 );
+}, 10, 1);
