@@ -1,0 +1,22 @@
+.kanagawa-office-map-container {
+  position: relative;
+  overflow: hidden;
+  width: 100%;
+  height: 500px;
+}
+
+.hexbin { fill: steelblue; fill-opacity: 0.6; stroke: white; stroke-width: 1; }
+/* .boundary { fill: none; stroke: red; stroke-width: 2; } */
+.label-text {
+  color: white;
+  background: rgba(0,0,0,0.5);
+  padding: 2px 4px;
+  border-radius: 4px;
+  font-weight: bold;
+}
+.hex-label {
+  fill: white;
+  font-size: 10px;
+  font-weight: bold;
+  pointer-events: none;
+}
