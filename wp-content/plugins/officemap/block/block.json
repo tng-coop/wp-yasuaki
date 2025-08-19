@@ -7,7 +7,7 @@
   "icon": "location",
   "supports": { "html": false },
   "style": [ "file:./style.css" ],
-  "editorScript": "file:./index.js",
-  "viewScriptModule": [ "file:./view.js" ],
+  "editorScriptModule": "file:./index.js",
+  "viewScriptModule": "file:./view.js",
   "render": "file:./render.php"
 }
