@@ -1,0 +1,15 @@
+<?php
+/**
+ * MU: Shared ESM
+ * Registers a shared module handle for other modules to depend on.
+ */
+defined('ABSPATH') || exit;
+
+add_action('init', function () {
+  if (!function_exists('wp_register_script_module')) return; // WP < 6.5 guard
+  wp_register_script_module(
+    'shared/preload',                                           // handle used by consumers
+    content_url('mu-plugins/shared-esm/preload.js'),            // public URL (carved-out)
+    []                                                          // deps
+  );
+});
