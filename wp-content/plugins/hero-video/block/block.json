@@ -9,7 +9,12 @@
   "editorScript": "file:./index.js",
   "render": "file:./render.php",
   "attributes": {
-    "goatId": { "type": "number", "default": 30646036 },
-    "waterfallId": { "type": "number", "default": 6394054 }
+    "config": {
+      "type": "object",
+      "default": {
+        "pexelVideos": [6394054, 30646036],
+        "transition": 3
+      }
+    }
   }
 }
