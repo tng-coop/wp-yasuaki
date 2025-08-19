@@ -1,6 +1,28 @@
+// === view.js ===
 import { preloadAndSwap } from 'shared/preload';
 
 const CACHE = 'hero-video-cache-v3';
+
+// --- NEW: metadata cache constants ---
+const META_CACHE = 'hero-video-meta-v1';
+const META_TTL_MS = 24 * 60 * 60 * 1000; // 1 day
+
+// --- NEW: helpers for wrapping cache entries ---
+function makeMetaResponse(json) {
+  return new Response(JSON.stringify({ __ts: Date.now(), payload: json }), {
+    headers: { 'Content-Type': 'application/json' }
+  });
+}
+async function readMetaResponse(res) {
+  const data = await res.clone().json().catch(() => null);
+  if (data && typeof data === 'object' && data.__ts && 'payload' in data) {
+    return { ts: data.__ts, payload: data.payload };
+  }
+  return { ts: Date.now(), payload: data };
+}
+function metaRequest(url) {
+  return new Request(url, { method: 'GET' });
+}
 
 // --------- utils ----------
 function clamp(n, min, max) { return Math.max(min, Math.min(max, n)); }
@@ -13,16 +35,48 @@ function apiRootFromVideo(apiBase) {
   if (/\/pexels-proxy\/v1\/video$/.test(apiBase)) return apiBase.replace(/\/video$/, '');
   return apiBase.replace(/\/video$/, '');
 }
+
+// --------- UPDATED getBestSrc with metadata caching ----------
 async function getBestSrc(apiBase, id) {
   const root = apiRootFromVideo(apiBase);
   const { cssW, dpr } = targetWidth();
   const url = `${root}/video-src?id=${encodeURIComponent(id)}&w=${cssW}&dpr=${dpr}&types=video/mp4&json=1`;
+
+  let cache;
+  try { cache = await caches.open(META_CACHE); } catch {
+    // fallback if CacheStorage unavailable
+    const res = await fetch(url, { cache: 'no-store' });
+    if (!res.ok) throw new Error(`Failed to get best src (${res.status})`);
+    const data = await res.json();
+    if (!data?.src) throw new Error('Proxy returned no src');
+    return data.src;
+  }
+
+  const req = metaRequest(url);
+  const cached = await cache.match(req);
+
+  if (cached) {
+    const { ts, payload } = await readMetaResponse(cached);
+    // background refresh if stale
+    if ((Date.now() - ts) > META_TTL_MS) {
+      fetch(url, { cache: 'no-store' })
+        .then(r => r.ok ? r.json() : Promise.reject(r))
+        .then(json => cache.put(req, makeMetaResponse(json)))
+        .catch(()=>{});
+    }
+    if (!payload?.src) throw new Error('Proxy returned no src (cached)');
+    return payload.src;
+  }
+
+  // cache miss
   const res = await fetch(url, { cache: 'no-store' });
   if (!res.ok) throw new Error(`Failed to get best src (${res.status})`);
   const data = await res.json();
   if (!data?.src) throw new Error('Proxy returned no src');
+  try { await cache.put(req, makeMetaResponse(data)); } catch {}
   return data.src;
 }
+
 function debounce(fn, ms) { let t; return (...a) => { clearTimeout(t); t = setTimeout(() => fn(...a), ms); }; }
 
 // --------- per-instance player ----------
