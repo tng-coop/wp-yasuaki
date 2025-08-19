@@ -1,14 +1,20 @@
 # === Block any dot-path (files or directories), except /.well-known/ ===
 <IfModule mod_rewrite.c>
   RewriteEngine On
-  # If any segment begins with a dot, deny (but allow ACME challenges)
+
+  # Block dot paths (except .well-known)
   RewriteCond %{REQUEST_URI} "(^|/)\.(?!well-known/)" [NC]
   RewriteRule .* - [F]
 
-  # ⬇️ NEW: Block direct HTTP access to MU plugins directory (still loads via PHP internally)
-  RewriteRule ^wp-content/mu-plugins/ - [F,L]
-</IfModule>
+  # Allow just preload.js under mu-plugins
+  RewriteRule ^wp-content/mu-plugins/shared-esm/preload\.js$ - [L]
 
+  # Block everything else under mu-plugins
+  RewriteRule ^wp-content/mu-plugins/ - [F,L]
+
+  # Block PHP in wp-includes
+  RewriteRule ^wp-includes/[^/]+\.php$ - [F]
+</IfModule>
 # Belt-and-suspenders: block .git explicitly
 RedirectMatch 404 "(^|/)\.git(/|$)"
 
@@ -36,21 +42,6 @@ RedirectMatch 404 "(^|/)\.git(/|$)"
 #    Option A: block directory listing globally (recommended site-wide)
 Options -Indexes
 
-# === Harden WordPress front door ===
-<IfModule mod_rewrite.c>
-  RewriteEngine On
-
-  # Block any dot-path (except ACME)
-  RewriteCond %{REQUEST_URI} "(^|/)\.(?!well-known/)" [NC]
-  RewriteRule .* - [F]
-
-  # Block direct HTTP access to MU plugins
-  RewriteRule ^wp-content/mu-plugins/ - [F,L]
-
-
-  # Block PHP in wp-includes (public shouldn’t run these directly)
-  RewriteRule ^wp-includes/[^/]+\.php$ - [F]
-</IfModule>
 
 # No .git ever
 RedirectMatch 404 "(^|/)\.git(/|$)"
