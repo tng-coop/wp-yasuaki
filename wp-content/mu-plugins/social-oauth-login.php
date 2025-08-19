@@ -4,7 +4,7 @@
  * Description: Enables Google and GitHub OAuth login & registration on WP login screens,
  *              styled with Bootstrap via esm.sh and custom brand colors, with HEREDOC
  *              separators. Includes enhanced error handling and account linking.
- * Version:     1.5.7
+ * Version:     1.5.8
  * Author:      Your Name
  */
 
@@ -89,26 +89,59 @@ function sol_get_oauth_url($provider) {
 }
 
 // -----------------------------------------------------------------------------
+// LOGIN LOGGING: record who attempted to log in and status
+// -----------------------------------------------------------------------------
+function sol_log_login_attempt($provider, $email, $status, $extra = '') {
+    $provider = sanitize_text_field($provider);
+    $email    = sanitize_email($email ?: '');
+    $status   = strtoupper(sanitize_text_field($status));
+    $extra    = is_scalar($extra) ? sanitize_text_field((string) $extra) : '';
+
+    $log_entry = sprintf(
+        '[%s] Provider:%s | Email:%s | Status:%s | Extra:%s',
+        gmdate('Y-m-d H:i:s'),
+        $provider ?: 'unknown',
+        $email ?: 'N/A',
+        $status,
+        $extra
+    );
+
+    // PHP error log
+    error_log('Social OAuth Login Attempt: ' . $log_entry);
+
+    // Optional: also write to a dedicated file. Uncomment if desired.
+    // @file_put_contents(WP_CONTENT_DIR . '/sol-login.log', $log_entry . PHP_EOL, FILE_APPEND | LOCK_EX);
+}
+
+// -----------------------------------------------------------------------------
 // HANDLE OAUTH CALLBACK
 // -----------------------------------------------------------------------------
 add_action('login_init', 'sol_handle_callback');
 function sol_handle_callback() {
+    // Only handle OAuth callbacks that include state+code
     if (empty($_GET['state']) || empty($_GET['code'])) {
         return;
     }
+
     $provider = sanitize_text_field(wp_unslash($_GET['state']));
     $code     = sanitize_text_field(wp_unslash($_GET['code']));
+
     $token    = sol_exchange_code_for_token($provider, $code);
     if (! $token) {
+        // Could not exchange code for token
+        sol_log_login_attempt($provider, '', 'failure', 'no_token');
         error_log('Social OAuth Login: No token for ' . $provider);
         return;
     }
+
     $profile = sol_fetch_user_profile($provider, $token);
     error_log(print_r($profile, true));
+
     if ($provider==='google' && isset($profile->sub)) {
         $profile->id = $profile->sub;
     }
     if (empty($profile->id)) {
+        sol_log_login_attempt($provider, $profile->email ?? '', 'failure', 'missing_profile_id');
         error_log('Social OAuth Login: Missing profile ID for ' . $provider);
         return;
     }
@@ -116,15 +149,21 @@ function sol_handle_callback() {
     $uid = sol_find_or_create_wp_user($provider, $profile);
     if ( is_wp_error( $uid ) ) {
         // Redirect back to login with error code *and* the attempted email
-        $code      = $uid->get_error_code(); // e.g. 'email_not_approved'
-        $email     = rawurlencode( sanitize_email( $profile->email ?? '' ) );
+        $code_err  = $uid->get_error_code(); // e.g. 'email_not_approved'
+        $email     = sanitize_email( $profile->email ?? '' );
+
+        sol_log_login_attempt($provider, $email, 'failure', $code_err);
+
         $login_url = add_query_arg(
-            [ 'auth_error' => $code, 'auth_email' => $email ],
+            [ 'auth_error' => $code_err, 'auth_email' => rawurlencode($email) ],
             wp_login_url()
         );
         wp_safe_redirect( $login_url );
         exit;
     }
+
+    // Success
+    sol_log_login_attempt($provider, $profile->email ?? '', 'success', 'user_id=' . $uid);
 
     wp_set_current_user($uid);
     wp_set_auth_cookie($uid);
@@ -182,10 +221,12 @@ function sol_fetch_user_profile($provider, $token) {
                 'timeout'=>15,
             ]);
             $emails = json_decode(wp_remote_retrieve_body($resp2),true);
-            foreach ($emails as $e) {
-                if (!empty($e['primary']) && !empty($e['verified'])) {
-                    $profile->email = $e['email'];
-                    break;
+            if (is_array($emails)) {
+                foreach ($emails as $e) {
+                    if (!empty($e['primary']) && !empty($e['verified'])) {
+                        $profile->email = $e['email'];
+                        break;
+                    }
                 }
             }
         }
