@@ -1,0 +1,235 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Fit-Image CPT Demo (with tooltips)</title>
+
+  <style>
+    html, body { height: 100%; margin: 0; }
+    body { display: flex; flex-direction: column; min-height: 100dvh; font-family: system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif; }
+    two-pane-split-lit { flex: 1; min-height: 0; overflow: hidden; }
+    .fit-image-large { display: block; width: 100%; height: 100%; box-sizing: border-box; }
+    [slot="a"] { position: relative; }
+    .panel { box-sizing: border-box; padding: 12px 14px; line-height: 1.35; font-size: 14px; background: #fff; color: #111; height: 100%; overflow: auto; }
+    .panel h3 { margin: 0 0 8px 0; font-size: 16px; }
+    .panel .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px 12px; align-items: center; }
+    .panel label { display: contents; }
+    .panel .row { display: flex; gap: 8px; align-items: center; margin: 8px 0; flex-wrap: wrap; }
+    .panel input[type="range"] { width: 100%; }
+    .panel .stats { margin-top: 10px; color: #444; display: flex; gap: 12px; flex-wrap: wrap; }
+    .panel button { appearance: none; border: 1px solid #d0d7de; background: #f6f8fa; padding: 6px 10px; border-radius: 8px; cursor: pointer; }
+    .panel button:active { transform: translateY(1px); }
+    .panel select, .panel input[type="number"] { padding: 4px 6px; border-radius: 6px; border: 1px solid #d0d7de; background: #fff; }
+    .muted { color: #666; } .ok { color: #0a7; } .warn { color: #b60; } .err { color: #c00; }
+  </style>
+
+  <script type="module" src="./two-pane-split-lit.js"></script>
+  <script type="module" src="./fit-image.js"></script>
+</head>
+<body>
+  <two-pane-split-lit orientation="auto" min-size="160" gutter-desktop="10" gutter-touch="22" initial-first-pane-ratio="1.25">
+    <div slot="a">
+      <fit-image class="fit-image-large" data-fit-top
+        lon-min="139.0045" lon-max="139.7762"
+        lat-min="35.1189"  lat-max="35.6518"
+        projection="mercator">
+        <img src="kanagawa_sat_cropped_z10.png" alt="Kanagawa crop">
+        <svg id="svg-overlay"></svg>
+      </fit-image>
+    </div>
+    <div slot="b">
+      <div class="panel">
+        <h3>Overlay controls</h3>
+        <div class="row">
+          <button id="btnLoad">Load offices (CPT)</button>
+          <button id="btnClear">Clear</button>
+          <span id="lblStatus" class="muted"></span>
+        </div>
+
+        <div class="grid" style="margin-top:6px">
+          <label>Projection
+            <select id="selProjection">
+              <option value="mercator" selected>Mercator</option>
+              <option value="linear">Linear</option>
+            </select>
+          </label>
+
+          <label>Grid
+            <select id="selGrid">
+              <option value="hex" selected>Hex</option>
+              <option value="square">Square</option>
+              <option value="brick">Brick</option>
+              <option value="tri">Triangular</option>
+            </select>
+          </label>
+
+          <label>Marker
+            <select id="selMarker">
+              <option value="auto" selected>Auto</option>
+              <option value="hex">Hex</option>
+              <option value="square">Square</option>
+              <option value="triangle">Triangle</option>
+              <option value="circle">Circle</option>
+            </select>
+          </label>
+
+          <label>Tooltip
+            <select id="selTooltip">
+              <option value="native" selected>Native &lt;title&gt;</option>
+              <option value="html">HTML tooltip</option>
+              <option value="none">None</option>
+            </select>
+          </label>
+
+          <label>Density (unitPct)
+            <div>
+              <input id="rngUnit" type="range" min="0.02" max="0.10" step="0.005" value="0.05">
+              <div class="muted">value: <output id="outUnit">0.05</output></div>
+            </div>
+          </label>
+
+          <label>Fill
+            <div class="row">
+              <input id="inpFill" type="color" value="#53b6dd" />
+              <span class="muted">α</span>
+              <input id="inpAlpha" type="range" min="0" max="1" step="0.05" value="0.2">
+              <output id="outAlpha" class="muted">0.2</output>
+            </div>
+          </label>
+
+          <label>Stroke
+            <div class="row">
+              <input id="inpStroke" type="color" value="#ffffff" />
+              <span class="muted">w</span>
+              <input id="inpStrokeW" type="number" min="0" max="10" step="1" value="3" style="width:72px">
+            </div>
+          </label>
+        </div>
+
+        <div class="row" style="margin-top:8px">
+          <label><input id="chkAuto" type="checkbox" checked> Auto-apply on change</label>
+          <button id="btnApply">Redraw</button>
+        </div>
+        <div class="stats">
+          <span id="lblLoaded">loaded: 0</span>
+          <span id="lblSnapped">snapped: 0</span>
+        </div>
+      </div>
+    </div>
+  </two-pane-split-lit>
+
+  <script type="module">
+    const split = document.querySelector('two-pane-split-lit');
+    const fi    = document.querySelector('fit-image');
+    window.split = split; window.fi = fi;
+
+    const getFitImages = () => split.querySelectorAll('fit-image');
+    split.onOverlaysSuspend = () => { for (const el of getFitImages()) el.dispatchEvent(new CustomEvent('fit-image:toggle-overlay',{detail:{visible:false},bubbles:true,composed:true})); };
+    split.onOverlaysResume  = () => { for (const el of getFitImages()) requestAnimationFrame(()=>requestAnimationFrame(()=>{
+      el.dispatchEvent(new CustomEvent('fit-image:toggle-overlay',{detail:{visible:true},bubbles:true,composed:true}));
+      el.dispatchEvent(new CustomEvent('fit-image:redraw-overlay',{bubbles:true,composed:true}));
+    })); };
+
+    const $ = s => document.querySelector(s);
+    const selProjection = $('#selProjection');
+    const selGrid       = $('#selGrid');
+    const selMarker     = $('#selMarker');
+    const selTooltip    = $('#selTooltip');
+    const rngUnit       = $('#rngUnit');
+    const outUnit       = $('#outUnit');
+    const inpFill       = $('#inpFill');
+    const inpAlpha      = $('#inpAlpha');
+    const outAlpha      = $('#outAlpha');
+    const inpStroke     = $('#inpStroke');
+    const inpStrokeW    = $('#inpStrokeW');
+    const chkAuto       = $('#chkAuto');
+    const lblLoaded     = $('#lblLoaded');
+    const lblSnapped    = $('#lblSnapped');
+    const lblStatus     = $('#lblStatus');
+    const btnApply      = $('#btnApply');
+    const btnLoad       = $('#btnLoad');
+    const btnClear      = $('#btnClear');
+
+    const CPT_BASE = 'https://yasuaki.com/wp-json/wp/v2/office-cpt';
+    window._officesLL = [];
+    window.redraw = (opts={}) => fi.setOverlayPointsLonLat(window._officesLL, opts);
+
+    function hexToRgba(hex, a){ const m=/^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex); if(!m) return hex;
+      const r=parseInt(m[1],16), g=parseInt(m[2],16), b=parseInt(m[3],16); return `rgba(${r},${g},${b},${a})`; }
+
+    function getOpts(){
+      return {
+        grid: selGrid.value,
+        marker: selMarker.value,
+        unitPct: parseFloat(rngUnit.value),
+        fill: hexToRgba(inpFill.value, parseFloat(inpAlpha.value)),
+        stroke: inpStroke.value,
+        strokeW: parseFloat(inpStrokeW.value),
+        tooltip: selTooltip.value
+      };
+    }
+
+    function apply(optsOverride){
+      const opts = optsOverride || getOpts();
+      fi.setAttribute('projection', selProjection.value);
+      if (window._officesLL.length) {
+        fi.setOverlayPointsLonLat(window._officesLL, opts);
+        lblStatus.textContent = 'redrawn'; lblStatus.className = 'ok';
+      } else { lblStatus.textContent = 'no points loaded'; lblStatus.className = 'warn'; }
+    }
+
+    function onAnyChange(){ outUnit.value = rngUnit.value; outAlpha.value = inpAlpha.value; if (chkAuto.checked) apply(); }
+    [selProjection, selGrid, selMarker, selTooltip, rngUnit, inpFill, inpAlpha, inpStroke, inpStrokeW, chkAuto].forEach(el=>el.addEventListener('input', onAnyChange));
+    btnApply.addEventListener('click', ()=>apply());
+
+    btnClear.addEventListener('click', ()=>{
+      window._officesLL = []; fi.setOverlayPointsLonLat([]); lblLoaded.textContent='loaded: 0'; lblSnapped.textContent='snapped: 0';
+      lblStatus.textContent='cleared'; lblStatus.className='muted';
+    });
+
+    fi.addEventListener('fit-image:overlay-updated', e => {
+      const n = e?.detail?.snapped?.length || 0; lblSnapped.textContent = `snapped: ${n}`;
+    });
+
+    async function fetchAllOffices(baseUrl){
+      const perPage=100; let page=1, out=[];
+      for(;;){
+        const res=await fetch(`${baseUrl}?per_page=${perPage}&page=${page}`,{mode:'cors'}); if(!res.ok) break;
+        const items=await res.json(); out=out.concat(items);
+        const totalPages=Number(res.headers.get('X-WP-TotalPages')||1);
+        if(page>=totalPages||!items.length) break; page++;
+      } return out;
+    }
+    function toLonLatPoints(items,bbox){
+      const {lonMin,lonMax,latMin,latMax}=bbox||{};
+      return items.map(it=>({
+        lon: Number(it?.data?.location?.lon),
+        lat: Number(it?.data?.location?.lat),
+        label: it?.data?.Office || it?.title?.rendered || 'Office'
+      }))
+      .filter(p=>Number.isFinite(p.lon)&&Number.isFinite(p.lat))
+      .filter(p=>![lonMin,lonMax,latMin,latMax].every(Number.isFinite) || (p.lon>=lonMin&&p.lon<=lonMax&&p.lat>=latMin&&p.lat<=latMax));
+    }
+
+    async function loadCPTAndDraw(){
+      try{
+        lblStatus.textContent='loading…'; lblStatus.className='muted';
+        const bbox={ lonMin:+fi.getAttribute('lon-min'), lonMax:+fi.getAttribute('lon-max'), latMin:+fi.getAttribute('lat-min'), latMax:+fi.getAttribute('lat-max') };
+        const items = await fetchAllOffices(CPT_BASE);
+        window._officesLL = toLonLatPoints(items, bbox);
+        lblLoaded.textContent = `loaded: ${window._officesLL.length}`;
+        lblStatus.textContent = 'ready'; lblStatus.className = 'ok';
+        apply(); // draw with current controls
+      }catch(err){ console.error(err); lblStatus.textContent='load failed'; lblStatus.className='err'; }
+    }
+    btnLoad.addEventListener('click', loadCPTAndDraw);
+
+    await customElements.whenDefined('fit-image');
+    // auto-load once the viewport has a size
+    const once = () => { fi.removeEventListener('fit-image:viewport-transform', once); loadCPTAndDraw(); };
+    fi.addEventListener('fit-image:viewport-transform', once, { once: true });
+  </script>
+</body>
+</html>
+

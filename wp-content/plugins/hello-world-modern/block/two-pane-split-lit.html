@@ -1,0 +1,99 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <!-- Fill the viewport; host uses dynamic vh; inner content uses % -->
+  <style>
+    html, body { height: 100%; margin: 0; }
+
+    body {
+      display: flex;
+      flex-direction: column;  /* header on top, split below */
+      min-height: 100dvh;      /* optional, for mobile chrome behavior */
+    }
+
+    two-pane-split-lit {
+      flex: 1;
+      min-height: 0;           /* crucial so it can actually shrink */
+      overflow: hidden;        /* prevents double scrollbars */
+    }
+
+    .fit-image-large {
+      display: block;
+      width: 100%;
+      height: 100%;            /* fill the pane, not the viewport */
+      box-sizing: border-box;
+    }
+
+    /* Make the first-pane container a positioning context */
+    [slot="a"] { position: relative; }
+  </style>
+
+  <script type="module" src="./two-pane-split-lit.js"></script>
+  <script type="module" src="./fit-image.js"></script>
+</head>
+<body>
+  <p>fsadas</p>
+  <two-pane-split-lit
+    orientation="auto"
+    min-size="120"
+    gutter-desktop="10"
+    gutter-touch="22"
+    initial-first-pane-ratio="1.2"
+  >
+    <div slot="a">
+      <!-- Opt-in to exact px syncing for the top pane if vertical -->
+      <fit-image class="fit-image-large" data-fit-top>
+        <img src="kanagawa_sat_cropped_z10.png" alt="Example">
+        <svg id="svg-overlay"></svg>
+      </fit-image>
+    </div>
+
+    <div slot="b">
+      hello
+    </div>
+  </two-pane-split-lit>
+
+  <script type="module">
+    const split = document.querySelector("two-pane-split-lit");
+
+    // Helper to target all <fit-image> within this split
+    const getFitImages = () => split.querySelectorAll("fit-image");
+
+    // Turn OFF overlays during drag/resize
+    split.onOverlaysSuspend = () => {
+      for (const fi of getFitImages()) {
+        fi.dispatchEvent(new CustomEvent("fit-image:toggle-overlay", {
+          detail: { visible: false },
+          bubbles: true,
+          composed: true
+        }));
+      }
+    };
+
+    // Turn ON overlays after layout settles, and request a fresh draw
+// two-pane-split-lit.html (script)
+split.onOverlaysResume = () => {
+  for (const fi of getFitImages()) {
+
+    // Let layout settle: 2x rAF beats resize/RO scheduling without guessing 1s
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+    fi.dispatchEvent(new CustomEvent("fit-image:toggle-overlay", {
+      detail: { visible: true },
+      bubbles: true, composed: true
+    }));
+      });
+    });
+  }
+};
+
+
+    // // You can also control sizes programmatically:
+    // split.setSizes(30, 70);
+    // console.log(split.getSizes());
+  </script>
+</body>
+</html>
