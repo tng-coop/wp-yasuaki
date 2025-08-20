@@ -29,6 +29,7 @@ html, body {
   min-height: 0;                  /* CRUCIAL: allow vertical shrink so scrolling works */
   padding: 16px;
   box-sizing: border-box;
+  border: 12px solid cyan;
   background: #fff;
 }
 
