@@ -1,18 +1,52 @@
+/* make the page itself a predictable canvas */
+html, body {
+  height: calc(100dvh - var(--wp-admin--admin-bar--height, 0px));
+  margin: 0;
+}
+
+/* keep the green box fixed to the viewport height */
 .fullshow-box {
-	width: 100vw;
-	min-height: calc(100vh - var(--wp-admin--admin-bar--height, 0px));
-	display: flex;
-	align-items: center;
-	justify-content: center;
-	background: #f0f0f0;
-	margin: 0;
-	padding: 0;
-	border: 12px solid green;
-  box-sizing: border-box;          /* keeps outer size fixed */
-  border-radius: 0;                /* change if you want rounded corners */
+  /* width: 100vw can cause horizontal scroll due to scrollbar;
+     use 100% instead */
+  width: 100%;
+  height: calc(100dvh - var(--wp-admin--admin-bar--height, 0px));
+  display: flex;
+  flex-direction: row;
+  align-items: stretch;
+  justify-content: stretch;
+  background: #f0f0f0;
+  margin: 0;
+  padding: 0;
+  border: 12px solid green;
+  box-sizing: border-box;
+  overflow: hidden;               /* keep content inside the border */
+}
+
+/* panes */
+.fullshow-pane {
+  flex: 1 1 0;
+  min-width: 0;                   /* allow flex child to shrink horizontally */
+  min-height: 0;                  /* CRUCIAL: allow vertical shrink so scrolling works */
+  padding: 16px;
+  box-sizing: border-box;
+  background: #fff;
+}
+
+.fullshow-left {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.fullshow-right {
+  overflow: auto;                 /* scroll when there are many paragraphs */
 }
 
 .fullshow-text {
-	font-size: 2rem;
-	font-weight: bold;
+  font-size: 2rem;
+  font-weight: bold;
+}
+
+.fullshow-right p {
+  margin: 0 0 0.5rem 0;
 }
