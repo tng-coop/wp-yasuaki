@@ -1,20 +1,24 @@
-// hello-world-modern/block/index.js
+// index.js (only save() changed)
 ( function( wp ) {
   const { registerBlockType } = wp.blocks;
-  const { useBlockProps }     = wp.blockEditor;
-  const { __ }                = wp.i18n;
-  const el                    = wp.element.createElement;
+  const { useBlockProps, InnerBlocks } = wp.blockEditor;
+  const { __ } = wp.i18n;
+  const el = wp.element.createElement;
 
   registerBlockType('hello-world-modern/block', {
     edit() {
       const blockProps = useBlockProps({ className: 'hello-world-modern' });
-      return el('p', blockProps, __('Hello from the editor 👋', 'hello-world-modern'));
+      return el(InnerBlocks, {
+        placeholder: __('Add content for Pane B…', 'hello-world-modern'),
+      });
     },
     save() {
+      // Save a wrapper with your class (so our view.js can upgrade it),
+      // and put the InnerBlocks output inside a child with slot="b".
       return el(
-        'p',
-        wp.blockEditor.useBlockProps.save({ className: 'hello-world-modern' }),
-        __('Hello World!', 'hello-world-modern')
+        'div',
+        { className: 'hello-world-modern' },
+        el('div', { slot: 'b' }, el(InnerBlocks.Content))
       );
     },
   });
