@@ -12,7 +12,7 @@ class HelloWorldModern extends LitElement {
     }
     two-pane-split-lit {
       inline-size: 100%;
-      block-size: 240px; /* adjust as needed */
+      block-size: 100%;
     }
     .fallback {
       display: flex;
@@ -40,7 +40,7 @@ customElements.define("hello-world-modern", HelloWorldModern);
 /**
  * Upgrade & route editor HTML:
  *  - Move children of .hw-pane-a into a wrapper with slot="a"  → Pane A
- *  - Move children of .hw-pane-b and any leftovers into default slot → Pane B
+ *  - Move children of .hw-pane-b and any leftovers into a single wrapper → Pane B (default slot)
  *  - Remove the emptied group wrappers so they don't become leftovers
  */
 document.querySelectorAll(".hello-world-modern").forEach((host) => {
@@ -57,29 +57,30 @@ document.querySelectorAll(".hello-world-modern").forEach((host) => {
     while (src.firstChild) dst.appendChild(src.firstChild);
   };
 
-  // 1) route A → slot="a"
+  // 1) Pane A → named slot
   if (groupA) {
     const aWrap = document.createElement("div");
-    aWrap.setAttribute("slot", "a");           // critical: make Pane A a named-slot child
+    aWrap.setAttribute("slot", "a");   // important: named slot for Pane A
     moveChildren(groupA, aWrap);
     wrapper.appendChild(aWrap);
   }
 
-  // 2) start a fragment for Pane B (default slot)
-  const bFrag = document.createDocumentFragment();
-  if (groupB) moveChildren(groupB, bFrag);
+  // 2) Pane B → single default-slotted wrapper (becomes the scroller content)
+  const bWrap = document.createElement("div");
+  bWrap.className = "pane-b-host";     // styling hook; NO slot attribute here
+  if (groupB) moveChildren(groupB, bWrap);
 
-  // 3) remove emptied group wrappers to avoid re-appending them
+  // 3) remove emptied groups
   groupA?.remove();
   groupB?.remove();
 
-  // 4) append any meaningful leftovers to Pane B (ignore whitespace text nodes)
+  // 4) move any meaningful leftovers into Pane B
   const isIgnorable = (n) => n.nodeType === 3 && !/\S/.test(n.nodeValue);
   Array.from(host.childNodes).forEach((n) => {
-    if (!isIgnorable(n)) bFrag.appendChild(n);
+    if (!isIgnorable(n)) bWrap.appendChild(n);
   });
 
-  // 5) finish: default-slot children go to Pane B
-  wrapper.appendChild(bFrag);
+  // 5) finish
+  wrapper.appendChild(bWrap);
   host.replaceWith(wrapper);
 });

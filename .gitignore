@@ -42,6 +42,8 @@ wp-content/plugins/*
 !wp-content/plugins/kanagawa-office-list/**
 !wp-content/plugins/hello-world-modern/
 !wp-content/plugins/hello-world-modern/**
+!wp-content/plugins/fullshow/
+!wp-content/plugins/fullshow/**
 
 
 # 6) Regular themes: ignore everything…

@@ -113,8 +113,13 @@ export function applyTopHeight(host) {
   const targetEl = containerEl?.querySelector(':scope > *') ?? containerEl;
 
   if (host._currDir === "vertical") {
-    host.style.setProperty("--pane-a-px", `${h}px`);
-    if (targetEl) targetEl.style.blockSize = `${h}px`;
+    const px = `${h}px`;
+    // Set the CSS var only if it changed to avoid RO feedback loops
+    if (host.style.getPropertyValue("--pane-a-px") !== px) {
+      host.style.setProperty("--pane-a-px", px);
+    }
+    // Rely on CSS var; don't pin inline to avoid jitter loops
+    if (targetEl) targetEl.style.removeProperty("block-size");
   } else {
     host.style.removeProperty("--pane-a-px");
     if (targetEl) targetEl.style.removeProperty("block-size");

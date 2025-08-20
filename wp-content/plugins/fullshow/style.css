@@ -1,0 +1,18 @@
+.fullshow-box {
+	width: 100vw;
+	min-height: calc(100vh - var(--wp-admin--admin-bar--height, 0px));
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	background: #f0f0f0;
+	margin: 0;
+	padding: 0;
+	border: 12px solid green;
+  box-sizing: border-box;          /* keeps outer size fixed */
+  border-radius: 0;                /* change if you want rounded corners */
+}
+
+.fullshow-text {
+	font-size: 2rem;
+	font-weight: bold;
+}
