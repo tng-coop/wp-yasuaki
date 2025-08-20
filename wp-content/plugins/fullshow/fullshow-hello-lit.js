@@ -1,6 +1,7 @@
 // file: fullshow-hello-lit.js
-import { LitElement, html, css } from 'https://cdn.jsdelivr.net/npm/lit@3/+esm';
-import Split from 'https://esm.sh/split.js@1.6.0';
+import { LitElement, html, css } from 'https://esm.sh/lit@3?target=es2020';
+import Split from 'https://esm.sh/split.js@1.6.0?target=es2020&bundle';
+
 
 class FullshowHello extends LitElement {
   static properties = {
@@ -44,22 +45,20 @@ class FullshowHello extends LitElement {
        - sits on top to catch drags; borders remain fully visible */
     .gutter.gutter-horizontal {
       flex: 0 0 24px;
+      min-width: 24px;
       margin-left: -12px;
       margin-right: -12px;
       background: transparent;
       cursor: col-resize;
       position: relative;
       z-index: 10;
-      border-radius: 0; /* not visible, just to be explicit */
+      pointer-events: auto;
+      touch-action: none;
+      border-radius: 0; /* not visible, just explicit */
     }
 
-    .a {
-      align-items: center;
-      justify-content: center;
-    }
-    .b {
-      overflow: auto;
-    }
+    .a { align-items: center; justify-content: center; }
+    .b { overflow: auto; }
 
     ::slotted(*) { margin: 0; }
     ::slotted(p) { margin: 0 0 .5rem 0; }
@@ -73,27 +72,37 @@ class FullshowHello extends LitElement {
     this.__splitInit = false;
   }
 
-  updated() {
+  firstUpdated() {
+    // apply CSS vars once DOM is ready
+    this.#applyVars();
+
+    // init Split once after first render
+    const left  = this.renderRoot?.querySelector('.a');
+    const right = this.renderRoot?.querySelector('.b');
+    if (left && right && !this.__splitInit) {
+      Split([left, right], {
+        sizes: [50, 50],
+        minSize: 0,
+        gutterSize: 24,
+        snapOffset: 0,
+        cursor: 'col-resize',
+        direction: 'horizontal'
+      });
+      this.__splitInit = true;
+    }
+  }
+
+  updated(changed) {
+    if (changed.has('borderColor') || changed.has('paneBorderColor')) {
+      this.#applyVars();
+    }
+  }
+
+  #applyVars() {
     const border = this.borderColor || 'green';
     const pane = this.paneBorderColor || border;
     this.style.setProperty('--fs-border', border);
     this.style.setProperty('--fs-pane-border', pane);
-
-    if (!this.__splitInit) {
-      const left = this.renderRoot?.querySelector('.a');
-      const right = this.renderRoot?.querySelector('.b');
-      if (left && right) {
-        Split([left, right], {
-          sizes: [50, 50],
-          minSize: 0,
-          gutterSize: 24,   // wide, easy-to-grab target
-          snapOffset: 0,
-          cursor: 'col-resize',
-          direction: 'horizontal'
-        });
-        this.__splitInit = true;
-      }
-    }
   }
 
   render() {
@@ -101,13 +110,13 @@ class FullshowHello extends LitElement {
       <div class="box" role="group" aria-label="Fullshow two-pane layout">
         <div class="pane a">
           <slot name="a">
-            <!-- Fallback if no "a" slot -->
+            <!-- Fallback for "a" -->
             <div class="fullshow-text">hello</div>
           </slot>
         </div>
         <div class="pane b">
           <slot name="b">
-            <!-- Fallback if no "b" slot -->
+            <!-- Fallback for "b" -->
             <p>hello</p>
             <p>hello</p>
             <p>hello</p>
