@@ -1,0 +1,9 @@
+/* Editor-only styles */
+.hw-pane-label {
+  margin: .25rem 0 .5rem;
+  font-size: 12px;
+  line-height: 1.2;
+  color: #6b7280; /* muted */
+  text-transform: uppercase;
+  letter-spacing: .03em;
+}

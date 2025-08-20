@@ -1,6 +1,2 @@
-.hello-world-modern {
-  padding: 0.75rem 1rem;
-  border: 1px dashed currentColor;
-  border-radius: 6px;
-  display: inline-block;
-}
+/* Frontend: don’t show the in-editor pane labels */
+.hw-pane-label { display: none; }

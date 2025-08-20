@@ -2,12 +2,9 @@
   "apiVersion": 3,
   "name": "hello-world-modern/block",
   "title": "Hello World (Modern)",
-  "category": "widgets",
-  "icon": "smiley",
-  "description": "A minimal Gutenberg block (no build).",
-  "textdomain": "hello-world-modern",
-  "supports": { "html": false },
-  "style": "file:./style.css",
   "editorScript": "file:./index.js",
-  "viewScriptModule": "file:./view.js"
+  "viewScriptModule": "file:./view.js",
+  "style": "file:./style.css",
+  "editorStyle": "file:./editor.css",
+  "supports": { "html": false }
 }
