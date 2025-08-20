@@ -21,6 +21,8 @@
 /wp-content/upgrade/
 /wp-content/cache/
 
+
+how do we make it so we don't need to duplicate each entry
 # 5) Regular plugins: ignore everything…
 wp-content/plugins/*
 # …but whitelist only your own plugin(s)
@@ -38,8 +40,10 @@ wp-content/plugins/*
 !wp-content/plugins/kanagawa-office-map2/**
 !wp-content/plugins/kanagawa-office-list/
 !wp-content/plugins/kanagawa-office-list/**
-!wp-content/plugins/officemap/
-!wp-content/plugins/officemap/**
+!wp-content/plugins/hello-world-modern/
+!wp-content/plugins/hello-world-modern/**
+
+
 # 6) Regular themes: ignore everything…
 wp-content/themes/*
 # …but whitelist only your own theme(s)
