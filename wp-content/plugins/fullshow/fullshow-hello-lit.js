@@ -193,7 +193,7 @@ class FullshowHello extends LitElement {
   measureAndSetHeaderHeight() {
     const header = this.getHeaderEl();
     const h = header ? header.getBoundingClientRect().height : 0;
-    this.style.setProperty('--fs-header-height', `${Math.max(0, Math.ceil(h))}px`);
+    this.style.setProperty('--fs-header-height', `${Math.max(0, h)}px`);
   }
 
   _computeDesiredDirection() {
