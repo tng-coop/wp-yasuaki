@@ -35,7 +35,8 @@
         el(
           'fullbanner-hello',
           {
-            style: height ? `height:${height}` : undefined,
+            // ✅ React style must be an object, not a string
+            style: height ? { height } : undefined,
             'border-color': 'green',
           },
           el( InnerBlocks, { template: TEMPLATE, templateLock: false } )
@@ -49,7 +50,8 @@
       return el(
         'fullbanner-hello',
         {
-          style: height ? `height:${height}` : undefined,
+          // ✅ React style object here too
+          style: height ? { height } : undefined,
           'border-color': 'green',
         },
         el( InnerBlocks.Content )
