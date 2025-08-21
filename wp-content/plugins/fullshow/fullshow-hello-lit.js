@@ -143,7 +143,7 @@ class FullshowHello extends LitElement {
       <div class="box" role="group" aria-label="Fullshow two-pane layout">
         <div class="pane a">
           <slot name="a">
-            <div class="fullshow-text">hello</div>
+            <div >hello</div>
           </slot>
         </div>
         <div class="pane b">
