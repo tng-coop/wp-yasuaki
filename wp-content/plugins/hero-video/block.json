@@ -1,0 +1,18 @@
+{
+  "apiVersion": 3,
+  "name": "hero/video",
+  "title": "Hero Video",
+  "category": "widgets",
+  "icon": "media-code",
+  "supports": { "html": false },
+  "style": "file:./style.css",
+  "editorScript": "file:./index.js",
+  "viewScriptModule": "file:./view.js",
+  "render": "file:./render.php",
+  "attributes": {
+    "configName": {
+      "type": "string",
+      "default": "frontpage"
+    }
+  }
+}
