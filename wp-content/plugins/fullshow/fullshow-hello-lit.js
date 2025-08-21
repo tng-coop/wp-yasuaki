@@ -33,12 +33,12 @@ class FullshowHello extends LitElement {
       flex: 0 0 auto;
       min-width: 0;
       min-height: 0;
-      padding: 0px;
+      padding: 0;
       box-sizing: border-box;
       background: #fff;
       border: 6px solid var(--fs-pane-border, var(--fs-border, green));
-      margin: 0px;
-      border-radius: 0px;
+      margin: 0;
+      border-radius: 0;
       display: flex;
       flex-direction: column;
       position: relative;   /* anchor for abs-pos tenants if any */
@@ -99,6 +99,7 @@ class FullshowHello extends LitElement {
 
     this._headerRO = null;
     this._boundMeasure = () => this.measureAndSetHeaderHeight();
+    this._enforceFillSlotA = this._enforceFillSlotA.bind(this);
   }
 
   connectedCallback() {
@@ -112,6 +113,7 @@ class FullshowHello extends LitElement {
     super.disconnectedCallback();
     this._headerRO?.disconnect();
     window.removeEventListener('resize', this._boundMeasure);
+    // slotchange listener is attached in firstUpdated; it will be GC’d with shadow root
   }
 
   firstUpdated() {
@@ -130,6 +132,11 @@ class FullshowHello extends LitElement {
       });
       this.__splitInit = true;
     }
+
+    // Enforce once after initial layout and whenever Slot A reassigns
+    this.updateComplete.then(() => this._enforceFillSlotA());
+    this.renderRoot.querySelector('slot.slot-a')
+      ?.addEventListener('slotchange', this._enforceFillSlotA);
 
     this.measureAndSetHeaderHeight();
   }
@@ -167,6 +174,28 @@ class FullshowHello extends LitElement {
     const header = this.getHeaderEl();
     const h = header ? header.getBoundingClientRect().height : 0;
     this.style.setProperty('--fs-header-height', `${Math.max(0, Math.ceil(h))}px`);
+  }
+
+  /**
+   * Ensure the first wrapper(s) under Slot A get height:100% so
+   * grandchildren (e.g., Gutenberg Group wrappers -> Cyan Box)
+   * can resolve height:100% correctly.
+   */
+  _enforceFillSlotA() {
+    const slot = this.renderRoot.querySelector('slot.slot-a');
+    if (!slot) return;
+    const assigned = slot.assignedElements({ flatten: true });
+    for (const el of assigned) {
+      // Top-level slotted wrapper
+      el.style.height = '100%';
+
+      // Walk up to 2 levels of first-child wrappers (common WP markup)
+      let cur = el.firstElementChild;
+      for (let depth = 0; depth < 2 && cur; depth++) {
+        cur.style.height = '100%';
+        cur = cur.firstElementChild;
+      }
+    }
   }
 
   render() {
