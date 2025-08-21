@@ -2,6 +2,10 @@
   display: flex;
   align-items: center;
   justify-content: center;
+
+ width: 100%;
+ height: 100%;      /* the parent (slotbox-a) has a definite height */
+ min-height: 0;     /* avoid flex min-content clamping */
   border: 8px solid cyan;
   box-sizing: border-box;
   background: #fafafa;

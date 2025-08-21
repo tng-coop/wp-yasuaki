@@ -9,8 +9,8 @@ class FullshowHello extends LitElement {
   };
 
   static styles = css`
-    :host { display: block;
-}
+    :host { display: block; }
+
     .box {
       width: 100%;
       height: calc(
@@ -28,6 +28,7 @@ class FullshowHello extends LitElement {
       box-sizing: border-box;
       overflow: hidden;
     }
+
     .pane {
       flex: 0 0 auto;
       min-width: 0;
@@ -40,6 +41,8 @@ class FullshowHello extends LitElement {
       border-radius: 0px;
       display: flex;
       flex-direction: column;
+      position: relative;   /* anchor for abs-pos tenants if any */
+      overflow: hidden;     /* avoid double scrollbars in pane A */
     }
 
     .gutter.gutter-horizontal {
@@ -51,10 +54,22 @@ class FullshowHello extends LitElement {
       touch-action: none;
     }
 
+    /* You can keep centering; slot will still stretch due to flex/align-self below */
     .a { align-items: center; justify-content: center; }
     .b { overflow: auto; }
 
-    /* 🔑 Make tenant blocks fill the pane so their own ResizeObserver sees real size */
+    /* 🔑 Make the <slot> itself stretch as a flex item in the pane */
+    .pane > slot {
+      display: block;
+      flex: 1 1 auto;       /* fill vertical space in column flex */
+      align-self: stretch;  /* override .a { align-items:center } on cross-axis */
+      inline-size: 100%;
+      block-size: 100%;
+      min-block-size: 0;    /* avoid min-content clamp */
+      box-sizing: border-box;
+    }
+
+    /* 🔑 Ensure whatever is slotted fills the slot area */
     ::slotted(*) {
       display: block;
       inline-size: 100%;
@@ -62,8 +77,18 @@ class FullshowHello extends LitElement {
       min-block-size: 0;
       margin: 0;
     }
+
+    /* Nice defaults for common children */
     ::slotted(p) { margin: 0 0 .5rem 0; }
     ::slotted(.fullshow-text) { font-size: 2rem; font-weight: bold; }
+
+    /* Optional helpers for SVG/canvas tenants */
+    ::slotted(*) > svg,
+    ::slotted(*) > canvas {
+      display: block;
+      inline-size: 100%;
+      block-size: 100%;
+    }
   `;
 
   constructor() {
@@ -72,7 +97,6 @@ class FullshowHello extends LitElement {
     this.paneBorderColor = '';
     this.__splitInit = false;
 
-    // compatibility-friendly "private" members
     this._headerRO = null;
     this._boundMeasure = () => this.measureAndSetHeaderHeight();
   }
@@ -150,7 +174,7 @@ class FullshowHello extends LitElement {
       <div class="box" role="group" aria-label="Fullshow two-pane layout">
         <div class="pane a">
           <slot name="a">
-            <div >hello</div>
+            <div>hello</div>
           </slot>
         </div>
         <div class="pane b">
@@ -166,4 +190,3 @@ class FullshowHello extends LitElement {
 }
 
 customElements.define('fullshow-hello', FullshowHello);
-
