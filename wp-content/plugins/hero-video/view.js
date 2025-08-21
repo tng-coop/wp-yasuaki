@@ -1,12 +1,12 @@
-// === view.js (buildless ESM, blob mode restored, no <link rel="preload">) ===
+// === view.js (buildless ESM) — original smoothness restored ===
 
-// Toggle between blob mode and URL mode
+// Toggle between blob mode and URL mode (blob = safer vs flaky ranges; default true)
 const STRICT_BLOB_MODE = true;
 
-// --- optional CacheStorage for blobs ---
+// --- optional CacheStorage for media responses (shared across instances) ---
 const CACHE = 'hero-video-cache-v3';
 
-// --- metadata cache ---
+// --- metadata cache (best-src JSON) ---
 const META_CACHE = 'hero-video-meta-v1';
 const META_TTL_MS = 24 * 60 * 60 * 1000; // 1 day
 
@@ -22,9 +22,7 @@ async function readMetaResponse(res) {
   }
   return { ts: Date.now(), payload: data };
 }
-function metaRequest(url) {
-  return new Request(url, { method: 'GET' });
-}
+function metaRequest(url) { return new Request(url, { method: 'GET' }); }
 
 // ---- utils ----
 function clamp(n, min, max) { return Math.max(min, Math.min(max, n)); }
@@ -38,6 +36,7 @@ function apiRootFromVideo(apiBase) {
   return apiBase.replace(/\/video$/, '');
 }
 
+// Resolve best src (metadata), cached with TTL
 async function getBestSrc(apiBase, id) {
   const root = apiRootFromVideo(apiBase);
   const { cssW, dpr } = targetWidth();
@@ -54,7 +53,6 @@ async function getBestSrc(apiBase, id) {
 
   const req = metaRequest(url);
   const cached = await cache.match(req);
-
   if (cached) {
     const { ts, payload } = await readMetaResponse(cached);
     if ((Date.now() - ts) > META_TTL_MS) {
@@ -75,7 +73,31 @@ async function getBestSrc(apiBase, id) {
   return data.src;
 }
 
-// ---- blob helpers ----
+// ---- readiness helpers (to avoid flicker) ----
+async function waitPlayable(video) {
+  // Prefer precise frame readiness
+  if ('requestVideoFrameCallback' in video) {
+    await new Promise((resolve) => {
+      let done = false;
+      const finish = () => { if (!done) { done = true; resolve(); } };
+      try { video.play().catch(()=>{}); } catch {}
+      video.requestVideoFrameCallback(() => finish());
+      setTimeout(finish, 1500); // safety timeout
+    });
+    return;
+  }
+  // Fallback: canplay ensures we can render without stalling
+  if (video.readyState < HTMLMediaElement.HAVE_FUTURE_DATA) {
+    await new Promise((resolve) => {
+      const h = () => { video.removeEventListener('canplay', h); resolve(); };
+      video.addEventListener('canplay', h, { once: true });
+      try { video.play().catch(()=>{}); } catch {}
+      setTimeout(resolve, 1500); // safety timeout
+    });
+  }
+}
+
+// ---- blob path helpers ----
 async function fetchVideoBlob(url) {
   let resp;
   if ('caches' in window) {
@@ -92,7 +114,6 @@ async function fetchVideoBlob(url) {
   } else {
     resp = await fetch(url, { cache: 'no-store', mode: 'cors' });
   }
-
   if (!resp.ok && resp.status !== 206) {
     throw new Error(`Blob fetch failed: ${resp.status}`);
   }
@@ -113,19 +134,13 @@ async function setVideoFromBlob(videoEl, url) {
   revokeObjURL(videoEl);
   videoEl.src = obj;
   videoEl.dataset.objUrl = obj;
-
-  if (videoEl.readyState < 1) {
-    await new Promise((resolve) => {
-      const onLoaded = () => { videoEl.removeEventListener('loadedmetadata', onLoaded); resolve(); };
-      videoEl.addEventListener('loadedmetadata', onLoaded, { once: true });
-      setTimeout(resolve, 1200);
-    });
-  }
+  await waitPlayable(videoEl); // ensure drawable before reveal
 }
 
 async function setVideoFromURL(videoEl, url) {
   revokeObjURL(videoEl);
   if (videoEl.src !== url) videoEl.src = url;
+  await waitPlayable(videoEl);
 }
 
 // ---- misc ----
@@ -156,11 +171,14 @@ async function initHeroVideoInstance(container) {
     videos: [document.createElement('video'), document.createElement('video')]
   };
 
+  // base video props
   state.videos.forEach(v => {
     v.autoplay = true; v.muted = true; v.playsInline = true; v.preload = 'auto';
     v.style.opacity = '0'; v.style.position = 'absolute';
- v.style.objectFit = 'cover'; v.style.pointerEvents = 'none';
-    v.style.transition = 'none';
+    v.style.top = '50%'; v.style.left = '50%'; v.style.transform = 'translate(-50%, -50%)';
+    v.style.minWidth = '100%'; v.style.minHeight = '100%'; v.style.objectFit = 'cover'; v.style.pointerEvents = 'none';
+    v.style.transition = 'none';           // no transition before first paint
+    v.style.willChange = 'opacity';        // compositor hint for smoother crossfade
     v.setAttribute('aria-hidden', 'true');
     container.appendChild(v);
   });
@@ -196,24 +214,36 @@ async function initHeroVideoInstance(container) {
 
     const cV = state.videos[state.curr];
     const nV = state.videos[state.next];
+
     nV.currentTime = 0;
-
     try { await nV.play(); } catch (e) { console.warn('play error', e); state.switching=false; return; }
+    await waitPlayable(nV); // ensure drawable before revealing
 
+    // crossfade
     nV.style.opacity = '1';
     cV.style.opacity = '0';
-    cV.pause();
 
-    if (STRICT_BLOB_MODE) revokeObjURL(cV);
+    // after transition completes, clean up old video
+    const finish = () => {
+      nV.removeEventListener('transitionend', finish);
+      cV.pause();
+      if (STRICT_BLOB_MODE) revokeObjURL(cV); // revoke only after fade finishes
+      state.idx = nextIdIndex(state.idx);
+      [state.curr, state.next] = [state.next, state.curr];
+      setupSwitch();
+      state.switching = false;
+      preloadIntoHidden().catch(e => console.warn('preload fail', e));
+    };
 
-    state.idx = nextIdIndex(state.idx);
-    [state.curr, state.next] = [state.next, state.curr];
-    setupSwitch();
-    state.switching = false;
-
-    try { await preloadIntoHidden(); } catch (e) { console.warn('preload fail', e); }
+    // If transition is disabled (0s), finish immediately
+    if (parseFloat(getComputedStyle(nV).transitionDuration) === 0 && transitionSec <= 0) {
+      finish();
+    } else {
+      nV.addEventListener('transitionend', finish, { once: true });
+    }
   }
 
+  // ---- initial load ----
   const firstSrc = await getBestSrc(apiBase, ids[state.idx]);
   if (STRICT_BLOB_MODE) {
     await setVideoFromBlob(state.videos[state.curr], firstSrc);
@@ -222,6 +252,7 @@ async function initHeroVideoInstance(container) {
   }
   state.videos[state.curr].style.opacity = '1';
 
+  // AFTER first paint, apply transition if > 0
   if (transitionSec > 0) {
     requestAnimationFrame(() => requestAnimationFrame(() => {
       state.videos.forEach(v => { v.style.transition = `opacity ${transitionSec}s ease`; });
@@ -233,6 +264,7 @@ async function initHeroVideoInstance(container) {
   try { await preloadIntoHidden(); } catch (e) {}
   setupSwitch();
 
+  // resize: recompute best src only when width bucket changes
   let lastBucket = Math.round((window.innerWidth||0)/320);
   const onResize = async () => {
     const bucket = Math.round((window.innerWidth||0)/320);
@@ -242,6 +274,7 @@ async function initHeroVideoInstance(container) {
   };
   window.addEventListener('resize', debounce(onResize, 400));
 
+  // cleanup on unload (blob mode)
   window.addEventListener('beforeunload', () => {
     if (!STRICT_BLOB_MODE) return;
     state.videos.forEach(revokeObjURL);
