@@ -46,7 +46,7 @@ class FullshowHello extends LitElement {
     }
 
     .gutter.gutter-horizontal {
-      background: #ccc; /* optional visible handle */
+      background: #ccc;
       cursor: col-resize;
       position: relative;
       z-index: 10;
@@ -54,23 +54,23 @@ class FullshowHello extends LitElement {
       touch-action: none;
     }
 
-    /* You can keep centering; slot will still stretch due to flex/align-self below */
+    /* Keep centering; Slot A stretches via .slotbox-a */
     .a { align-items: center; justify-content: center; }
     .b { overflow: auto; }
 
-    /* 🔑 Make the <slot> itself stretch as a flex item in the pane */
-    .pane > slot {
+    /* 🔑 Slot A: real flex child that fills the pane */
+    .slotbox-a {
       display: block;
       flex: 1 1 auto;       /* fill vertical space in column flex */
-      align-self: stretch;  /* override .a { align-items:center } on cross-axis */
+      align-self: stretch;  /* ignore .a cross-axis centering */
       inline-size: 100%;
       block-size: 100%;
       min-block-size: 0;    /* avoid min-content clamp */
       box-sizing: border-box;
     }
 
-    /* 🔑 Ensure whatever is slotted fills the slot area */
-    ::slotted(*) {
+    /* 🔑 Only Slot A tenants fill the available area */
+    .slot-a::slotted(*) {
       display: block;
       inline-size: 100%;
       block-size: 100%;
@@ -78,13 +78,13 @@ class FullshowHello extends LitElement {
       margin: 0;
     }
 
-    /* Nice defaults for common children */
+    /* Nice defaults for common children (global) */
     ::slotted(p) { margin: 0 0 .5rem 0; }
     ::slotted(.fullshow-text) { font-size: 2rem; font-weight: bold; }
 
-    /* Optional helpers for SVG/canvas tenants */
-    ::slotted(*) > svg,
-    ::slotted(*) > canvas {
+    /* Optional helpers for SVG/canvas tenants in Slot A */
+    .slot-a::slotted(*) > svg,
+    .slot-a::slotted(*) > canvas {
       display: block;
       inline-size: 100%;
       block-size: 100%;
@@ -110,7 +110,7 @@ class FullshowHello extends LitElement {
 
   disconnectedCallback() {
     super.disconnectedCallback();
-    if (this._headerRO) this._headerRO.disconnect();
+    this._headerRO?.disconnect();
     window.removeEventListener('resize', this._boundMeasure);
   }
 
@@ -140,7 +140,7 @@ class FullshowHello extends LitElement {
     }
   }
 
-  // ---- helpers (non-private for compatibility) ----
+  // ---- helpers ----
   applyVars() {
     const border = this.borderColor || 'green';
     const pane = this.paneBorderColor || border;
@@ -173,12 +173,14 @@ class FullshowHello extends LitElement {
     return html`
       <div class="box" role="group" aria-label="Fullshow two-pane layout">
         <div class="pane a">
-          <slot name="a">
-            <div>hello</div>
-          </slot>
+          <div class="slotbox-a">
+            <slot name="a" class="slot-a">
+              <div>hello</div>
+            </slot>
+          </div>
         </div>
         <div class="pane b">
-          <slot name="b">
+          <slot name="b" class="slot-b">
             <p>hello</p>
             <p>hello</p>
             <p>hello</p>
