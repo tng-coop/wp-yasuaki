@@ -1,7 +1,6 @@
 {
   "apiVersion": 3,
   "name": "fullshow/hello",
-  "version": "1.0.1",
   "title": "Fullshow Hello",
   "category": "widgets",
   "description": "Shows 'hello' in a full-screen box.",

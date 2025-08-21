@@ -26,36 +26,31 @@ class FullshowHello extends LitElement {
       overflow: hidden;
     }
     .pane {
-      flex: 1 1 0;
+      flex: 0 0 auto;
       min-width: 0;
       min-height: 0;
-      padding: 16px;
+      padding: 0px;
       box-sizing: border-box;
       background: #fff;
       border: 6px solid var(--fs-pane-border, var(--fs-border, green));
-      margin: 8px;
-      border-radius: 4px;
+      margin: 0px;
+      border-radius: 0px;
       display: flex;
       flex-direction: column;
     }
 
-    /* Invisible draggable gutter that doesn't change layout:
-       - width: 24px (nice hit area)
-       - negative margins (-12px each side) => net 0 growth
-       - sits on top to catch drags; borders remain fully visible */
-    .gutter.gutter-horizontal {
-      flex: 0 0 24px;
-      min-width: 24px;
-      margin-left: -12px;
-      margin-right: -12px;
-      background: transparent;
-      cursor: col-resize;
-      position: relative;
-      z-index: 10;
-      pointer-events: auto;
-      touch-action: none;
-      border-radius: 0; /* not visible, just explicit */
-    }
+/* replace your gutter rule */
+.gutter.gutter-horizontal {
+  flex: 0 0 24px;
+  min-width: 24px;
+  /* remove these: margin-left: -12px; margin-right: -12px; */
+  background: transparent;
+  cursor: col-resize;
+  position: relative;
+  z-index: 10;
+  pointer-events: auto;
+  touch-action: none;
+}
 
     .a { align-items: center; justify-content: center; }
     .b { overflow: auto; }
