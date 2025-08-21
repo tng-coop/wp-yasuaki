@@ -2,7 +2,6 @@
 import { LitElement, html, css } from 'https://esm.sh/lit@3?target=es2020';
 import Split from 'https://esm.sh/split.js@1.6.0?target=es2020&bundle';
 
-
 class FullshowHello extends LitElement {
   static properties = {
     borderColor: { type: String, attribute: 'border-color' },
@@ -10,10 +9,15 @@ class FullshowHello extends LitElement {
   };
 
   static styles = css`
-    :host { display: block; }
+    :host { display: block;
+}
     .box {
       width: 100%;
-      height: calc(100dvh - var(--wp-admin--admin-bar--height, 0px));
+      height: calc(
+        100dvh
+        - var(--wp-admin--admin-bar--height, 0px)
+        - var(--fs-header-height, 0px)
+      );
       display: flex;
       flex-direction: row;
       align-items: stretch;
@@ -21,7 +25,6 @@ class FullshowHello extends LitElement {
       background: #f0f0f0;
       margin: 0;
       padding: 0;
-      /*border: 12px solid var(--fs-border, green);*/
       box-sizing: border-box;
       overflow: hidden;
     }
@@ -39,16 +42,14 @@ class FullshowHello extends LitElement {
       flex-direction: column;
     }
 
-/* replace your gutter rule */
-.gutter.gutter-horizontal {
-
-  background: #ccc; /* optional visible handle */
-  cursor: col-resize;
-  position: relative;
-  z-index: 10;
-  pointer-events: auto;
-  touch-action: none;
-}
+    .gutter.gutter-horizontal {
+      background: #ccc; /* optional visible handle */
+      cursor: col-resize;
+      position: relative;
+      z-index: 10;
+      pointer-events: auto;
+      touch-action: none;
+    }
 
     .a { align-items: center; justify-content: center; }
     .b { overflow: auto; }
@@ -63,13 +64,28 @@ class FullshowHello extends LitElement {
     this.borderColor = 'green';
     this.paneBorderColor = '';
     this.__splitInit = false;
+
+    // compatibility-friendly "private" members
+    this._headerRO = null;
+    this._boundMeasure = () => this.measureAndSetHeaderHeight();
+  }
+
+  connectedCallback() {
+    super.connectedCallback();
+    this.setupHeaderObserver();
+    window.addEventListener('resize', this._boundMeasure, { passive: true });
+    window.addEventListener('load', this._boundMeasure, { once: true });
+  }
+
+  disconnectedCallback() {
+    super.disconnectedCallback();
+    if (this._headerRO) this._headerRO.disconnect();
+    window.removeEventListener('resize', this._boundMeasure);
   }
 
   firstUpdated() {
-    // apply CSS vars once DOM is ready
-    this.#applyVars();
+    this.applyVars();
 
-    // init Split once after first render
     const left  = this.renderRoot?.querySelector('.a');
     const right = this.renderRoot?.querySelector('.b');
     if (left && right && !this.__splitInit) {
@@ -83,19 +99,43 @@ class FullshowHello extends LitElement {
       });
       this.__splitInit = true;
     }
+
+    this.measureAndSetHeaderHeight();
   }
 
   updated(changed) {
     if (changed.has('borderColor') || changed.has('paneBorderColor')) {
-      this.#applyVars();
+      this.applyVars();
     }
   }
 
-  #applyVars() {
+  // ---- helpers (non-private for compatibility) ----
+  applyVars() {
     const border = this.borderColor || 'green';
     const pane = this.paneBorderColor || border;
     this.style.setProperty('--fs-border', border);
     this.style.setProperty('--fs-pane-border', pane);
+  }
+
+  getHeaderEl() {
+    return document.querySelector('header.wp-block-template-part');
+  }
+
+  setupHeaderObserver() {
+    const header = this.getHeaderEl();
+    if (!header) {
+      this.style.setProperty('--fs-header-height', '0px');
+      return;
+    }
+    this._headerRO = new ResizeObserver(() => this.measureAndSetHeaderHeight());
+    this._headerRO.observe(header);
+    this.measureAndSetHeaderHeight();
+  }
+
+  measureAndSetHeaderHeight() {
+    const header = this.getHeaderEl();
+    const h = header ? header.getBoundingClientRect().height : 0;
+    this.style.setProperty('--fs-header-height', `${Math.max(0, Math.ceil(h))}px`);
   }
 
   render() {
@@ -103,13 +143,11 @@ class FullshowHello extends LitElement {
       <div class="box" role="group" aria-label="Fullshow two-pane layout">
         <div class="pane a">
           <slot name="a">
-            <!-- Fallback for "a" -->
             <div class="fullshow-text">hello</div>
           </slot>
         </div>
         <div class="pane b">
           <slot name="b">
-            <!-- Fallback for "b" -->
             <p>hello</p>
             <p>hello</p>
             <p>hello</p>
@@ -121,3 +159,4 @@ class FullshowHello extends LitElement {
 }
 
 customElements.define('fullshow-hello', FullshowHello);
+
