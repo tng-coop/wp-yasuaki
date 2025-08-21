@@ -54,7 +54,14 @@ class FullshowHello extends LitElement {
     .a { align-items: center; justify-content: center; }
     .b { overflow: auto; }
 
-    ::slotted(*) { margin: 0; }
+    /* 🔑 Make tenant blocks fill the pane so their own ResizeObserver sees real size */
+    ::slotted(*) {
+      display: block;
+      inline-size: 100%;
+      block-size: 100%;
+      min-block-size: 0;
+      margin: 0;
+    }
     ::slotted(p) { margin: 0 0 .5rem 0; }
     ::slotted(.fullshow-text) { font-size: 2rem; font-weight: bold; }
   `;
