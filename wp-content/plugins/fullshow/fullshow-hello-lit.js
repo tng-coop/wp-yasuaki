@@ -41,9 +41,6 @@ class FullshowHello extends LitElement {
 
 /* replace your gutter rule */
 .gutter.gutter-horizontal {
-  flex: 0 0 24px;
-  min-width: 24px;
-  /* remove these: margin-left: -12px; margin-right: -12px; */
   background: transparent;
   cursor: col-resize;
   position: relative;
@@ -78,7 +75,7 @@ class FullshowHello extends LitElement {
       Split([left, right], {
         sizes: [50, 50],
         minSize: 0,
-        gutterSize: 24,
+        gutterSize: 12,
         snapOffset: 0,
         cursor: 'col-resize',
         direction: 'horizontal'
