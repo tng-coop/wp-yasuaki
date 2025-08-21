@@ -21,7 +21,7 @@ class FullshowHello extends LitElement {
       background: #f0f0f0;
       margin: 0;
       padding: 0;
-      border: 12px solid var(--fs-border, green);
+      /*border: 12px solid var(--fs-border, green);*/
       box-sizing: border-box;
       overflow: hidden;
     }
@@ -41,7 +41,8 @@ class FullshowHello extends LitElement {
 
 /* replace your gutter rule */
 .gutter.gutter-horizontal {
-  background: transparent;
+
+  background: #ccc; /* optional visible handle */
   cursor: col-resize;
   position: relative;
   z-index: 10;
