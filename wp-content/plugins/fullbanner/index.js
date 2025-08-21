@@ -3,11 +3,51 @@
   const { registerBlockType } = wp.blocks;
   const { createElement: el, Fragment } = wp.element;
   const { __ } = wp.i18n;
-  const { useBlockProps, InnerBlocks, InspectorControls } = wp.blockEditor;
+  const { InnerBlocks, InspectorControls } = wp.blockEditor;
   const { PanelBody, TextControl } = wp.components;
 
+  // ---------------------------
+  // Child: Slot A (base layer)
+  // ---------------------------
+  registerBlockType('fullbanner/slot-a', {
+    title: __('Fullbanner: Base', 'fullbanner'),
+    parent: ['fullbanner/hello'],
+    icon: 'align-wide',
+    supports: { html: false, reusable: false },
+    edit: () =>
+      el('div', { slot: 'a' },
+        el(InnerBlocks, {
+          templateLock: false,
+          renderAppender: InnerBlocks.ButtonBlockAppender,
+        })
+      ),
+    save: () => el(InnerBlocks.Content),
+  });
+
+  // ---------------------------
+  // Child: Slot B (overlay)
+  // ---------------------------
+  registerBlockType('fullbanner/slot-b', {
+    title: __('Fullbanner: Overlay', 'fullbanner'),
+    parent: ['fullbanner/hello'],
+    icon: 'cover-image',
+    supports: { html: false, reusable: false },
+    edit: () =>
+      el('div', { slot: 'b' },
+        el(InnerBlocks, {
+          templateLock: false,
+          renderAppender: InnerBlocks.ButtonBlockAppender,
+        })
+      ),
+    save: () => el(InnerBlocks.Content),
+  });
+
+  // ---------------------------
+  // Parent block
+  // ---------------------------
   const TEMPLATE = [
-    [ 'core/group', { className: 'slot-a' }, [] ],
+    ['fullbanner/slot-a'],
+    ['fullbanner/slot-b'],
   ];
 
   registerBlockType('fullbanner/hello', {
@@ -32,30 +72,22 @@
             })
           )
         ),
+
+        // Host web component
         el(
           'fullbanner-hello',
-          {
-            // ✅ React style must be an object, not a string
-            style: height ? { height } : undefined,
-            'border-color': 'green',
-          },
-          el( InnerBlocks, { template: TEMPLATE, templateLock: false } )
+          { style: height ? { height } : undefined, 'border-color': 'green' },
+          // Render child blocks; each child’s edit() provides its slot wrapper
+          el(InnerBlocks, {
+            template: TEMPLATE,
+            allowedBlocks: ['fullbanner/slot-a', 'fullbanner/slot-b'],
+            templateLock: 'all', // keep two fixed regions; change to false if you want them removable
+          })
         )
       );
     },
 
-    save: ({ attributes }) => {
-      const { height } = attributes;
-
-      return el(
-        'fullbanner-hello',
-        {
-          // ✅ React style object here too
-          style: height ? { height } : undefined,
-          'border-color': 'green',
-        },
-        el( InnerBlocks.Content )
-      );
-    },
+    // Save the children so PHP can split them
+    save: () => el(InnerBlocks.Content),
   });
 })(window.wp);

@@ -3,7 +3,7 @@
   "name": "fullbanner/hello",
   "title": "Fullbanner",
   "category": "widgets",
-  "description": "A single-pane banner area sized by the editor.",
+  "description": "A banner with an overlay slot.",
   "textdomain": "fullbanner",
   "editorScript": "file:index.js",
   "viewScriptModule": "file:fullbanner-hello-lit.js",
