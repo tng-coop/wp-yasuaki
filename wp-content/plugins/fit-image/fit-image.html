@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Fit Image Example</title>
+
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+        }
+
+        .fit-image-large {
+            display: block;
+            max-width: 100%;
+            height: 100vh;
+            border: 3px solid #ccc;
+            box-sizing: border-box;
+        }
+    </style>
+    <script type="module" src="fit-image.js"></script>
+</head>
+
+<body>
+    <fit-image class="fit-image-large">
+        <img src="/kanagawa_sat_cropped_z10.png" alt="Example">
+        <svg id="svg-overlay"></svg>
+    </fit-image>
+</body>
+
+</html>

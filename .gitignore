@@ -48,6 +48,8 @@ wp-content/plugins/*
 !wp-content/plugins/fullshow-cyanbox/**
 !wp-content/plugins/fullbanner/
 !wp-content/plugins/fullbanner/**
+!wp-content/plugins/fit-image/
+!wp-content/plugins/fit-image/**
 
 
 
