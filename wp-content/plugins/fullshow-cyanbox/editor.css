@@ -1,0 +1,10 @@
+.cyanbox {
+  width: 100%;
+  min-height: 200px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 8px solid cyan;
+  box-sizing: border-box;
+  background: #fafafa;
+}

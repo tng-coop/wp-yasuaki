@@ -1,0 +1,9 @@
+.cyanbox {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 8px solid cyan;
+  box-sizing: border-box;
+  background: #fafafa;
+  overflow: hidden;
+}
