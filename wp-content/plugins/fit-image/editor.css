@@ -1,0 +1,4 @@
+/* Editor-only sizing so the block is visible in the canvas */
+.editor-styles-wrapper .fit-image-large {
+  height: min(60vh, 480px);
+}
