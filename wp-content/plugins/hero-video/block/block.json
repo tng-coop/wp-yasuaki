@@ -9,12 +9,9 @@
   "editorScript": "file:./index.js",
   "render": "file:./render.php",
   "attributes": {
-    "config": {
-      "type": "object",
-      "default": {
-        "pexelVideos": [6394054, 30646036],
-        "transition": 3
-      }
+    "configName": {
+      "type": "string",
+      "default": "frontpage"
     }
   }
 }
