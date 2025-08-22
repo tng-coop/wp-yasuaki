@@ -45,7 +45,7 @@ class FullshowHello extends LitElement {
       padding: 0;
       box-sizing: border-box;
       background: #fff;
-      border: 6px solid var(--fs-pane-border, var(--fs-border, green));
+/*      border: 6px solid var(--fs-pane-border, var(--fs-border, green)); */
       margin: 0;
       border-radius: 0;
       display: flex;
