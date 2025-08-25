@@ -50,6 +50,8 @@ wp-content/plugins/*
 !wp-content/plugins/fullbanner/**
 !wp-content/plugins/fit-image/
 !wp-content/plugins/fit-image/**
+!wp-content/plugins/my-custom-css/
+!wp-content/plugins/my-custom-css/**
 
 
 

@@ -1,0 +1,13 @@
+fullshow-hello {
+  margin-block-start: 0;
+  margin-block-end: 0;
+}
+@font-face {
+  font-family: "Klee One";
+  src: url("/wp-content/uploads/fonts/KleeOne-Regular.ttf") format("truetype");
+}
+
+body {
+  font-family: "Klee One", sans-serif;
+}
+
