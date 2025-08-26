@@ -44,7 +44,7 @@ if ( ! $fb_scaler_printed ) :
       if (!inner) return;
 
       // anchor at left edge, vertical center
-      inner.style.left = '0';
+      inner.style.left = '20px';
       inner.style.top = '50%';
       inner.style.transformOrigin = 'left center';
 

@@ -22,7 +22,7 @@
 /* left-anchored, vertically centered scaler target */
 .fullbanner .overlay-inner {
   position: absolute;
-  left: 0;                         /* respect leftmost edge */
+  left: 20px;                         /* respect leftmost edge */
   top: 50%;
   transform: translateY(-50%);     /* no X translation */
   transform-origin: left center;   /* scale from left edge */
