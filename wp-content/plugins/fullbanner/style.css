@@ -1,4 +1,37 @@
-.fullbanner-box {
+.fullbanner {
+  position: relative;
   width: 100%;
   display: block;
+  overflow: hidden; /* clip to attribute height */
 }
+
+/* base layer */
+.fullbanner .pane.a {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+}
+
+/* overlay covers the banner */
+.fullbanner .overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none; /* allow clicks only in inner */
+}
+
+/* scaler target: we center it, JS adds scale() */
+.fullbanner .overlay-inner {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%,-50%); /* scale() appended by JS */
+  transform-origin: center center;
+  display: inline-block;   /* shrink-wrap to content to measure correctly */
+  pointer-events: auto;
+  max-width: none;
+}
+
+/* neutralize common Gutenberg wrappers that add stray margins */
+.fullbanner .overlay-inner > * { margin: 0; }

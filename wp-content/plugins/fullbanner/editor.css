@@ -1,4 +1,38 @@
-.fullbanner-box {
+.fullbanner {
+  position: relative;
   width: 100%;
   display: block;
+  overflow: hidden;
+}
+
+.fullbanner .pane.a {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+}
+
+.fullbanner .overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1;
+  pointer-events: none;
+}
+
+.fullbanner .overlay-inner {
+  height: 100%;
+  width: auto;
+  pointer-events: auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.fullbanner .overlay-inner > * {
+  height: 100%;
+  width: auto;
+  max-width: none;
 }
