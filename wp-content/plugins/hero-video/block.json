@@ -4,10 +4,12 @@
   "title": "Hero Video",
   "category": "widgets",
   "icon": "media-code",
-  "supports": { "html": false },
+  "supports": {
+    "html": false
+  },
   "style": "file:./style.css",
   "editorScript": "file:./index.js",
-  "viewScriptModule": "file:./view.js",
+  "viewScriptModule": "file:./build/view.js",
   "render": "file:./render.php",
   "attributes": {
     "configName": {
