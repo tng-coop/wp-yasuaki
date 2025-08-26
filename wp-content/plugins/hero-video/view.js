@@ -208,41 +208,48 @@ async function initHeroVideoInstance(container) {
     state.videos[state.curr].addEventListener('timeupdate', state.handler);
   }
 
-  async function switchVideos() {
-    if (state.switching) return;
-    state.switching = true;
 
-    const cV = state.videos[state.curr];
-    const nV = state.videos[state.next];
+async function switchVideos() {
+  if (state.switching) return;
+  state.switching = true;
 
-    nV.currentTime = 0;
-    try { await nV.play(); } catch (e) { console.warn('play error', e); state.switching=false; return; }
-    await waitPlayable(nV); // ensure drawable before revealing
+  const cV = state.videos[state.curr];
+  const nV = state.videos[state.next];
 
-    // crossfade
-    nV.style.opacity = '1';
+  // ensure next is drawn above current
+  cV.style.zIndex = '1';
+  nV.style.zIndex = '2';
+
+  nV.currentTime = 0;
+  try { await nV.play(); } catch (e) { console.warn('play error', e); state.switching=false; return; }
+  await waitPlayable(nV); // ready before reveal
+
+  // Fade IN the next video while keeping the current video fully opaque.
+  // This guarantees no background shows during the transition.
+  const finish = () => {
+    nV.removeEventListener('transitionend', finish);
+    // After next is fully visible, hide and pause the previous.
     cV.style.opacity = '0';
+    cV.pause();
+    if (STRICT_BLOB_MODE) revokeObjURL(cV);
+    state.idx = (state.idx + 1) % ids.length;
+    [state.curr, state.next] = [state.next, state.curr];
+    setupSwitch();
+    state.switching = false;
+    preloadIntoHidden().catch(e => console.warn('preload fail', e));
+  };
 
-    // after transition completes, clean up old video
-    const finish = () => {
-      nV.removeEventListener('transitionend', finish);
-      cV.pause();
-      if (STRICT_BLOB_MODE) revokeObjURL(cV); // revoke only after fade finishes
-      state.idx = nextIdIndex(state.idx);
-      [state.curr, state.next] = [state.next, state.curr];
-      setupSwitch();
-      state.switching = false;
-      preloadIntoHidden().catch(e => console.warn('preload fail', e));
-    };
+  // Trigger fade-in of next only.
+  nV.style.opacity = '1';
 
-    // If transition is disabled (0s), finish immediately
-    if (parseFloat(getComputedStyle(nV).transitionDuration) === 0 && transitionSec <= 0) {
-      finish();
-    } else {
-      nV.addEventListener('transitionend', finish, { once: true });
-    }
+  // If transition duration is effectively 0, finalize immediately.
+  const dur = parseFloat(getComputedStyle(nV).transitionDuration) || 0;
+  if (dur <= 0) {
+    finish();
+  } else {
+    nV.addEventListener('transitionend', finish, { once: true });
   }
-
+}
   // ---- initial load ----
   const firstSrc = await getBestSrc(apiBase, ids[state.idx]);
   if (STRICT_BLOB_MODE) {
