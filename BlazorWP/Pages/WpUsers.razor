@@ -1,8 +1,8 @@
 @page "/wp-users"
 @using WordPressPCL
 @using WordPressPCL.Models
-@inject LocalStorageJsInterop StorageJs
-@inject JwtService JwtService
+@inject HttpClient Http
+@inject IEndpointState Endpoint
 
 <PageTitle>WordPress Users</PageTitle>
 
@@ -54,26 +54,18 @@ else
     private User? selectedUser;
     private string? error;
 
+    protected override void OnInitialized()
+    {
+        Endpoint.Changed += () => Http.BaseAddress = Endpoint.BaseAddress;
+        Http.BaseAddress = Endpoint.BaseAddress;
+        client = new WordPressClient(Http);
+    }
+
     protected override async Task OnInitializedAsync()
     {
-        var endpoint = await StorageJs.GetItemAsync("wpEndpoint");
-        if (string.IsNullOrEmpty(endpoint))
-        {
-            return;
-        }
-
-        var baseUrl = endpoint.TrimEnd('/') + "/wp-json/";
-        client = new WordPressClient(baseUrl);
-
-        var token = await JwtService.GetCurrentJwtAsync();
-        if (!string.IsNullOrEmpty(token))
-        {
-            client.Auth.SetJWToken(token);
-        }
-
         try
         {
-            users = await client.Users.GetAllAsync();
+            users = await client!.Users.GetAllAsync();
         }
         catch (Exception ex)
         {
@@ -88,4 +80,3 @@ else
 
     private string GetActiveClass(User user) => selectedUser?.Id == user.Id ? "active" : string.Empty;
 }
-

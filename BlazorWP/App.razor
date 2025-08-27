@@ -1,4 +1,6 @@
-﻿<Router AppAssembly="@typeof(App).Assembly">
+@inject IAccessInitializer AccessInit
+
+<Router AppAssembly="@typeof(App).Assembly">
     <Found Context="routeData">
         <RouteView RouteData="@routeData" DefaultLayout="@typeof(MainLayout)" />
         <FocusOnNavigate RouteData="@routeData" Selector="h1" />
@@ -11,3 +13,12 @@
     </NotFound>
 </Router>
 <AntContainer />
+
+@code {
+    protected override async Task OnAfterRenderAsync(bool firstRender) {
+        if (firstRender) {
+            Console.WriteLine("App: initializing access");
+            await AccessInit.InitializeOnceAsync();
+        }
+    }
+}

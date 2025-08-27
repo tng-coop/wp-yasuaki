@@ -107,21 +107,17 @@ public partial class Edit
         }
     }
 
-    private async Task SetupWordPressClientAsync()
+    private Task SetupWordPressClientAsync()
     {
-        var endpoint = await StorageJs.GetItemAsync("wpEndpoint");
-        if (string.IsNullOrEmpty(endpoint))
+        if (Http.BaseAddress == null)
         {
             client = null;
             baseUrl = null;
-            //Console.WriteLine("[SetupWordPressClientAsync] no endpoint configured");
-            return;
+            return Task.CompletedTask;
         }
 
-        baseUrl = endpoint.TrimEnd('/') + "/wp-json/";
-        //Console.WriteLine($"[SetupWordPressClientAsync] baseUrl={baseUrl}");
-        var handler = AuthHandler;
-        var httpClient = new HttpClient(handler) { BaseAddress = new Uri(baseUrl) };
-        client = new WordPressClient(httpClient);
+        baseUrl = Http.BaseAddress.ToString();
+        client = new WordPressClient(Http);
+        return Task.CompletedTask;
     }
 }

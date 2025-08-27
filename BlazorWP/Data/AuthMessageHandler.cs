@@ -1,63 +1,59 @@
-using System.Net.Http.Headers;
-using Microsoft.JSInterop;
-
 namespace BlazorWP;
 
-public class AuthMessageHandler : DelegatingHandler
+public sealed class AuthMessageHandler : DelegatingHandler
 {
-    private readonly JwtService _jwtService;
-    private readonly LocalStorageJsInterop _storage;
-    private readonly WpNonceJsInterop _nonceJs;
-    private const string HostInWpKey = "hostInWp";
+    private readonly IAccessGate _gate;
+    private readonly IAccessModeService _mode;
+    private readonly INonceService _nonce;
+    private readonly IJwtService _jwt;
 
-    public AuthMessageHandler(JwtService jwtService, LocalStorageJsInterop storage, WpNonceJsInterop nonceJs)
+    public AuthMessageHandler(IAccessGate gate, IAccessModeService mode, INonceService nonce, IJwtService jwt)
     {
-        _jwtService = jwtService;
-        _storage = storage;
-        _nonceJs = nonceJs;
+        _gate = gate; _mode = mode; _nonce = nonce; _jwt = jwt;
+        _mode.Changed += _ => _gate.Pause();
         InnerHandler = new HttpClientHandler();
     }
 
-    private static bool ShouldSkipAuth(HttpRequestMessage request)
+    protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage req, CancellationToken ct)
     {
-        var uri = request.RequestUri;
-        if (uri == null)
-        {
-            return false;
-        }
-        var path = uri.AbsolutePath.TrimEnd('/');
-        return path.EndsWith("/wp-json/wp/v2", StringComparison.OrdinalIgnoreCase)
-            || path.EndsWith("/wp-json/jwt-auth/v1/token", StringComparison.OrdinalIgnoreCase)
-            || path.EndsWith("/jwt-auth/v1/token", StringComparison.OrdinalIgnoreCase);
-    }
+        await _gate.WaitAsync();
 
-    protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
-    {
-        var hostPref = await _storage.GetItemAsync(HostInWpKey);
-        var useNonce = !string.IsNullOrEmpty(hostPref) && bool.TryParse(hostPref, out var hv) && hv;
+        req.Headers.Remove("Authorization");
+        req.Headers.Remove("X-WP-Nonce");
 
-        if (useNonce)
+        if (_mode.Mode == AccessMode.Nonce)
         {
-            var nonce = await _nonceJs.GetNonceAsync();
-            if (!string.IsNullOrWhiteSpace(nonce))
-            {
-                if (!ShouldSkipAuth(request))
-                {
-                    request.Headers.Remove("Authorization");
-                    request.Headers.Remove("X-WP-Nonce");
-                    request.Headers.Add("X-WP-Nonce", nonce);
-                }
-            }
+            var n = await _nonce.GetAsync(ct);
+            Console.WriteLine($"AuthMessageHandler: adding nonce {n}");
+            req.Headers.Add("X-WP-Nonce", n);
         }
-        else if (!ShouldSkipAuth(request))
+        else
         {
-            var token = await _jwtService.GetCurrentJwtAsync();
-            if (!string.IsNullOrWhiteSpace(token))
+            var t = await _jwt.GetAsync(ct);
+            if (!string.IsNullOrEmpty(t))
             {
-                request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+                Console.WriteLine("AuthMessageHandler: adding JWT");
+                req.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", t);
             }
         }
 
-        return await base.SendAsync(request, cancellationToken);
+        var resp = await base.SendAsync(req, ct);
+        if (resp.StatusCode == System.Net.HttpStatusCode.Unauthorized)
+        {
+            Console.WriteLine("AuthMessageHandler: 401 encountered, refreshing");
+            if (_mode.Mode == AccessMode.Nonce) await _nonce.RefreshAsync(ct);
+            else await _jwt.RefreshAsync(ct);
+
+            req.Headers.Remove("Authorization");
+            req.Headers.Remove("X-WP-Nonce");
+
+            if (_mode.Mode == AccessMode.Nonce)
+                req.Headers.Add("X-WP-Nonce", await _nonce.GetAsync(ct));
+            else
+                req.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", await _jwt.GetAsync(ct));
+
+            resp = await base.SendAsync(req, ct);
+        }
+        return resp;
     }
 }

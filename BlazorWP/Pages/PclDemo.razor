@@ -1,8 +1,9 @@
 @page "/pcl-demo"
 @using WordPressPCL
-@inject LocalStorageJsInterop StorageJs
 @inject IJSRuntime JS
-@inject JwtService JwtService
+@inject IJwtService JwtService
+@inject HttpClient Http
+@inject IEndpointState Endpoint
 
 <PageTitle>PCL Demo</PageTitle>
 
@@ -43,26 +44,14 @@ else
 
 @code {
     private WordPressClient? client;
-    private string? baseUrl;
     private List<ApiEndpoint> endpoints = new();
     private string? jwtToken;
 
-    protected override async Task OnInitializedAsync()
+    protected override void OnInitialized()
     {
-        var endpoint = await StorageJs.GetItemAsync("wpEndpoint");
-        if (string.IsNullOrEmpty(endpoint))
-        {
-            return;
-        }
-
-        baseUrl = endpoint.TrimEnd('/') + "/wp-json/";
-        client = new WordPressClient(baseUrl);
-        jwtToken = await JwtService.GetCurrentJwtAsync();
-        if (!string.IsNullOrEmpty(jwtToken))
-        {
-            client.Auth.SetJWToken(jwtToken);
-        }
-
+        Endpoint.Changed += () => Http.BaseAddress = Endpoint.BaseAddress;
+        Http.BaseAddress = Endpoint.BaseAddress;
+        client = new WordPressClient(Http);
         endpoints = new()
         {
             new ApiEndpoint("Posts", "wp/v2/posts", async c => await c.Posts.GetAllAsync()),
@@ -75,7 +64,6 @@ else
             new ApiEndpoint("Taxonomies", "wp/v2/taxonomies", async c => await c.Taxonomies.GetAllAsync()),
             new ApiEndpoint("Post Types", "wp/v2/types", async c => await c.PostTypes.GetAllAsync()),
             new ApiEndpoint("Post Statuses", "wp/v2/statuses", async c => await c.PostStatuses.GetAllAsync()),
-            // new ApiEndpoint("Settings", "wp/v2/settings", async c => await c.Settings.GetAsync()),
             new ApiEndpoint("Plugins", "wp/v2/plugins", async c => await c.Plugins.GetAllAsync()),
             new ApiEndpoint("Themes", "wp/v2/themes", async c => await c.Themes.GetAllAsync())
         };
@@ -86,12 +74,6 @@ else
         if (client == null)
         {
             return;
-        }
-
-        jwtToken = await JwtService.GetCurrentJwtAsync();
-        if (!string.IsNullOrEmpty(jwtToken))
-        {
-            client.Auth.SetJWToken(jwtToken);
         }
 
         try
@@ -108,18 +90,14 @@ else
 
     private async Task CopyCurl(ApiEndpoint ep)
     {
-        if (baseUrl == null)
-        {
-            return;
-        }
-
-        jwtToken = await JwtService.GetCurrentJwtAsync();
+        jwtToken = await JwtService.GetAsync();
         var command = GetCurlCommand(ep);
         await JS.InvokeVoidAsync("navigator.clipboard.writeText", command);
     }
 
     private string GetCurlCommand(ApiEndpoint ep)
     {
+        var baseUrl = Http.BaseAddress?.ToString();
         if (baseUrl == null)
         {
             return string.Empty;

@@ -3,7 +3,7 @@ using System.Linq;
 
 namespace BlazorWP;
 
-public class JwtService
+public class JwtService : IJwtService
 {
     private readonly LocalStorageJsInterop _storage;
     private const string WpEndpointKey = "wpEndpoint";
@@ -101,16 +101,18 @@ public class JwtService
         return info;
     }
 
-    public async Task<string?> GetCurrentJwtAsync()
+    public async Task<string?> GetAsync(CancellationToken ct = default)
     {
         var endpoint = await _storage.GetItemAsync(WpEndpointKey);
         if (string.IsNullOrEmpty(endpoint))
         {
+            Console.WriteLine("JwtService: no endpoint");
             return null;
         }
 
         var info = await LoadJwtInfoAsync(endpoint);
         var token = info?.Token;
+        Console.WriteLine($"JwtService: token {(string.IsNullOrEmpty(token) ? "missing" : "retrieved")}");
 
         if (!string.IsNullOrEmpty(token))
         {
@@ -124,9 +126,34 @@ public class JwtService
         return token;
     }
 
+    public Task<string?> GetCurrentJwtAsync() => GetAsync();
+
+    public async Task RefreshAsync(CancellationToken ct = default)
+    {
+        Console.WriteLine("JwtService: refresh requested");
+        await GetAsync(ct);
+    }
+
+    public async Task TryWarmAsync(CancellationToken ct = default)
+    {
+        Console.WriteLine("JwtService: warm");
+        await GetAsync(ct);
+    }
+
+    public async Task ClearAsync(CancellationToken ct = default)
+    {
+        Console.WriteLine("JwtService: clear");
+        var endpoint = await _storage.GetItemAsync(WpEndpointKey);
+        if (!string.IsNullOrEmpty(endpoint))
+        {
+            await _storage.DeleteAsync(GetJwtTokenKey(endpoint));
+        }
+        await _storage.DeleteAsync("jwtToken");
+    }
+
     public async Task<List<string>> GetCurrentUserRolesAsync()
     {
-        var token = await GetCurrentJwtAsync();
+        var token = await GetAsync();
         var roles = new List<string>();
         if (string.IsNullOrEmpty(token))
         {

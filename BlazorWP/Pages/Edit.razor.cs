@@ -10,6 +10,12 @@ namespace BlazorWP.Pages;
 
 public partial class Edit : IAsyncDisposable
 {
+    protected override void OnInitialized()
+    {
+        Endpoint.Changed += () => Http.BaseAddress = Endpoint.BaseAddress;
+        Http.BaseAddress = Endpoint.BaseAddress;
+    }
+
     private const string DraftsKey = "editorDrafts";
     private const string ShowTrashedKey = "showTrashed";
 
