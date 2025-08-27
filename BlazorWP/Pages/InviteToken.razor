@@ -1,13 +1,13 @@
 @page "/invite-token"
 @using System.Net.Http.Json
-@inject LocalStorageJsInterop StorageJs
-@inject AuthMessageHandler AuthHandler
+@inject HttpClient Http
+@inject IEndpointState Endpoint
 
 <PageTitle>Invite Token</PageTitle>
 
 <h1>Invite Token</h1>
 
-@if (httpClient == null)
+@if (Http.BaseAddress == null)
 {
     <p>Please verify a WordPress endpoint on the <NavLink href="/">Home</NavLink> page first.</p>
 }
@@ -29,42 +29,29 @@ else
 }
 
 @code {
-    private HttpClient? httpClient;
-    private InviteResponse? response;
     private string? responseJson;
     private string? error;
 
-    protected override async Task OnInitializedAsync()
+    protected override void OnInitialized()
     {
-        var endpoint = await StorageJs.GetItemAsync("wpEndpoint");
-        if (string.IsNullOrEmpty(endpoint))
-        {
-            return;
-        }
-        var baseUrl = endpoint.TrimEnd('/') + "/wp-json/";
-        httpClient = new HttpClient(AuthHandler) { BaseAddress = new Uri(baseUrl) };
+        Endpoint.Changed += () => Http.BaseAddress = Endpoint.BaseAddress;
+        Http.BaseAddress = Endpoint.BaseAddress;
     }
 
     private async Task GenerateTokenAsync()
     {
-        if (httpClient == null) return;
-        response = null;
-        error = null;
         responseJson = null;
+        error = null;
         try
         {
-            using var resp = await httpClient.PostAsync("invite/v1/token", null);
+            using var resp = await Http.PostAsync("invite/v1/token", null);
             var json = await resp.Content.ReadAsStringAsync();
             if (resp.IsSuccessStatusCode)
             {
-// no re-serialization, just indent in place
-responseJson = JsonDocument
+                responseJson = JsonDocument
   .Parse(json)
   .RootElement
   .GetRawText();
-
-
-
             }
             else
             {
@@ -75,12 +62,5 @@ responseJson = JsonDocument
         {
             error = ex.Message;
         }
-    }
-
-    private class InviteResponse
-    {
-        public string? token { get; set; }
-        public int expiresIn { get; set; }
-        public string? issuedAt { get; set; }
     }
 }

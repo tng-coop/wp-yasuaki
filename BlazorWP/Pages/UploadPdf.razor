@@ -6,9 +6,9 @@
 @using System.Text.Json
 @using System.IO
 @using System.Net.Http
-@inject LocalStorageJsInterop StorageJs
 @inject UploadPdfJsInterop PdfJs
-@inject AuthMessageHandler AuthHandler
+@inject HttpClient Http
+@inject IEndpointState Endpoint
 
 <PageTitle>Upload PDF</PageTitle>
 
@@ -79,7 +79,6 @@ else
 
 @code {
     private WordPressClient? client;
-    private HttpClient? httpClient;
     private IBrowserFile? _file;
     private string? status;
     private int uploadProgress;
@@ -91,6 +90,13 @@ else
     private Dictionary<string, string>? sizePreviews;
 
     private record WpSize(string Name, int Width, int Height, string CropMode, string Notes);
+
+    protected override void OnInitialized()
+    {
+        Endpoint.Changed += () => Http.BaseAddress = Endpoint.BaseAddress;
+        Http.BaseAddress = Endpoint.BaseAddress;
+        client = new WordPressClient(Http);
+    }
 
     private void CalculateWpSizes()
     {
@@ -117,15 +123,6 @@ else
             new("large", ScaledWidth(1024), ScaledHeight(1024), "soft (max)", "Max width 1024"),
             new("full", w, h, "n/a", "Full first page")
         };
-    }
-
-    protected override async Task OnInitializedAsync()
-    {
-        var endpoint = await StorageJs.GetItemAsync("wpEndpoint");
-        if (string.IsNullOrEmpty(endpoint)) return;
-        var baseUrl = endpoint.TrimEnd('/') + "/wp-json/";
-        httpClient = new HttpClient(AuthHandler) { BaseAddress = new Uri(baseUrl) };
-        client = new WordPressClient(httpClient);
     }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
@@ -175,7 +172,7 @@ else
         status = null; uploadProgress = 0; isUploading = true;
         try
         {
-            var endpoint = new Uri(httpClient!.BaseAddress!, "myplugin/v1/media/bundle");
+            var endpoint = new Uri(Http.BaseAddress!, "myplugin/v1/media/bundle");
             using var form = new MultipartFormDataContent();
 
             using var pdfStream = _file.OpenReadStream(long.MaxValue);
@@ -204,7 +201,7 @@ else
 
             form.Add(new StringContent(JsonSerializer.Serialize(dimensions)), "dimensions");
 
-            var resp = await httpClient!.PostAsync(endpoint, form);
+            var resp = await Http.PostAsync(endpoint, form);
             resp.EnsureSuccessStatusCode();
             status = "Upload complete";
             uploadProgress = 100;
