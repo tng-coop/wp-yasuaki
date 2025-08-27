@@ -1,8 +1,8 @@
 @page "/pcl-demo"
 @using WordPressPCL
-@inject LocalStorageJsInterop StorageJs
 @inject IJSRuntime JS
 @inject JwtService JwtService
+@inject WordPressApiService Api
 
 <PageTitle>PCL Demo</PageTitle>
 
@@ -49,18 +49,12 @@ else
 
     protected override async Task OnInitializedAsync()
     {
-        var endpoint = await StorageJs.GetItemAsync("wpEndpoint");
-        if (string.IsNullOrEmpty(endpoint))
+        client = await Api.GetClientAsync();
+        baseUrl = Api.BaseUrl;
+        jwtToken = await JwtService.GetCurrentJwtAsync();
+        if (client == null || baseUrl == null)
         {
             return;
-        }
-
-        baseUrl = endpoint.TrimEnd('/') + "/wp-json/";
-        client = new WordPressClient(baseUrl);
-        jwtToken = await JwtService.GetCurrentJwtAsync();
-        if (!string.IsNullOrEmpty(jwtToken))
-        {
-            client.Auth.SetJWToken(jwtToken);
         }
 
         endpoints = new()
@@ -89,10 +83,6 @@ else
         }
 
         jwtToken = await JwtService.GetCurrentJwtAsync();
-        if (!string.IsNullOrEmpty(jwtToken))
-        {
-            client.Auth.SetJWToken(jwtToken);
-        }
 
         try
         {

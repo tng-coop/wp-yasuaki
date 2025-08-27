@@ -1,8 +1,7 @@
 @page "/wp-users"
 @using WordPressPCL
 @using WordPressPCL.Models
-@inject LocalStorageJsInterop StorageJs
-@inject JwtService JwtService
+@inject WordPressApiService Api
 
 <PageTitle>WordPress Users</PageTitle>
 
@@ -56,19 +55,10 @@ else
 
     protected override async Task OnInitializedAsync()
     {
-        var endpoint = await StorageJs.GetItemAsync("wpEndpoint");
-        if (string.IsNullOrEmpty(endpoint))
+        client = await Api.GetClientAsync();
+        if (client == null)
         {
             return;
-        }
-
-        var baseUrl = endpoint.TrimEnd('/') + "/wp-json/";
-        client = new WordPressClient(baseUrl);
-
-        var token = await JwtService.GetCurrentJwtAsync();
-        if (!string.IsNullOrEmpty(token))
-        {
-            client.Auth.SetJWToken(token);
         }
 
         try

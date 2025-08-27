@@ -1,7 +1,6 @@
 using System.Text.Json;
 using System.Linq;
 using System.Collections.Generic;
-using System.Net.Http;
 using Microsoft.JSInterop;
 using WordPressPCL;
 using WordPressPCL.Models;
@@ -109,19 +108,14 @@ public partial class Edit
 
     private async Task SetupWordPressClientAsync()
     {
-        var endpoint = await StorageJs.GetItemAsync("wpEndpoint");
-        if (string.IsNullOrEmpty(endpoint))
+        client = await Api.GetClientAsync();
+        baseUrl = Api.BaseUrl;
+        if (client == null || baseUrl == null)
         {
             client = null;
             baseUrl = null;
             //Console.WriteLine("[SetupWordPressClientAsync] no endpoint configured");
             return;
         }
-
-        baseUrl = endpoint.TrimEnd('/') + "/wp-json/";
-        //Console.WriteLine($"[SetupWordPressClientAsync] baseUrl={baseUrl}");
-        var handler = AuthHandler;
-        var httpClient = new HttpClient(handler) { BaseAddress = new Uri(baseUrl) };
-        client = new WordPressClient(httpClient);
     }
 }
