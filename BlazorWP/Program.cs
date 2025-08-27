@@ -49,7 +49,7 @@ namespace BlazorWP
                 return http;
             });
 
-            builder.Services.AddSingleton<IWordPressClient, WordPressClient>();
+            builder.Services.AddSingleton<IWordPressApi, WpApiClient>();
 
             builder.Services.AddMudServices();
             builder.Services.AddPanoramicDataBlazor();
