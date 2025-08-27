@@ -2,7 +2,7 @@ using Microsoft.JSInterop;
 
 namespace BlazorWP;
 
-public class SessionStorageJsInterop : IAsyncDisposable
+public sealed class SessionStorageJsInterop : IAsyncDisposable, IDisposable
 {
     private readonly IJSRuntime _jsRuntime;
     private IJSObjectReference? _module;
@@ -36,8 +36,10 @@ public class SessionStorageJsInterop : IAsyncDisposable
     public async ValueTask DeleteAsync(string key)
     {
         var module = await GetModuleAsync();
-        await module.InvokeVoidAsync("deleteItem", key);
+       await module.InvokeVoidAsync("deleteItem", key);
     }
+
+    public void Dispose() => _ = DisposeAsync();
 
     public async ValueTask DisposeAsync()
     {

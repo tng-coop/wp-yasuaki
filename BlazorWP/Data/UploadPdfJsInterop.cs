@@ -4,7 +4,7 @@ namespace BlazorWP;
 
 public record PdfRenderInfo(int Width, int Height, string DataUrl);
 
-public class UploadPdfJsInterop : IAsyncDisposable
+public sealed class UploadPdfJsInterop : IAsyncDisposable, IDisposable
 {
     private readonly IJSRuntime _jsRuntime;
     private IJSObjectReference? _module;
@@ -46,6 +46,8 @@ public class UploadPdfJsInterop : IAsyncDisposable
         var module = await GetModuleAsync();
         return await module.InvokeAsync<string?>("getScaledPreview", width, height, cover);
     }
+
+    public void Dispose() => _ = DisposeAsync();
 
     public async ValueTask DisposeAsync()
     {

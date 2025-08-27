@@ -2,7 +2,7 @@ using Microsoft.JSInterop;
 
 namespace BlazorWP;
 
-public class LocalStorageJsInterop : IAsyncDisposable
+public sealed class LocalStorageJsInterop : IAsyncDisposable, IDisposable
 {
     private readonly IJSRuntime _jsRuntime;
     private IJSObjectReference? _module;
@@ -50,6 +50,8 @@ public class LocalStorageJsInterop : IAsyncDisposable
         var module = await GetModuleAsync();
         await module.InvokeVoidAsync("deleteItem", key);
     }
+
+    public void Dispose() => _ = DisposeAsync();
 
     public async ValueTask DisposeAsync()
     {
