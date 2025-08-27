@@ -1,3 +1,5 @@
+using Microsoft.AspNetCore.Components;
+
 namespace BlazorWP;
 
 public sealed class AccessInitializer : IAccessInitializer
