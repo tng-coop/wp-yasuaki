@@ -3,7 +3,7 @@ using Microsoft.JSInterop;
 
 namespace BlazorWP;
 
-public class WpMediaJsInterop : IAsyncDisposable
+public sealed class WpMediaJsInterop : IAsyncDisposable, IDisposable
 {
     private readonly IJSRuntime _jsRuntime;
     private IJSObjectReference? _module;
@@ -27,6 +27,8 @@ public class WpMediaJsInterop : IAsyncDisposable
         var module = await GetModuleAsync();
         await module.InvokeVoidAsync("initMediaPage", iframeEl, overlayEl);
     }
+
+    public void Dispose() => _ = DisposeAsync();
 
     public async ValueTask DisposeAsync()
     {

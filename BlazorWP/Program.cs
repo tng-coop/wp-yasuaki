@@ -15,42 +15,49 @@ namespace BlazorWP
             builder.RootComponents.Add<App>("#app");
             builder.RootComponents.Add<HeadOutlet>("head::after");
 
-            // state + coordination
-            builder.Services.AddScoped<IEndpointState, EndpointState>();
-            builder.Services.AddScoped<IAccessModeService, AccessModeService>();
-            builder.Services.AddScoped<IAccessGate, AccessGate>();
+            // shared state + coordination
+            builder.Services.AddSingleton<IEndpointState, EndpointState>();
+            builder.Services.AddSingleton<IAccessModeService, AccessModeService>();
+            builder.Services.AddSingleton<IAccessGate, AccessGate>();
 
-            // auth primitives
-            builder.Services.AddScoped<WpNonceJsInterop>();
-            builder.Services.AddScoped<NonceService>();
-            builder.Services.AddScoped<INonceService>(sp => sp.GetRequiredService<NonceService>());
-            builder.Services.AddScoped<JwtService>();
-            builder.Services.AddScoped<IJwtService>(sp => sp.GetRequiredService<JwtService>());
+            // JS interop & auth primitives
+            builder.Services.AddSingleton<LocalStorageJsInterop>();
+            builder.Services.AddSingleton<WpNonceJsInterop>();
+            builder.Services.AddSingleton<NonceService>();
+            builder.Services.AddSingleton<INonceService>(sp => sp.GetRequiredService<NonceService>());
+            builder.Services.AddSingleton<JwtService>();
+            builder.Services.AddSingleton<IJwtService>(sp => sp.GetRequiredService<JwtService>());
+            builder.Services.AddSingleton<AuthState>();
 
             // initializer + switcher
-            builder.Services.AddScoped<IAccessInitializer, AccessInitializer>();
-            builder.Services.AddScoped<IAccessSwitcher, AccessSwitcher>();
+            builder.Services.AddSingleton<IAccessInitializer, AccessInitializer>();
+            builder.Services.AddSingleton<IAccessSwitcher, AccessSwitcher>();
 
             // HTTP
-            builder.Services.AddScoped<AuthMessageHandler>();
-            builder.Services.AddHttpClient("WpApi")
-                .AddHttpMessageHandler<AuthMessageHandler>();
-            builder.Services.AddScoped(sp => {
-                var factory = sp.GetRequiredService<IHttpClientFactory>();
+            builder.Services.AddSingleton(sp =>
+            {
+                var handler = new AuthMessageHandler(sp.GetRequiredService<AuthState>())
+                {
+                    InnerHandler = new HttpClientHandler()
+                };
+                var http = new HttpClient(handler)
+                {
+                    BaseAddress = new Uri(builder.HostEnvironment.BaseAddress)
+                };
                 var ep = sp.GetRequiredService<IEndpointState>();
-                var http = factory.CreateClient("WpApi");
-                http.BaseAddress = ep.BaseAddress;
+                ep.Changed += () => http.BaseAddress = ep.BaseAddress;
                 return http;
             });
+
+            builder.Services.AddSingleton<IWordPressClient, WordPressClient>();
 
             builder.Services.AddMudServices();
             builder.Services.AddPanoramicDataBlazor();
             builder.Services.AddAntDesign();
-            builder.Services.AddScoped<UploadPdfJsInterop>();
-            builder.Services.AddScoped<WpEndpointSyncJsInterop>();
-            builder.Services.AddScoped<LocalStorageJsInterop>();
-            builder.Services.AddScoped<SessionStorageJsInterop>();
-            builder.Services.AddScoped<WpMediaJsInterop>();
+            builder.Services.AddSingleton<UploadPdfJsInterop>();
+            builder.Services.AddSingleton<WpEndpointSyncJsInterop>();
+            builder.Services.AddSingleton<SessionStorageJsInterop>();
+            builder.Services.AddSingleton<WpMediaJsInterop>();
 
             var host = builder.Build();
             var config = host.Services.GetRequiredService<IConfiguration>();

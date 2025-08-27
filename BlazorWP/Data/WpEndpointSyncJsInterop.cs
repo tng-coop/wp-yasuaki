@@ -2,7 +2,7 @@ using Microsoft.JSInterop;
 
 namespace BlazorWP;
 
-public class WpEndpointSyncJsInterop : IAsyncDisposable
+public sealed class WpEndpointSyncJsInterop : IAsyncDisposable, IDisposable
 {
     private readonly IJSRuntime _jsRuntime;
     private IJSObjectReference? _module;
@@ -40,6 +40,8 @@ public class WpEndpointSyncJsInterop : IAsyncDisposable
         var module = await GetModuleAsync();
         await module.InvokeVoidAsync("set", value);
     }
+
+    public void Dispose() => _ = DisposeAsync();
 
     public async ValueTask DisposeAsync()
     {
