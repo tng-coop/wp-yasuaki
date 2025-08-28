@@ -50,13 +50,13 @@ else
     protected override async Task OnInitializedAsync()
     {
         var wp = await Api.GetClientAsync();
-        if (wp == null)
+        if (wp == null || Api.HttpClient == null)
         {
             return;
         }
 
         client = wp;
-        baseUrl = wp.HttpClient.BaseAddress?.ToString();
+        baseUrl = Api.HttpClient.BaseAddress?.ToString();
         jwtToken = await JwtService.GetCurrentJwtAsync();
         if (!string.IsNullOrEmpty(jwtToken))
         {

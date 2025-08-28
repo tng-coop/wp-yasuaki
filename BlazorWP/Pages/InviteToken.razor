@@ -36,11 +36,11 @@ else
     protected override async Task OnInitializedAsync()
     {
         var wp = await Api.GetClientAsync();
-        if (wp == null)
+        if (wp == null || Api.HttpClient == null)
         {
             return;
         }
-        httpClient = wp.HttpClient;
+        httpClient = Api.HttpClient;
     }
 
     private async Task GenerateTokenAsync()
