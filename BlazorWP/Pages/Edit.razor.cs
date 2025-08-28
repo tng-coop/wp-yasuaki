@@ -8,7 +8,7 @@ using WordPressPCL.Utility;
 
 namespace BlazorWP.Pages;
 
-public partial class Edit : IAsyncDisposable
+public partial class Edit : IDisposable, IAsyncDisposable
 {
     private const string DraftsKey = "editorDrafts";
     private const string ShowTrashedKey = "showTrashed";
@@ -99,5 +99,10 @@ public partial class Edit : IAsyncDisposable
     public ValueTask DisposeAsync()
     {
         return ValueTask.CompletedTask;
+    }
+
+    public void Dispose()
+    {
+        DisposeAsync().AsTask().GetAwaiter().GetResult();
     }
 }

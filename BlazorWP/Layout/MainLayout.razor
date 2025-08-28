@@ -1,5 +1,6 @@
 @inherits LayoutComponentBase
 
+@implements IDisposable
 @implements IAsyncDisposable
 
 <MudPopoverProvider />
@@ -181,6 +182,15 @@
         if (_objRef != null)
         {
             await EndpointSyncJs.UnregisterAsync();
+            _objRef.Dispose();
+        }
+    }
+
+    public void Dispose()
+    {
+        if (_objRef != null)
+        {
+            EndpointSyncJs.UnregisterAsync().GetAwaiter().GetResult();
             _objRef.Dispose();
         }
     }

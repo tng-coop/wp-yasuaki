@@ -2,7 +2,7 @@ using Microsoft.JSInterop;
 
 namespace BlazorWP;
 
-public class SessionStorageJsInterop : IAsyncDisposable
+public class SessionStorageJsInterop : IDisposable, IAsyncDisposable
 {
     private readonly IJSRuntime _jsRuntime;
     private IJSObjectReference? _module;
@@ -44,6 +44,14 @@ public class SessionStorageJsInterop : IAsyncDisposable
         if (_module != null)
         {
             await _module.DisposeAsync();
+        }
+    }
+
+    public void Dispose()
+    {
+        if (_module != null)
+        {
+            _module.DisposeAsync().AsTask().GetAwaiter().GetResult();
         }
     }
 }
