@@ -15,11 +15,11 @@ public partial class Edit
     {
         if (string.IsNullOrEmpty(selectedMediaSource))
         {
-            await StorageJs.DeleteAsync("mediaSource");
+        BrowserStorage.DeleteItem("mediaSource");
         }
         else
         {
-            await StorageJs.SetItemAsync("mediaSource", selectedMediaSource);
+        BrowserStorage.SetItem("mediaSource", selectedMediaSource);
         }
         //Console.WriteLine($"[OnMediaSourceChanged] source='{selectedMediaSource}'");
         await JS.InvokeVoidAsync("setTinyMediaSource", selectedMediaSource);
@@ -66,7 +66,7 @@ public partial class Edit
 
     private async Task OnShowTrashedChanged()
     {
-        await StorageJs.SetItemAsync(ShowTrashedKey, showTrashed.ToString().ToLowerInvariant());
+        BrowserStorage.SetItem(ShowTrashedKey, showTrashed.ToString().ToLowerInvariant());
         // Only update the stored preference. Actual querying happens when
         // the user explicitly clicks the Refresh button.
     }

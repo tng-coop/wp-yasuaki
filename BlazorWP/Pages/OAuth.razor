@@ -1,7 +1,6 @@
 @page "/oauth"
 @using Microsoft.AspNetCore.WebUtilities
 @inject NavigationManager Nav
-@inject SessionStorageJsInterop SessionJs
 @inject IConfiguration Config
 
 <!--
@@ -65,7 +64,7 @@ else
         var state = Guid.NewGuid().ToString("N");
         var redirectUri = Nav.BaseUri.TrimEnd('/') + "/oauth";
         var url = provider.BuildAuthorizeUrl(pkce.CodeChallenge, redirectUri, state);
-        await SessionJs.SetItemAsync("pkce_" + state, pkce.CodeVerifier);
+        BrowserSessionStorage.SetItem("pkce_" + state, pkce.CodeVerifier);
         //Console.WriteLine($"OAuth authorize URL:\n{url}");
 
         Nav.NavigateTo(url, true);

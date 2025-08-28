@@ -6,7 +6,6 @@
 @using System.Text.Json
 @using System.IO
 @using System.Net.Http
-@inject LocalStorageJsInterop StorageJs
 @inject UploadPdfJsInterop PdfJs
 @inject AuthMessageHandler AuthHandler
 
@@ -121,7 +120,7 @@ else
 
     protected override async Task OnInitializedAsync()
     {
-        var endpoint = await StorageJs.GetItemAsync("wpEndpoint");
+        var endpoint = BrowserStorage.GetItem("wpEndpoint");
         if (string.IsNullOrEmpty(endpoint)) return;
         var baseUrl = endpoint.TrimEnd('/') + "/wp-json/";
         httpClient = new HttpClient(AuthHandler) { BaseAddress = new Uri(baseUrl) };

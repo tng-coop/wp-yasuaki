@@ -16,14 +16,6 @@ export function itemInfo(key) {
   return { value: value, lastUpdated: ts };
 }
 
-export function getItem(key) {
-  return window.localStorage.getItem(key);
-}
-
-export function setItem(key, value) {
-  window.localStorage.setItem(key, value);
-}
-
 export function deleteItem(key) {
   window.localStorage.removeItem(key);
   window.localStorage.removeItem(key + '_timestamp');

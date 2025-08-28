@@ -1,5 +1,4 @@
 @page "/data-storage"
-@inject LocalStorageJsInterop StorageJs
 
 <PageTitle>Data Storage</PageTitle>
 
@@ -47,13 +46,13 @@ else
 @code {
     private List<StoredItem>? items;
 
-    protected override async Task OnInitializedAsync()
+    protected override void OnInitialized()
     {
         items = new();
-        var keys = await StorageJs.KeysAsync();
+        var keys = BrowserStorage.Keys();
         foreach (var key in keys)
         {
-            var info = await StorageJs.ItemInfoAsync(key);
+            var info = BrowserStorage.ItemInfo(key);
             items.Add(new StoredItem
             {
                 Key = key,
@@ -68,7 +67,7 @@ else
         {
             items.RemoveAll(i => i.Key == key);
         }
-        await StorageJs.DeleteAsync(key);
+        BrowserStorage.DeleteItem(key);
         await InvokeAsync(StateHasChanged);
     }
 

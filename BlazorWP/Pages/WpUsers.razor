@@ -1,7 +1,6 @@
 @page "/wp-users"
 @using WordPressPCL
 @using WordPressPCL.Models
-@inject LocalStorageJsInterop StorageJs
 @inject JwtService JwtService
 
 <PageTitle>WordPress Users</PageTitle>
@@ -56,7 +55,7 @@ else
 
     protected override async Task OnInitializedAsync()
     {
-        var endpoint = await StorageJs.GetItemAsync("wpEndpoint");
+        var endpoint = BrowserStorage.GetItem("wpEndpoint");
         if (string.IsNullOrEmpty(endpoint))
         {
             return;

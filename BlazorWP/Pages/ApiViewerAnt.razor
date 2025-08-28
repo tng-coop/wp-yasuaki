@@ -1,7 +1,6 @@
 @page "/api-ant"
 @using System.Text.Json
 @inject HttpClient Http
-@inject LocalStorageJsInterop StorageJs
 
 <PageTitle>Ant Design API Viewer</PageTitle>
 
@@ -45,14 +44,14 @@ else
     private async Task ToggleFavorite(AntJsonNode node)
     {
         //Console.WriteLine($"[ToggleFavorite] Toggling {node.Path}");
-        var endpoint = await StorageJs.GetItemAsync("wpEndpoint");
+        var endpoint = BrowserStorage.GetItem("wpEndpoint");
         //Console.WriteLine($"[ToggleFavorite] Endpoint: {endpoint}");
         if (string.IsNullOrEmpty(endpoint))
         {
             return;
         }
 
-        var json = await StorageJs.GetItemAsync("favoriteApis");
+        var json = BrowserStorage.GetItem("favoriteApis");
         //Console.WriteLine($"[ToggleFavorite] Current JSON: {json}");
         Dictionary<string, List<string>> data;
         if (!string.IsNullOrEmpty(json))
@@ -91,13 +90,13 @@ else
         }
 
         var serialized = JsonSerializer.Serialize(data);
-        await StorageJs.SetItemAsync("favoriteApis", serialized);
+        BrowserStorage.SetItem("favoriteApis", serialized);
         await InvokeAsync(StateHasChanged);
     }
 
     protected override async Task OnInitializedAsync()
     {
-        var endpoint = await StorageJs.GetItemAsync("wpEndpoint");
+        var endpoint = BrowserStorage.GetItem("wpEndpoint");
         if (string.IsNullOrEmpty(endpoint))
         {
             loading = false;
@@ -124,7 +123,7 @@ else
             var root = BuildNode(doc.RootElement, "root", "");
             rootNodes = root.Children;
 
-            var favJson = await StorageJs.GetItemAsync("favoriteApis");
+            var favJson = BrowserStorage.GetItem("favoriteApis");
             if (!string.IsNullOrEmpty(favJson) &&
                 JsonSerializer.Deserialize<Dictionary<string, List<string>>>(favJson) is { } favData &&
                 favData.TryGetValue(endpoint, out var favs))

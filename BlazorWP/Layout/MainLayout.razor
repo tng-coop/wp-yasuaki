@@ -37,8 +37,6 @@
 
 @code {
     [Inject]
-    private LocalStorageJsInterop StorageJs { get; set; } = default!;
-    [Inject]
     private WpNonceJsInterop NonceJs { get; set; } = default!;
     [Inject]
     private WpEndpointSyncJsInterop EndpointSyncJs { get; set; } = default!;
@@ -54,14 +52,14 @@
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
-        var endpoint = await StorageJs.GetItemAsync("wpEndpoint");
+        var endpoint = BrowserStorage.GetItem("wpEndpoint");
         if (string.IsNullOrEmpty(endpoint))
         {
             var configEndpoint = Config["WordPress:Url"];
             if (!string.IsNullOrEmpty(configEndpoint))
             {
                 endpoint = configEndpoint;
-                await StorageJs.SetItemAsync("wpEndpoint", endpoint);
+                BrowserStorage.SetItem("wpEndpoint", endpoint);
             }
         }
         string? username = null;
@@ -69,7 +67,7 @@
         {
             username = await GetUsernameAsync(endpoint);
         }
-        var hostPref = await StorageJs.GetItemAsync(HostInWpKey);
+        var hostPref = BrowserStorage.GetItem(HostInWpKey);
 
         var changed = false;
         if (endpoint != currentEndpoint)
@@ -125,7 +123,7 @@
 
     private async Task<string?> GetUsernameAsync(string endpoint)
     {
-        var json = await StorageJs.GetItemAsync("siteinfo");
+        var json = BrowserStorage.GetItem("siteinfo");
         if (string.IsNullOrEmpty(json))
         {
             return null;
@@ -149,7 +147,7 @@
 
     private async Task OnHostInWpChanged()
     {
-        await StorageJs.SetItemAsync(HostInWpKey, hostInWp.ToString().ToLowerInvariant());
+        BrowserStorage.SetItem(HostInWpKey, hostInWp.ToString().ToLowerInvariant());
         if (hostInWp)
         {
             await FetchNonce();

@@ -14,7 +14,7 @@ public partial class Edit
     protected override async Task OnInitializedAsync()
     {
         //Console.WriteLine("[OnInitializedAsync] starting");
-        var draftsJson = await StorageJs.GetItemAsync(DraftsKey);
+        var draftsJson = BrowserStorage.GetItem(DraftsKey);
         DraftInfo? latestDraft = null;
         if (!string.IsNullOrEmpty(draftsJson))
         {
@@ -44,7 +44,7 @@ public partial class Edit
             hasPersistedContent = false;
         }
 
-        var trashedSetting = await StorageJs.GetItemAsync(ShowTrashedKey);
+        var trashedSetting = BrowserStorage.GetItem(ShowTrashedKey);
         if (!string.IsNullOrEmpty(trashedSetting) && bool.TryParse(trashedSetting, out var trashed))
         {
             showTrashed = trashed;
@@ -89,7 +89,7 @@ public partial class Edit
         {
             //Console.WriteLine("[OnAfterRenderAsync] firstRender");
             mediaSources = await JwtService.GetSiteInfoKeysAsync();
-            selectedMediaSource = await StorageJs.GetItemAsync("mediaSource");
+            selectedMediaSource = BrowserStorage.GetItem("mediaSource");
             if (!string.IsNullOrEmpty(selectedMediaSource))
             {
                 await JS.InvokeVoidAsync("setTinyMediaSource", selectedMediaSource);
@@ -109,7 +109,7 @@ public partial class Edit
 
     private async Task SetupWordPressClientAsync()
     {
-        var endpoint = await StorageJs.GetItemAsync("wpEndpoint");
+        var endpoint = BrowserStorage.GetItem("wpEndpoint");
         if (string.IsNullOrEmpty(endpoint))
         {
             client = null;

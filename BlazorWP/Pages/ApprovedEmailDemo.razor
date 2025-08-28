@@ -2,7 +2,6 @@
 @using WordPressPCL
 @using System.Net.Http.Json
 @using System.Text.Json
-@inject LocalStorageJsInterop StorageJs
 @inject AuthMessageHandler AuthHandler
 
 <PageTitle>Approved Email Demo</PageTitle>
@@ -64,7 +63,7 @@ else
 
     protected override async Task OnInitializedAsync()
     {
-        var endpoint = await StorageJs.GetItemAsync("wpEndpoint");
+        var endpoint = BrowserStorage.GetItem("wpEndpoint");
         if (string.IsNullOrEmpty(endpoint))
         {
             return;

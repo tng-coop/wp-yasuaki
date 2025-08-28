@@ -1,6 +1,5 @@
 @page "/invite-token"
 @using System.Net.Http.Json
-@inject LocalStorageJsInterop StorageJs
 @inject AuthMessageHandler AuthHandler
 
 <PageTitle>Invite Token</PageTitle>
@@ -36,7 +35,7 @@ else
 
     protected override async Task OnInitializedAsync()
     {
-        var endpoint = await StorageJs.GetItemAsync("wpEndpoint");
+        var endpoint = BrowserStorage.GetItem("wpEndpoint");
         if (string.IsNullOrEmpty(endpoint))
         {
             return;
