@@ -10,6 +10,7 @@ public sealed class WordPressApiService
     private readonly AuthMessageHandler _auth;
     private readonly LocalStorageJsInterop _storage;
     private WordPressClient? _client;
+    private HttpClient? _httpClient;
 
     public WordPressApiService(AuthMessageHandler auth, LocalStorageJsInterop storage)
     {
@@ -20,7 +21,8 @@ public sealed class WordPressApiService
     public void SetEndpoint(string endpoint)
     {
         var baseUrl = endpoint.TrimEnd('/') + "/wp-json/";
-        _client = new WordPressClient(new HttpClient(_auth) { BaseAddress = new Uri(baseUrl) });
+        _httpClient = new HttpClient(_auth) { BaseAddress = new Uri(baseUrl) };
+        _client = new WordPressClient(_httpClient);
     }
 
     public async Task<WordPressClient?> GetClientAsync()
@@ -39,4 +41,5 @@ public sealed class WordPressApiService
     }
 
     public WordPressClient? Client => _client;
+    public HttpClient? HttpClient => _httpClient;
 }

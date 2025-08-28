@@ -121,9 +121,9 @@ else
     protected override async Task OnInitializedAsync()
     {
         var wp = await Api.GetClientAsync();
-        if (wp == null) return;
+        if (wp == null || Api.HttpClient == null) return;
         client = wp;
-        httpClient = wp.HttpClient;
+        httpClient = Api.HttpClient;
     }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
