@@ -1,7 +1,6 @@
 @page "/invite-token"
 @using System.Net.Http.Json
-@inject LocalStorageJsInterop StorageJs
-@inject AuthMessageHandler AuthHandler
+@inject WordPressApiService Api
 
 <PageTitle>Invite Token</PageTitle>
 
@@ -36,13 +35,12 @@ else
 
     protected override async Task OnInitializedAsync()
     {
-        var endpoint = await StorageJs.GetItemAsync("wpEndpoint");
-        if (string.IsNullOrEmpty(endpoint))
+        var wp = await Api.GetClientAsync();
+        if (wp == null)
         {
             return;
         }
-        var baseUrl = endpoint.TrimEnd('/') + "/wp-json/";
-        httpClient = new HttpClient(AuthHandler) { BaseAddress = new Uri(baseUrl) };
+        httpClient = wp.HttpClient;
     }
 
     private async Task GenerateTokenAsync()
@@ -57,14 +55,11 @@ else
             var json = await resp.Content.ReadAsStringAsync();
             if (resp.IsSuccessStatusCode)
             {
-// no re-serialization, just indent in place
-responseJson = JsonDocument
-  .Parse(json)
-  .RootElement
-  .GetRawText();
-
-
-
+                // no re-serialization, just indent in place
+                responseJson = JsonDocument
+                    .Parse(json)
+                    .RootElement
+                    .GetRawText();
             }
             else
             {

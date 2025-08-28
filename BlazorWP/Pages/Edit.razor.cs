@@ -37,7 +37,6 @@ public partial class Edit : IDisposable, IAsyncDisposable
     private readonly string[] refreshOptions = new[] { "10", "25", "50", "100", "all" };
     private readonly string[] availableStatuses = new[] { "draft", "pending", "publish", "private", "trash" };
     private WordPressClient? client;
-    private string? baseUrl;
     private int? postId;
 
     private IEnumerable<PostSummary> DisplayPosts =>
