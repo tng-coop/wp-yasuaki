@@ -33,6 +33,7 @@ namespace BlazorWP
             builder.Services.AddScoped<LocalStorageJsInterop>();
             builder.Services.AddScoped<SessionStorageJsInterop>();
             builder.Services.AddScoped<WpMediaJsInterop>();
+            builder.Services.AddScoped<WordPressApiService>();
 
             // 5) Build the host (this hooks up the logging provider)
             var host = builder.Build();

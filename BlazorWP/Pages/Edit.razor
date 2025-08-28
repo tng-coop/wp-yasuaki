@@ -3,11 +3,10 @@
 @using System.Text.Json
 @using System.Threading
 @using Humanizer
-@inject HttpClient Http
 @inject IJSRuntime JS
 @inject JwtService JwtService
 @inject LocalStorageJsInterop StorageJs
-@inject AuthMessageHandler AuthHandler
+@inject WordPressApiService Api
 @implements IDisposable
 @implements IAsyncDisposable
 

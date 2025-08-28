@@ -2,8 +2,7 @@
 @using WordPressPCL
 @using System.Net.Http.Json
 @using System.Text.Json
-@inject LocalStorageJsInterop StorageJs
-@inject AuthMessageHandler AuthHandler
+@inject WordPressApiService Api
 
 <PageTitle>Approved Email Demo</PageTitle>
 
@@ -64,14 +63,13 @@ else
 
     protected override async Task OnInitializedAsync()
     {
-        var endpoint = await StorageJs.GetItemAsync("wpEndpoint");
-        if (string.IsNullOrEmpty(endpoint))
+        var wp = await Api.GetClientAsync();
+        if (wp == null)
         {
             return;
         }
-        var baseUrl = endpoint.TrimEnd('/') + "/wp-json/";
-        httpClient = new HttpClient(AuthHandler) { BaseAddress = new Uri(baseUrl) };
-        client = new WordPressClient(httpClient);
+        client = wp;
+        httpClient = wp.HttpClient;
         await LoadEmailsAsync();
     }
 
