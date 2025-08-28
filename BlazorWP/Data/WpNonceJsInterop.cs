@@ -2,7 +2,7 @@ using Microsoft.JSInterop;
 
 namespace BlazorWP;
 
-public class WpNonceJsInterop : IAsyncDisposable
+public class WpNonceJsInterop : IDisposable, IAsyncDisposable
 {
     private readonly IJSRuntime _jsRuntime;
     private IJSObjectReference? _module;
@@ -32,6 +32,14 @@ public class WpNonceJsInterop : IAsyncDisposable
         if (_module != null)
         {
             await _module.DisposeAsync();
+        }
+    }
+
+    public void Dispose()
+    {
+        if (_module != null)
+        {
+            _module.DisposeAsync().AsTask().GetAwaiter().GetResult();
         }
     }
 }

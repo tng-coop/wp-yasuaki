@@ -4,7 +4,7 @@ namespace BlazorWP;
 
 public record PdfRenderInfo(int Width, int Height, string DataUrl);
 
-public class UploadPdfJsInterop : IAsyncDisposable
+public class UploadPdfJsInterop : IDisposable, IAsyncDisposable
 {
     private readonly IJSRuntime _jsRuntime;
     private IJSObjectReference? _module;
@@ -52,6 +52,14 @@ public class UploadPdfJsInterop : IAsyncDisposable
         if (_module != null)
         {
             await _module.DisposeAsync();
+        }
+    }
+
+    public void Dispose()
+    {
+        if (_module != null)
+        {
+            _module.DisposeAsync().AsTask().GetAwaiter().GetResult();
         }
     }
 }
