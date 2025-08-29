@@ -69,6 +69,11 @@
     color: white;
 }
 
+.home-highlight .nav-item ::deep a.active {
+    background-color: yellow;
+    color: black;
+}
+
 @media (min-width: 641px) {
     .navbar-toggler {
         display: none;
