@@ -8,7 +8,7 @@
         <a class="navbar-brand" href="">BlazorWP</a>
         <div class="ms-auto d-flex align-items-center">
             <div class="form-check form-switch text-white me-2">
-                <input class="form-check-input" type="checkbox" role="switch" id="langSwitch" @onchange="() => LanguageService.ToggleCulture()" checked="@IsJapanese" />
+                <input class="form-check-input" type="checkbox" role="switch" id="langSwitch" @bind="isJapanese" @bind:after="OnLanguageChanged" />
                 <label class="form-check-label" for="langSwitch">@CurrentLanguageLabel</label>
             </div>
             <button title="Navigation menu" class="navbar-toggler" @onclick="ToggleNavMenu">
@@ -88,17 +88,29 @@
 
     private string? NavMenuCssClass => collapseNavMenu ? "collapse" : null;
 
-    private bool IsJapanese => LanguageService.CurrentCulture.Name == "ja-JP";
-    private string CurrentLanguageLabel => L[IsJapanese ? "Japanese" : "English"];
+    private bool isJapanese;
+    private string CurrentLanguageLabel => L[isJapanese ? "Japanese" : "English"];
 
     protected override void OnInitialized()
     {
-        LanguageService.OnChange += StateHasChanged;
+        isJapanese = LanguageService.CurrentCulture.Name == "ja-JP";
+        LanguageService.OnChange += HandleLanguageChanged;
+    }
+
+    private void HandleLanguageChanged()
+    {
+        isJapanese = LanguageService.CurrentCulture.Name == "ja-JP";
+        InvokeAsync(StateHasChanged);
+    }
+
+    private void OnLanguageChanged()
+    {
+        LanguageService.SetCulture(isJapanese ? "ja-JP" : "en-US");
     }
 
     public void Dispose()
     {
-        LanguageService.OnChange -= StateHasChanged;
+        LanguageService.OnChange -= HandleLanguageChanged;
     }
 
     private void ToggleNavMenu()
