@@ -27,6 +27,10 @@
         "build/pdf.worker.mjs",
         "cmaps/**"
       ]
+    },
+    {
+      "library": "bootstrap@5.3.8",
+      "destination": "wwwroot/libman/bootstrap"
     }
   ]
 }
