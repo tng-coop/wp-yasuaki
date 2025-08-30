@@ -1,16 +1,9 @@
-@using BlazorWP.Data
-@implements IDisposable
-@inject LanguageService LanguageService
 @inject IStringLocalizer<NavMenu> L
 
 <div class="top-row ps-3 navbar navbar-dark">
     <div class="container-fluid">
         <a class="navbar-brand" href="">BlazorWP</a>
         <div class="ms-auto d-flex align-items-center">
-            <div class="form-check form-switch text-white me-2">
-                <input class="form-check-input" type="checkbox" role="switch" id="langSwitch" @bind="isJapanese" @bind:after="OnLanguageChanged" />
-                <label class="form-check-label" for="langSwitch">@CurrentLanguageLabel</label>
-            </div>
             <button title="Navigation menu" class="navbar-toggler" @onclick="ToggleNavMenu">
                 <span class="navbar-toggler-icon"></span>
             </button>
@@ -87,31 +80,6 @@
     private bool collapseNavMenu = true;
 
     private string? NavMenuCssClass => collapseNavMenu ? "collapse" : null;
-
-    private bool isJapanese;
-    private string CurrentLanguageLabel => L[isJapanese ? "Japanese" : "English"];
-
-    protected override void OnInitialized()
-    {
-        isJapanese = LanguageService.CurrentCulture.Name == "ja-JP";
-        LanguageService.OnChange += HandleLanguageChanged;
-    }
-
-    private void HandleLanguageChanged()
-    {
-        isJapanese = LanguageService.CurrentCulture.Name == "ja-JP";
-        InvokeAsync(StateHasChanged);
-    }
-
-    private void OnLanguageChanged()
-    {
-        LanguageService.SetCulture(isJapanese ? "ja-JP" : "en-US");
-    }
-
-    public void Dispose()
-    {
-        LanguageService.OnChange -= HandleLanguageChanged;
-    }
 
     private void ToggleNavMenu()
     {
