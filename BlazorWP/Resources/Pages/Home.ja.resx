@@ -4,4 +4,13 @@
   <data name="WpAnalysis" xml:space="preserve"><value>WordPress解析</value></data>
   <data name="WordPressSiteUrl" xml:space="preserve"><value>WordPressサイトURL</value></data>
   <data name="CheckApi" xml:space="preserve"><value>APIを確認</value></data>
+  <data name="LoginToWordPress" xml:space="preserve"><value>WordPress にログイン</value></data>
+  <data name="JwtLogin" xml:space="preserve"><value>JWT ログイン</value></data>
+  <data name="Username" xml:space="preserve"><value>ユーザー名</value></data>
+  <data name="Password" xml:space="preserve"><value>パスワード</value></data>
+  <data name="Login" xml:space="preserve"><value>ログイン</value></data>
+  <data name="Jwt" xml:space="preserve"><value>JWT</value></data>
+  <data name="Copy" xml:space="preserve"><value>コピー</value></data>
+  <data name="JwtPayload" xml:space="preserve"><value>JWT ペイロード:</value></data>
+  <data name="Interpretation" xml:space="preserve"><value>解釈</value></data>
 </root>

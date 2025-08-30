@@ -7,16 +7,17 @@
 @inject JwtService JwtService
 @inject LocalStorageJsInterop StorageJs
 @inject WordPressApiService Api
+@inject IStringLocalizer<Edit> L
 @implements IDisposable
 @implements IAsyncDisposable
 
-<PageTitle>Edit</PageTitle>
+<PageTitle>@L["EditTitle"]</PageTitle>
 
-<h1>Edit</h1>
+<h1>@L["EditTitle"]</h1>
 
 <div class="mb-2">
-    <button class="btn btn-sm btn-outline-secondary me-1" @onclick="ToggleControls">@(showControls ? "Hide Details" : "Show Details")</button>
-    <button class="btn btn-sm btn-outline-secondary me-1" @onclick="ToggleTable">@(showTable ? "Hide Posts" : "Show Posts")</button>
+    <button class="btn btn-sm btn-outline-secondary me-1" @onclick="ToggleControls">@(showControls ? L["HideDetails"] : L["ShowDetails"])</button>
+    <button class="btn btn-sm btn-outline-secondary me-1" @onclick="ToggleTable">@(showTable ? L["HidePosts"] : L["ShowPosts"])</button>
 </div>
 
 @if (showControls)
@@ -27,15 +28,15 @@
     }
 
     <div class="mb-3">
-        <label class="form-label" for="postTitle">Title</label>
+        <label class="form-label" for="postTitle">@L["Title"]</label>
         <input id="postTitle" class="form-control" @bind="postTitle" @bind:event="oninput" @bind:after="OnTitleChanged" />
     </div>
     @if (mediaSources.Any())
     {
         <div class="mb-3">
-            <label class="form-label" for="mediaSource">Media Source</label>
+            <label class="form-label" for="mediaSource">@L["MediaSource"]</label>
             <select id="mediaSource" class="form-select" @bind="selectedMediaSource" @bind:after="OnMediaSourceChanged">
-                <option value="">-- choose media site --</option>
+                <option value="">@L["ChooseMediaSite"]</option>
                 @foreach (var site in mediaSources)
                 {
                     <option value="@site">@site</option>
@@ -46,7 +47,7 @@
     @if (categories.Any())
     {
         <div class="mb-3">
-            <label class="form-label">Categories</label>
+            <label class="form-label">@L["Categories"]</label>
             <div>
                 @foreach (var cat in categories)
                 {
@@ -60,24 +61,24 @@
     }
 
     <div class="d-flex align-items-center mb-2">
-        <button class="btn btn-success me-2" @onclick="NewPost">New</button>
+        <button class="btn btn-success me-2" @onclick="NewPost">@L["New"]</button>
         @if (ShowSaveDraftButton)
         {
-            <button class="btn btn-primary me-2" @onclick="SaveDraft" disabled="@(!CanSaveDraft)">Save Draft</button>
+            <button class="btn btn-primary me-2" @onclick="SaveDraft" disabled="@(!CanSaveDraft)">@L["SaveDraft"]</button>
         }
         @if (ShowSubmitForReviewButton)
         {
-            <button class="btn btn-secondary me-2" @onclick="SubmitForReview">Submit for Review</button>
+            <button class="btn btn-secondary me-2" @onclick="SubmitForReview">@L["SubmitForReview"]</button>
         }
         @if (showRetractReview)
         {
-            <button class="btn btn-warning me-2" @onclick="RetractReview">Retract Review</button>
+            <button class="btn btn-warning me-2" @onclick="RetractReview">@L["RetractReview"]</button>
         }
-        <button class="btn btn-danger me-2" @onclick="CloseEditor">Close</button>
+        <button class="btn btn-danger me-2" @onclick="CloseEditor">@L["Close"]</button>
         <div class="ms-auto d-flex align-items-center">
 
     <div class="d-flex align-items-center mb-2">
-        <button class="btn btn-sm btn-outline-secondary me-2" @onclick="RefreshPosts" disabled="@isLoading">Refresh</button>
+        <button class="btn btn-sm btn-outline-secondary me-2" @onclick="RefreshPosts" disabled="@isLoading">@L["Refresh"]</button>
         <select class="form-select form-select-sm w-auto me-2" @bind="selectedRefreshCount">
             @foreach (var opt in refreshOptions)
             {
@@ -86,18 +87,18 @@
         </select>
         <div class="form-check form-switch me-2">
             <input class="form-check-input" type="checkbox" id="showTrashedToggle" @bind="showTrashed" @bind:after="OnShowTrashedChanged" />
-            <label class="form-check-label" for="showTrashedToggle">Include trashed articles</label>
+            <label class="form-check-label" for="showTrashedToggle">@L["IncludeTrashedArticles"]</label>
         </div>
-        <span class="ms-2">@DisplayCount articles</span>
+        <span class="ms-2">@string.Format(L["ArticlesCount"], DisplayCount)</span>
     </div>
-            <span><strong>Status:</strong> @(isDirty ? "Dirty" : "Clean")</span>
+            <span><strong>@L["StatusLabel"]</strong> @(isDirty ? L["Dirty"] : L["Clean"])</span>
         </div>
     </div>
 }
 
 @if (posts == null)
 {
-    <p><em>Loading posts...</em></p>
+    <p><em>@L["LoadingPosts"]</em></p>
 }
 else if (showTable)
 {
@@ -105,12 +106,12 @@ else if (showTable)
         <table class="table table-hover">
             <thead>
                 <tr>
-                    <th>Id</th>
-                    <th>Title</th>
-                    <th>Author</th>
-                    <th>Status</th>
-                    <th>Publication Date</th>
-                    <th>Change Status</th>
+                    <th>@L["Id"]</th>
+                    <th>@L["Title"]</th>
+                    <th>@L["Author"]</th>
+                    <th>@L["Status"]</th>
+                    <th>@L["PublicationDate"]</th>
+                    <th>@L["ChangeStatus"]</th>
                 </tr>
             </thead>
             <tbody>

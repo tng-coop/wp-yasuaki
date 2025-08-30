@@ -22,8 +22,8 @@
 <button class="btn btn-primary" @onclick="CheckApi">@L["CheckApi"]</button>
 @if (!string.IsNullOrEmpty(verifiedEndpoint))
 {
-    <button class="btn btn-secondary ms-2" @onclick="OpenLogin">Login to WordPress</button>
-    <button class="btn btn-info ms-2" @onclick="ToggleJwtLogin">JWT Login</button>
+    <button class="btn btn-secondary ms-2" @onclick="OpenLogin">@L["LoginToWordPress"]</button>
+    <button class="btn btn-info ms-2" @onclick="ToggleJwtLogin">@L["JwtLogin"]</button>
 }
 @if (showJwtLogin && !string.IsNullOrEmpty(verifiedEndpoint))
 {
@@ -34,41 +34,41 @@
                        @bind-Value="jwtLoginModel.Username"
                        name="username"
                        autocomplete="username"
-                       placeholder="Username" />
+                       placeholder="@L["Username"]" />
             <div class="input-group mb-2">
                 <InputText class="form-control"
                            type="@PasswordInputType"
                            @bind-Value="jwtLoginModel.Password"
                            name="password"
                            autocomplete="current-password"
-                           placeholder="Password" />
+                           placeholder="@L["Password"]" />
                 <button class="btn btn-outline-secondary" type="button" @onclick="TogglePasswordVisibility">
                     <i class="bi @PasswordToggleIcon" aria-hidden="true"></i>
                 </button>
             </div>
-            <button class="btn btn-primary" type="submit">Login</button>
+            <button class="btn btn-primary" type="submit">@L["Login"]</button>
         </EditForm>
     </div>
 }
 @if (!string.IsNullOrEmpty(jwtToken))
 {
     <div class="mt-3">
-        <label class="form-label">JWT</label>
+        <label class="form-label">@L["Jwt"]</label>
         <div class="input-group">
-            <span class="input-group-text">JWT</span>
+            <span class="input-group-text">@L["Jwt"]</span>
             <input class="form-control" readonly value="@jwtToken" title="@jwtToken" />
             <button class="btn btn-outline-secondary" type="button" @onclick="CopyJwt">
                 <i class="bi bi-clipboard"></i>
-                <span class="d-none d-sm-inline ms-1">Copy</span>
+                <span class="d-none d-sm-inline ms-1">@L["Copy"]</span>
             </button>
         </div>
         @if (!string.IsNullOrEmpty(jwtDecoded))
         {
             <div class="mt-3">
-                <strong>JWT Payload:</strong>
+                <strong>@L["JwtPayload"]</strong>
                 <pre class="json-view">@jwtDecoded</pre>
                 <details class="mt-2">
-                    <summary>Interpretation</summary>
+                    <summary>@L["Interpretation"]</summary>
                     <pre>
 This JSON is the payload of a JWT (JSON Web Token). Here’s what each field means:
 
