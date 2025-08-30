@@ -1,4 +1,5 @@
 ﻿@page "/"
+@using System.ComponentModel.DataAnnotations
 
 <PageTitle>Home</PageTitle>
 
@@ -26,16 +27,17 @@
 @if (showJwtLogin && !string.IsNullOrEmpty(verifiedEndpoint))
 {
     <div class="mt-2">
-        <EditForm OnValidSubmit="JwtLoginAsync" FormName="jwtForm">
+        <EditForm Model="@jwtLoginModel" OnValidSubmit="JwtLoginAsync" FormName="jwtForm">
+            <DataAnnotationsValidator />
             <InputText class="form-control mb-2"
-                       @bind-Value="jwtUsername"
+                       @bind-Value="jwtLoginModel.Username"
                        name="username"
                        autocomplete="username"
                        placeholder="Username" />
             <div class="input-group mb-2">
                 <InputText class="form-control"
                            type="@PasswordInputType"
-                           @bind-Value="jwtPassword"
+                           @bind-Value="jwtLoginModel.Password"
                            name="password"
                            autocomplete="current-password"
                            placeholder="Password" />
@@ -175,11 +177,16 @@ This token was minted by https://yasuaki.com at 2025-06-19 06:43:23 UTC (15:43 J
     private bool passwordVisible;
     private string PasswordInputType => passwordVisible ? "text" : "password";
     private string PasswordToggleIcon => passwordVisible ? "bi-eye-slash" : "bi-eye";
-    private string jwtUsername = string.Empty;
-    private string jwtPassword = string.Empty;
+    private JwtLoginModel jwtLoginModel = new();
     private string? jwtToken;
     private string? jwtDecoded;
     private string? jwtError;
+
+    public class JwtLoginModel
+    {
+        [Required] public string Username { get; set; } = string.Empty;
+        [Required] public string Password { get; set; } = string.Empty;
+    }
 
     private class JwtInfo
     {
@@ -223,8 +230,8 @@ This token was minted by https://yasuaki.com at 2025-06-19 06:43:23 UTC (15:43 J
                 if (info != null)
                 {
                     jwtToken = info.Token;
-                    jwtUsername = info.Username;
-                    jwtPassword = info.Password;
+                    jwtLoginModel.Username = info.Username;
+                    jwtLoginModel.Password = info.Password;
                     jwtDecoded = DecodeJwt(jwtToken);
                 }
                 else
@@ -373,8 +380,8 @@ This token was minted by https://yasuaki.com at 2025-06-19 06:43:23 UTC (15:43 J
                     if (info != null)
                     {
                         jwtToken = info.Token;
-                        jwtUsername = info.Username;
-                        jwtPassword = info.Password;
+                        jwtLoginModel.Username = info.Username;
+                        jwtLoginModel.Password = info.Password;
                         jwtDecoded = DecodeJwt(jwtToken);
                         if (!string.IsNullOrEmpty(jwtToken))
                         {
@@ -508,8 +515,8 @@ This token was minted by https://yasuaki.com at 2025-06-19 06:43:23 UTC (15:43 J
             var info = await LoadJwtInfoAsync(verifiedEndpoint);
             if (info != null)
             {
-                jwtUsername = info.Username;
-                jwtPassword = info.Password;
+                jwtLoginModel.Username = info.Username;
+                jwtLoginModel.Password = info.Password;
             }
         }
     }
@@ -527,7 +534,7 @@ This token was minted by https://yasuaki.com at 2025-06-19 06:43:23 UTC (15:43 J
         }
 
         var url = GetJwtUrl(verifiedEndpoint);
-        var payload = JsonSerializer.Serialize(new { username = jwtUsername, password = jwtPassword });
+        var payload = JsonSerializer.Serialize(new { username = jwtLoginModel.Username, password = jwtLoginModel.Password });
         using var content = new StringContent(payload, Encoding.UTF8, "application/json");
         try
         {
@@ -547,12 +554,12 @@ This token was minted by https://yasuaki.com at 2025-06-19 06:43:23 UTC (15:43 J
                             jwtDecoded = DecodeJwt(jwtToken);
                             var info = new JwtInfo
                             {
-                                Username = jwtUsername,
-                                Password = jwtPassword,
+                                Username = jwtLoginModel.Username,
+                                Password = jwtLoginModel.Password,
                                 Token = jwtToken
                             };
                             await SaveJwtInfoAsync(verifiedEndpoint, info);
-                            await CredentialJs.StoreAsync(jwtUsername, jwtPassword);
+                            await CredentialJs.StoreAsync(jwtLoginModel.Username, jwtLoginModel.Password);
                         }
                     }
                     else
