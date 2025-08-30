@@ -12,6 +12,8 @@ namespace BlazorWP.Data
         public void SetCulture(string cultureCode)
         {
             var culture = new CultureInfo(cultureCode);
+            CultureInfo.CurrentCulture = culture;
+            CultureInfo.CurrentUICulture = culture;
             CultureInfo.DefaultThreadCurrentCulture = culture;
             CultureInfo.DefaultThreadCurrentUICulture = culture;
             _currentCulture = culture;
