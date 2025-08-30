@@ -13,7 +13,6 @@
     <PackageReference Include="Microsoft.AspNetCore.Components.WebAssembly.DevServer" Version="9.0.6" PrivateAssets="all" />
     <PackageReference Include="Microsoft.Web.LibraryManager.Build" Version="3.0.71" />
     <PackageReference Include="PanoramicData.Blazor" Version="9.0.91" />
-    <PackageReference Include="AntDesign" Version="1.4.1.1" />
     <PackageReference Include="TinyMCE.Blazor" Version="2.1.0" />
     <PackageReference Include="WordPressPCL" Version="2.1.0" />
   </ItemGroup>
