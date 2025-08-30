@@ -51,17 +51,24 @@
 }
 @if (!string.IsNullOrEmpty(jwtToken))
 {
-    <div class="mt-2">
-        <strong>JWT:</strong> <code>@jwtToken</code>
-    </div>
-    @if (!string.IsNullOrEmpty(jwtDecoded))
-    {
-        <div class="mt-2">
-            <strong>JWT Payload:</strong>
-            <pre class="json-view">@jwtDecoded</pre>
-            <details class="mt-2">
-                <summary>Interpretation</summary>
-                <pre>
+    <div class="mt-3">
+        <label class="form-label">JWT</label>
+        <div class="input-group">
+            <span class="input-group-text">JWT</span>
+            <input class="form-control" readonly value="@jwtToken" title="@jwtToken" />
+            <button class="btn btn-outline-secondary" type="button" @onclick="CopyJwt">
+                <i class="bi bi-clipboard"></i>
+                <span class="d-none d-sm-inline ms-1">Copy</span>
+            </button>
+        </div>
+        @if (!string.IsNullOrEmpty(jwtDecoded))
+        {
+            <div class="mt-3">
+                <strong>JWT Payload:</strong>
+                <pre class="json-view">@jwtDecoded</pre>
+                <details class="mt-2">
+                    <summary>Interpretation</summary>
+                    <pre>
 This JSON is the payload of a JWT (JSON Web Token). Here’s what each field means:
 
 iss (Issuer):
@@ -72,8 +79,8 @@ Any service that trusts tokens from that URL can accept this one.
 iat (Issued At):
 A Unix timestamp (seconds since January 1 1970 UTC) indicating when the token was created.
 
-1750315403 → 2025-06-19 06:43:23 UTC  
-                 = 2025-06-19 15:43:23 JST  
+1750315403 → 2025-06-19 06:43:23 UTC
+                 = 2025-06-19 15:43:23 JST
 (Asia/Tokyo is UTC+9.)
 
 nbf (Not Before):
@@ -82,8 +89,8 @@ Tokens should not be considered valid before this time. In this case it’s iden
 exp (Expiration):
 When the token stops being valid.
 
-1750920203 → 2025-06-26 06:43:23 UTC  
-                 = 2025-06-26 15:43:23 JST  
+1750920203 → 2025-06-26 06:43:23 UTC
+                 = 2025-06-26 15:43:23 JST
 After that moment, any service should reject the token.
 
 data (Custom Claims):
@@ -95,10 +102,11 @@ so the token “knows” it refers to user #1 in your system.
 
 In plain language:
 This token was minted by https://yasuaki.com at 2025-06-19 06:43:23 UTC (15:43 JST), becomes valid immediately, and stays valid until exactly one week later, 2025-06-26 06:43:23 UTC (15:43 JST). It carries a payload identifying “user 1.” Any service that sees it should verify its signature, check that “iss” matches the expected issuer, ensure the current time is between nbf and exp, and then trust that the bearer is user 1.
-                </pre>
-            </details>
-        </div>
-    }
+                    </pre>
+                </details>
+            </div>
+        }
+    </div>
 }
 @if (!string.IsNullOrEmpty(jwtError))
 {
@@ -208,6 +216,8 @@ This token was minted by https://yasuaki.com at 2025-06-19 06:43:23 UTC (15:43 J
     private IConfiguration Config { get; set; } = default!;
     [Inject]
     private CredentialManagerJsInterop CredentialJs { get; set; } = default!;
+    [Inject]
+    private ClipboardJsInterop Clipboard { get; set; } = default!;
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
@@ -524,6 +534,16 @@ This token was minted by https://yasuaki.com at 2025-06-19 06:43:23 UTC (15:43 J
     private void TogglePasswordVisibility()
     {
         passwordVisible = !passwordVisible;
+    }
+
+    private async Task CopyJwt()
+    {
+        if (!string.IsNullOrEmpty(jwtToken))
+        {
+            await Clipboard.CopyAsync(jwtToken);
+            status = "JWT copied to clipboard.";
+            StateHasChanged();
+        }
     }
 
     private async Task JwtLoginAsync()
