@@ -23,7 +23,6 @@ namespace BlazorWP
                 return new HttpClient(handler) { BaseAddress = new Uri(builder.HostEnvironment.BaseAddress) };
             });
             builder.Services.AddPanoramicDataBlazor();
-            builder.Services.AddAntDesign();
             builder.Services.AddScoped<JwtService>();
             builder.Services.AddScoped<UploadPdfJsInterop>();
             builder.Services.AddScoped<WpNonceJsInterop>();

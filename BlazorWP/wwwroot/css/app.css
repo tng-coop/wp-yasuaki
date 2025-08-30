@@ -134,22 +134,6 @@ code {
     overflow-x: auto;
 }
 
-.pdtreenode_content.drop-target {
-    background-color: #80bfff;
-}
-
-/* Hide default expand/collapse icons in PDTree */
-.pdtreenode_header .fa-plus-square,
-.pdtreenode_header .fa-minus-square {
-    display: none;
-}
-
-/* Indicate clickable areas for toggling */
-.pdtreenode_content > span,
-.pdtreenode_content > i:not(.fa-plus-square):not(.fa-minus-square) {
-    cursor: pointer;
-}
-
 .table-scroll {
     height: 300px;
     overflow-y: auto;
