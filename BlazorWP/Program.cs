@@ -37,8 +37,8 @@ namespace BlazorWP
             builder.Services.AddScoped<ClipboardJsInterop>();
             builder.Services.AddScoped<WpMediaJsInterop>();
             builder.Services.AddScoped<WordPressApiService>();
-            builder.Services.AddLocalization();
-            builder.Services.AddScoped<LanguageService>();
+            builder.Services.AddLocalization(options => options.ResourcesPath = "Resources");
+            builder.Services.AddSingleton<LanguageService>();
 
             // 5) Build the host (this hooks up the logging provider)
             var host = builder.Build();
