@@ -29,6 +29,7 @@ namespace BlazorWP
             builder.Services.AddScoped<WpEndpointSyncJsInterop>();
             builder.Services.AddScoped<LocalStorageJsInterop>();
             builder.Services.AddScoped<SessionStorageJsInterop>();
+            builder.Services.AddScoped<CredentialManagerJsInterop>();
             builder.Services.AddScoped<WpMediaJsInterop>();
             builder.Services.AddScoped<WordPressApiService>();
 
