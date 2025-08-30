@@ -1,9 +1,19 @@
-﻿<div class="top-row ps-3 navbar navbar-dark">
+@implements IDisposable
+@inject LanguageService LanguageService
+@inject IStringLocalizer<NavMenu> L
+
+<div class="top-row ps-3 navbar navbar-dark">
     <div class="container-fluid">
         <a class="navbar-brand" href="">BlazorWP</a>
-        <button title="Navigation menu" class="navbar-toggler" @onclick="ToggleNavMenu">
-            <span class="navbar-toggler-icon"></span>
-        </button>
+        <div class="ms-auto d-flex align-items-center">
+            <div class="form-check form-switch text-white me-2">
+                <input class="form-check-input" type="checkbox" role="switch" id="langSwitch" @onchange="() => LanguageService.ToggleCulture()" checked="@IsJapanese" />
+                <label class="form-check-label" for="langSwitch">@CurrentLanguageLabel</label>
+            </div>
+            <button title="Navigation menu" class="navbar-toggler" @onclick="ToggleNavMenu">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+        </div>
     </div>
 </div>
 
@@ -11,62 +21,62 @@
     <nav class="nav flex-column">
         <div class="nav-item px-3">
             <NavLink class="nav-link" href="" Match="NavLinkMatch.All">
-                <span class="bi bi-house-door-fill-nav-menu" aria-hidden="true"></span> Home
+                <span class="bi bi-house-door-fill-nav-menu" aria-hidden="true"></span> @L["Home"]
             </NavLink>
         </div>
         <div class="nav-item px-3">
             <NavLink class="nav-link" href="counter">
-                <span class="bi bi-plus-square-fill-nav-menu" aria-hidden="true"></span> Counter
+                <span class="bi bi-plus-square-fill-nav-menu" aria-hidden="true"></span> @L["Counter"]
             </NavLink>
         </div>
         <div class="nav-item px-3">
             <NavLink class="nav-link" href="weather">
-                <span class="bi bi-list-nested-nav-menu" aria-hidden="true"></span> Weather
+                <span class="bi bi-list-nested-nav-menu" aria-hidden="true"></span> @L["Weather"]
             </NavLink>
         </div>
         <div class="nav-item px-3">
             <NavLink class="nav-link" href="bootstrap-icons-demo">
-                <span class="bi bi-list-nested-nav-menu" aria-hidden="true"></span> Icons Demo
+                <span class="bi bi-list-nested-nav-menu" aria-hidden="true"></span> @L["IconsDemo"]
             </NavLink>
         </div>
         <div class="nav-item px-3">
             <NavLink class="nav-link" href="data-storage">
-                <span class="bi bi-database-fill-nav-menu" aria-hidden="true"></span> Data Storage
+                <span class="bi bi-database-fill-nav-menu" aria-hidden="true"></span> @L["DataStorage"]
             </NavLink>
         </div>
         <div class="nav-item px-3">
             <NavLink class="nav-link" href="edit">
-                <span class="bi bi-pencil-square" aria-hidden="true"></span> Edit
+                <span class="bi bi-pencil-square" aria-hidden="true"></span> @L["Edit"]
             </NavLink>
         </div>
         <div class="nav-item px-3">
             <NavLink class="nav-link" href="pcl-demo">
-                <span class="bi bi-plug-fill-nav-menu" aria-hidden="true"></span> PCL Demo
+                <span class="bi bi-plug-fill-nav-menu" aria-hidden="true"></span> @L["PclDemo"]
             </NavLink>
         </div>
         <div class="nav-item px-3">
             <NavLink class="nav-link" href="upload-pdf">
-                <span class="bi bi-upload" aria-hidden="true"></span> Upload PDF
+                <span class="bi bi-upload" aria-hidden="true"></span> @L["UploadPdf"]
             </NavLink>
         </div>
         <div class="nav-item px-3">
             <NavLink class="nav-link" href="approved-email-demo">
-                <span class="bi bi-envelope-fill" aria-hidden="true"></span> Approved Emails
+                <span class="bi bi-envelope-fill" aria-hidden="true"></span> @L["ApprovedEmails"]
             </NavLink>
         </div>
         <div class="nav-item px-3">
             <NavLink class="nav-link" href="media">
-                <span class="bi bi-image" aria-hidden="true"></span> Media Library
+                <span class="bi bi-image" aria-hidden="true"></span> @L["MediaLibrary"]
             </NavLink>
         </div>
         <div class="nav-item px-3">
             <NavLink class="nav-link" href="wp-users">
-                <span class="bi bi-list-nested-nav-menu" aria-hidden="true"></span> WP Users
+                <span class="bi bi-list-nested-nav-menu" aria-hidden="true"></span> @L["WpUsers"]
             </NavLink>
         </div>
         <div class="nav-item px-3">
             <NavLink class="nav-link" href="diagnostics">
-                <span class="bi bi-gear-fill-nav-menu" aria-hidden="true"></span> Diagnostics
+                <span class="bi bi-gear-fill-nav-menu" aria-hidden="true"></span> @L["Diagnostics"]
             </NavLink>
         </div>
     </nav>
@@ -76,6 +86,19 @@
     private bool collapseNavMenu = true;
 
     private string? NavMenuCssClass => collapseNavMenu ? "collapse" : null;
+
+    private bool IsJapanese => LanguageService.CurrentCulture.Name == "ja-JP";
+    private string CurrentLanguageLabel => L[IsJapanese ? "Japanese" : "English"];
+
+    protected override void OnInitialized()
+    {
+        LanguageService.OnChange += StateHasChanged;
+    }
+
+    public void Dispose()
+    {
+        LanguageService.OnChange -= StateHasChanged;
+    }
 
     private void ToggleNavMenu()
     {

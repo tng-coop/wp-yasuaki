@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <data name="HomeTitle" xml:space="preserve"><value>ホーム</value></data>
+  <data name="WpAnalysis" xml:space="preserve"><value>WordPress解析</value></data>
+  <data name="WordPressSiteUrl" xml:space="preserve"><value>WordPressサイトURL</value></data>
+  <data name="CheckApi" xml:space="preserve"><value>APIを確認</value></data>
+</root>

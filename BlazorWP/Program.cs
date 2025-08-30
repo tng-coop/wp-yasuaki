@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Components.Web;
 using Microsoft.AspNetCore.Components.WebAssembly.Hosting;
 using PanoramicData.Blazor.Extensions;
+using System.Globalization;
 
 namespace BlazorWP
 {
@@ -33,12 +34,18 @@ namespace BlazorWP
             builder.Services.AddScoped<ClipboardJsInterop>();
             builder.Services.AddScoped<WpMediaJsInterop>();
             builder.Services.AddScoped<WordPressApiService>();
+            builder.Services.AddLocalization();
+            builder.Services.AddScoped<LanguageService>();
 
             // 5) Build the host (this hooks up the logging provider)
             var host = builder.Build();
 
             // 6) Now that the JSON has been loaded, enumerate via ILogger
             var config = host.Services.GetRequiredService<IConfiguration>();
+
+            // Set default culture
+            var languageService = host.Services.GetRequiredService<LanguageService>();
+            languageService.SetCulture("en-US");
 
             // 7) And finally run
             await host.RunAsync();
