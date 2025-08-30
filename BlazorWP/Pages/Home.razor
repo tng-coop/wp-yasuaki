@@ -1,12 +1,13 @@
-﻿@page "/"
+@page "/"
 @using System.ComponentModel.DataAnnotations
+@inject IStringLocalizer<Home> L
 
-<PageTitle>Home</PageTitle>
+<PageTitle>@L["HomeTitle"]</PageTitle>
 
-<h1>WordPress analysis</h1>
+<h1>@L["WpAnalysis"]</h1>
 
 <div class="mb-3">
-    <label for="wpUrl" class="form-label">WordPress site URL</label>
+    <label for="wpUrl" class="form-label">@L["WordPressSiteUrl"]</label>
     <input id="wpUrl" list="siteSuggestions" class="form-control" @bind="userUrl" @bind:event="oninput" @onkeydown="HandleKeyDown" placeholder="https://example.com" />
     @if (knownSites.Any())
     {
@@ -18,7 +19,7 @@
         </datalist>
     }
 </div>
-<button class="btn btn-primary" @onclick="CheckApi">Check API</button>
+<button class="btn btn-primary" @onclick="CheckApi">@L["CheckApi"]</button>
 @if (!string.IsNullOrEmpty(verifiedEndpoint))
 {
     <button class="btn btn-secondary ms-2" @onclick="OpenLogin">Login to WordPress</button>

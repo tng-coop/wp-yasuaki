@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <data name="HomeTitle" xml:space="preserve"><value>Home</value></data>
+  <data name="WpAnalysis" xml:space="preserve"><value>WordPress analysis</value></data>
+  <data name="WordPressSiteUrl" xml:space="preserve"><value>WordPress site URL</value></data>
+  <data name="CheckApi" xml:space="preserve"><value>Check API</value></data>
+</root>
