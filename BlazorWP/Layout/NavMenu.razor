@@ -2,6 +2,7 @@
 @implements IDisposable
 @inject LanguageService LanguageService
 @inject IStringLocalizer<NavMenu> L
+@inject IJSRuntime JS
 
 <div class="top-row ps-3 navbar navbar-dark">
     <div class="container-fluid">
@@ -93,19 +94,21 @@
 
     protected override void OnInitialized()
     {
-        isJapanese = LanguageService.CurrentCulture.Name == "ja-JP";
+        isJapanese = LanguageService.IsJapanese;
         LanguageService.OnChange += HandleLanguageChanged;
     }
 
     private void HandleLanguageChanged()
     {
-        isJapanese = LanguageService.CurrentCulture.Name == "ja-JP";
+        isJapanese = LanguageService.IsJapanese;
         InvokeAsync(StateHasChanged);
     }
 
-    private void OnLanguageChanged()
+    private async Task OnLanguageChanged()
     {
-        LanguageService.SetCulture(isJapanese ? "ja-JP" : "en-US");
+        LanguageService.Set(isJapanese ? "ja-JP" : "en-US");
+        await JS.InvokeVoidAsync("saveLang", LanguageService.CurrentCulture.Name);
+        await JS.InvokeVoidAsync("setHtmlLang", LanguageService.CurrentCulture.TwoLetterISOLanguageName);
     }
 
     public void Dispose()

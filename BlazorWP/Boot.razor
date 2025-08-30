@@ -1,0 +1,13 @@
+@inject IJSRuntime JS
+@inject LanguageService Lang
+
+@code {
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender) return;
+        var code = await JS.InvokeAsync<string>("loadLang");
+        code ??= Lang.IsJapanese ? "ja-JP" : "en-US";
+        Lang.Set(code);
+        await JS.InvokeVoidAsync("setHtmlLang", Lang.Current.TwoLetterISOLanguageName);
+    }
+}

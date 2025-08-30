@@ -5,11 +5,16 @@ namespace BlazorWP.Data
     public class LanguageService
     {
         private CultureInfo _currentCulture = new("en-US");
+
         public CultureInfo CurrentCulture => _currentCulture;
+
+        public CultureInfo Current => _currentCulture;
+
+        public bool IsJapanese => _currentCulture.Name == "ja-JP";
 
         public event Action? OnChange;
 
-        public void SetCulture(string cultureCode)
+        public void Set(string cultureCode)
         {
             var culture = new CultureInfo(cultureCode);
             CultureInfo.CurrentCulture = culture;
@@ -20,16 +25,14 @@ namespace BlazorWP.Data
             OnChange?.Invoke();
         }
 
-        public void ToggleCulture()
+        public void Toggle()
         {
-            if (_currentCulture.Name == "ja-JP")
-            {
-                SetCulture("en-US");
-            }
-            else
-            {
-                SetCulture("ja-JP");
-            }
+            Set(IsJapanese ? "en-US" : "ja-JP");
         }
+
+        // Backwards compatibility
+        public void SetCulture(string cultureCode) => Set(cultureCode);
+
+        public void ToggleCulture() => Toggle();
     }
 }

@@ -63,7 +63,7 @@ namespace BlazorWP
                 culture = "en-US";
             }
 
-            languageService.SetCulture(culture);
+            languageService.Set(culture);
 
             // 7) And finally run
             await host.RunAsync();

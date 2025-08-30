@@ -3,7 +3,7 @@
 @implements IDisposable
 @implements IAsyncDisposable
 @using BlazorWP.Data
-@inject LanguageService LanguageService
+@inject LanguageService Lang
 <div class="page">
     <div class="sidebar">
         <NavMenu />
@@ -54,7 +54,7 @@
 
     protected override void OnInitialized()
     {
-        LanguageService.OnChange += HandleLanguageChanged;
+        Lang.OnChange += HandleLanguageChanged;
     }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
@@ -192,7 +192,7 @@
 
     public void Dispose()
     {
-        LanguageService.OnChange -= HandleLanguageChanged;
+        Lang.OnChange -= HandleLanguageChanged;
         if (_objRef != null)
         {
             EndpointSyncJs.UnregisterAsync().GetAwaiter().GetResult();
