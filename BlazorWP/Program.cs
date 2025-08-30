@@ -1,6 +1,5 @@
 using Microsoft.AspNetCore.Components.Web;
 using Microsoft.AspNetCore.Components.WebAssembly.Hosting;
-using MudBlazor.Services;
 using PanoramicData.Blazor.Extensions;
 
 namespace BlazorWP
@@ -23,7 +22,6 @@ namespace BlazorWP
                 var handler = sp.GetRequiredService<AuthMessageHandler>();
                 return new HttpClient(handler) { BaseAddress = new Uri(builder.HostEnvironment.BaseAddress) };
             });
-            builder.Services.AddMudServices();
             builder.Services.AddPanoramicDataBlazor();
             builder.Services.AddAntDesign();
             builder.Services.AddScoped<JwtService>();
