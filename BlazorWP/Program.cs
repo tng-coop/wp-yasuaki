@@ -1,8 +1,10 @@
 using BlazorWP.Data;
+using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Web;
 using Microsoft.AspNetCore.Components.WebAssembly.Hosting;
 using PanoramicData.Blazor.Extensions;
 using System.Globalization;
+using System.Linq;
 
 namespace BlazorWP
 {
@@ -44,9 +46,24 @@ namespace BlazorWP
             // 6) Now that the JSON has been loaded, enumerate via ILogger
             var config = host.Services.GetRequiredService<IConfiguration>();
 
-            // Set default culture
+            // Set culture from query parameter (?en or ?jp) before first render
             var languageService = host.Services.GetRequiredService<LanguageService>();
-            languageService.SetCulture("en-US");
+            var navigationManager = host.Services.GetRequiredService<NavigationManager>();
+            var uri = new Uri(navigationManager.Uri);
+            var query = uri.Query.TrimStart('?');
+            var parts = query.Split('&', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+
+            string culture = "en-US";
+            if (parts.Any(p => p.Equals("jp", StringComparison.OrdinalIgnoreCase)))
+            {
+                culture = "ja-JP";
+            }
+            else if (parts.Any(p => p.Equals("en", StringComparison.OrdinalIgnoreCase)))
+            {
+                culture = "en-US";
+            }
+
+            languageService.SetCulture(culture);
 
             // 7) And finally run
             await host.RunAsync();
