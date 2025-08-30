@@ -26,14 +26,25 @@
 @if (showJwtLogin && !string.IsNullOrEmpty(verifiedEndpoint))
 {
     <div class="mt-2">
-        <input class="form-control mb-2" placeholder="Username" @bind="jwtUsername" />
-        <div class="input-group mb-2">
-            <input class="form-control" type="@PasswordInputType" placeholder="Password" @bind="jwtPassword" />
-            <button class="btn btn-outline-secondary" type="button" @onclick="TogglePasswordVisibility">
-                <i class="bi @PasswordToggleIcon" aria-hidden="true"></i>
-            </button>
-        </div>
-        <button class="btn btn-primary" @onclick="JwtLoginAsync">Login</button>
+        <EditForm OnValidSubmit="JwtLoginAsync" FormName="jwtForm">
+            <InputText class="form-control mb-2"
+                       @bind-Value="jwtUsername"
+                       name="username"
+                       autocomplete="username"
+                       placeholder="Username" />
+            <div class="input-group mb-2">
+                <InputText class="form-control"
+                           type="@PasswordInputType"
+                           @bind-Value="jwtPassword"
+                           name="password"
+                           autocomplete="current-password"
+                           placeholder="Password" />
+                <button class="btn btn-outline-secondary" type="button" @onclick="TogglePasswordVisibility">
+                    <i class="bi @PasswordToggleIcon" aria-hidden="true"></i>
+                </button>
+            </div>
+            <button class="btn btn-primary" type="submit">Login</button>
+        </EditForm>
     </div>
 }
 @if (!string.IsNullOrEmpty(jwtToken))
