@@ -1,3 +1,10 @@
+<IfModule mod_rewrite.c>
+  RewriteEngine On
+
+  # Deny /script or /scripts at the top level only (not /foo/scripts)
+  RewriteRule ^(script|scripts)(/|$) - [F,L]
+</IfModule>
+
 # === Block any dot-path (files or directories), except /.well-known/ ===
 <IfModule mod_rewrite.c>
   RewriteEngine On
