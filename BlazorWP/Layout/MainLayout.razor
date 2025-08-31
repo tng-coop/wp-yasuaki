@@ -22,10 +22,6 @@
                 <input class="form-check-input" type="checkbox" id="hostInWpToggle" @bind="hostInWp" @bind:after="OnHostInWpChanged" />
                 <label class="form-check-label" for="hostInWpToggle">Hosted on WP</label>
             </div>
-            @if (hostInWp)
-            {
-                <span class="ms-2">Nonce: @nonceMessage</span>
-            }
         </div>
 
         <article class="content px-4">
@@ -38,8 +34,6 @@
     [Inject]
     private LocalStorageJsInterop StorageJs { get; set; } = default!;
     [Inject]
-    private WpNonceJsInterop NonceJs { get; set; } = default!;
-    [Inject]
     private WpEndpointSyncJsInterop EndpointSyncJs { get; set; } = default!;
     [Inject]
     private IConfiguration Config { get; set; } = default!;
@@ -48,7 +42,6 @@
     private string? currentUsername;
     private const string HostInWpKey = "hostInWp";
     private bool hostInWp = true;
-    private string? nonceMessage;
     private DotNetObjectReference<object>? _objRef;
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
@@ -86,24 +79,13 @@
         {
             hostInWp = hostVal;
             changed = true;
-            if (hostInWp)
-            {
-                await FetchNonce();
-            }
-            else
-            {
-                nonceMessage = null;
-            }
         }
 
         if (firstRender)
         {
             _objRef = DotNetObjectReference.Create<object>(this);
             await EndpointSyncJs.RegisterAsync(_objRef);
-            if (hostInWp)
-            {
-                await FetchNonce();
-            }
+            // nonce fetched automatically when requests are made
         }
 
         if (changed)
@@ -149,29 +131,6 @@
     private async Task OnHostInWpChanged()
     {
         await StorageJs.SetItemAsync(HostInWpKey, hostInWp.ToString().ToLowerInvariant());
-        if (hostInWp)
-        {
-            await FetchNonce();
-        }
-        else
-        {
-            nonceMessage = null;
-            await InvokeAsync(StateHasChanged);
-        }
-    }
-
-    private async Task FetchNonce()
-    {
-        nonceMessage = "Loading...";
-        try
-        {
-            var nonce = await NonceJs.GetNonceAsync();
-            nonceMessage = !string.IsNullOrEmpty(nonce) ? nonce : "Could not retrieve nonce";
-        }
-        catch
-        {
-            nonceMessage = "Could not retrieve nonce";
-        }
         await InvokeAsync(StateHasChanged);
     }
 

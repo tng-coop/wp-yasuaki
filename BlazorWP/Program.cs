@@ -30,6 +30,7 @@ namespace BlazorWP
             builder.Services.AddScoped<JwtService>();
             builder.Services.AddScoped<UploadPdfJsInterop>();
             builder.Services.AddScoped<WpNonceJsInterop>();
+            builder.Services.AddScoped<INonceService, NonceService>();
             builder.Services.AddScoped<WpEndpointSyncJsInterop>();
             builder.Services.AddScoped<LocalStorageJsInterop>();
             builder.Services.AddScoped<SessionStorageJsInterop>();
