@@ -47,23 +47,49 @@ namespace BlazorWP
             // 6) Now that the JSON has been loaded, enumerate via ILogger
             var config = host.Services.GetRequiredService<IConfiguration>();
 
-            // Set culture from query parameter (?en or ?jp) before first render
+            // Set culture from query parameter, normalizing to ?lang=en or ?lang=ja
             var languageService = host.Services.GetRequiredService<LanguageService>();
             var navigationManager = host.Services.GetRequiredService<NavigationManager>();
             var uri = new Uri(navigationManager.Uri);
             var query = uri.Query.TrimStart('?');
             var parts = query.Split('&', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
 
-            string culture = "en-US";
-            if (parts.Any(p => p.Equals("jp", StringComparison.OrdinalIgnoreCase)))
+            string lang = "en";
+            foreach (var part in parts)
             {
-                culture = "ja-JP";
-            }
-            else if (parts.Any(p => p.Equals("en", StringComparison.OrdinalIgnoreCase)))
-            {
-                culture = "en-US";
+                var kv = part.Split('=', 2);
+                if (kv.Length == 2 && kv[0].Equals("lang", StringComparison.OrdinalIgnoreCase))
+                {
+                    if (kv[1].Equals("ja", StringComparison.OrdinalIgnoreCase))
+                    {
+                        lang = "ja";
+                    }
+                    break;
+                }
+
+                if (kv.Length == 1)
+                {
+                    if (kv[0].Equals("ja", StringComparison.OrdinalIgnoreCase) || kv[0].Equals("jp", StringComparison.OrdinalIgnoreCase))
+                    {
+                        lang = "ja";
+                        break;
+                    }
+                    if (kv[0].Equals("en", StringComparison.OrdinalIgnoreCase))
+                    {
+                        lang = "en";
+                        break;
+                    }
+                }
             }
 
+            var expectedQuery = $"?lang={lang}";
+            if (!string.Equals(uri.Query, expectedQuery, StringComparison.OrdinalIgnoreCase))
+            {
+                var newUri = uri.GetLeftPart(UriPartial.Path) + expectedQuery + uri.Fragment;
+                navigationManager.NavigateTo(newUri, replace: true);
+            }
+
+            var culture = lang == "ja" ? "ja-JP" : "en-US";
             languageService.SetCulture(culture);
 
             // 7) And finally run
