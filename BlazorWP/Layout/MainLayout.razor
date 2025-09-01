@@ -26,6 +26,10 @@
             {
                 <span class="ms-2">Nonce: @nonceMessage</span>
             }
+            <!-- 🔹 show Basic/Full mode -->
+            <span class="badge bg-info ms-3">
+                @(Flags.Basic ? "Basic mode" : "Full mode")
+            </span>
         </div>
 
         <article class="content px-4">
@@ -43,6 +47,9 @@
     private WpEndpointSyncJsInterop EndpointSyncJs { get; set; } = default!;
     [Inject]
     private IConfiguration Config { get; set; } = default!;
+       // 🔹 Inject your flags
+    [Inject] private AppFlags Flags { get; set; } = default!;
+ 
 
     private string? currentEndpoint;
     private string? currentUsername;

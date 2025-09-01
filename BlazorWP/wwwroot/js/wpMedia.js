@@ -52,12 +52,12 @@ export function initMediaPage(iframeEl, overlayEl) {
     overlayEl.style.width = rect.width + "px";
     overlayEl.style.height = h + "px";
 
-    console.log("↪ resized iframe to", h, "and overlay to", {
-      top: overlayEl.style.top,
-      left: overlayEl.style.left,
-      width: overlayEl.style.width,
-      height: overlayEl.style.height
-    });
+    // console.log("↪ resized iframe to", h, "and overlay to", {
+    //   top: overlayEl.style.top,
+    //   left: overlayEl.style.left,
+    //   width: overlayEl.style.width,
+    //   height: overlayEl.style.height
+    // });
   }
 
   // listen for window resizes and adjust accordingly

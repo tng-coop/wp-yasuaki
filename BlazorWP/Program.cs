@@ -39,29 +39,33 @@ namespace BlazorWP
             builder.Services.AddScoped<WordPressApiService>();
             builder.Services.AddLocalization(options => options.ResourcesPath = "Resources");
             builder.Services.AddSingleton<LanguageService>();
+            builder.Services.AddSingleton<AppFlags>();
 
             // 5) Build the host (this hooks up the logging provider)
             var host = builder.Build();
 
             // 6) Now that the JSON has been loaded, enumerate via ILogger
             var config = host.Services.GetRequiredService<IConfiguration>();
-
+var flags = host.Services.GetRequiredService<AppFlags>();
             // Set culture from query parameter (?en or ?jp) before first render
             var languageService = host.Services.GetRequiredService<LanguageService>();
             var navigationManager = host.Services.GetRequiredService<NavigationManager>();
             var uri = new Uri(navigationManager.Uri);
             var query = uri.Query.TrimStart('?');
             var parts = query.Split('&', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+// set basic flag
+flags.SetBasic(parts.Contains("basic", StringComparer.OrdinalIgnoreCase));
 
             string culture = "en-US";
-            if (parts.Any(p => p.Equals("jp", StringComparison.OrdinalIgnoreCase)))
+            if (parts.Any(p => p.Equals("ja", StringComparison.OrdinalIgnoreCase)))
             {
                 culture = "ja-JP";
             }
-            else if (parts.Any(p => p.Equals("en", StringComparison.OrdinalIgnoreCase)))
+            if (parts.Any(p => p.Equals("basic", StringComparison.OrdinalIgnoreCase)))
             {
-                culture = "en-US";
+                culture = "ja-JP";
             }
+
 
             languageService.SetCulture(culture);
 
