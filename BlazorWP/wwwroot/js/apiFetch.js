@@ -1,7 +1,8 @@
 import { getNonce } from './wpNonce.js';
 
 export async function apiFetch(path, options = {}) {
-  const useNonce = localStorage.getItem('hostInWp') === 'true';
+  const params = new URLSearchParams(window.location.search);
+  const useNonce = params.has('nonce');
   const baseUrl = localStorage.getItem('wpEndpoint') || '';
   const url = path.startsWith('http') ? path : baseUrl.replace(/\/$/, '') + path;
   options.headers = options.headers || {};

@@ -18,10 +18,10 @@
             {
                 <span class="ms-2">@currentUsername</span>
             }
-            <div class="form-check form-switch ms-2">
-                <input class="form-check-input" type="checkbox" id="hostInWpToggle" @bind="hostInWp" @bind:after="OnHostInWpChanged" />
-                <label class="form-check-label" for="hostInWpToggle">Hosted on WP</label>
-            </div>
+            @if (showLoginFirst)
+            {
+                <span class="ms-2">PLEASE LOG IN FIRST</span>
+            }
         </div>
 
         <article class="content px-4">
@@ -37,12 +37,15 @@
     private WpEndpointSyncJsInterop EndpointSyncJs { get; set; } = default!;
     [Inject]
     private IConfiguration Config { get; set; } = default!;
+    [Inject]
+    private NavigationManager NavManager { get; set; } = default!;
+    [Inject]
+    private INonceService NonceService { get; set; } = default!;
 
     private string? currentEndpoint;
     private string? currentUsername;
-    private const string HostInWpKey = "hostInWp";
-    private bool hostInWp = true;
     private DotNetObjectReference<object>? _objRef;
+    private bool showLoginFirst;
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
@@ -61,8 +64,6 @@
         {
             username = await GetUsernameAsync(endpoint);
         }
-        var hostPref = await StorageJs.GetItemAsync(HostInWpKey);
-
         var changed = false;
         if (endpoint != currentEndpoint)
         {
@@ -74,10 +75,18 @@
             currentUsername = username;
             changed = true;
         }
-        var hostVal = !string.IsNullOrEmpty(hostPref) && bool.TryParse(hostPref, out var hv) ? hv : true;
-        if (hostVal != hostInWp)
+        var uri = new Uri(NavManager.Uri);
+        var query = uri.Query.TrimStart('?');
+        var parts = query.Split('&', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+        var loginMsg = false;
+        if (parts.Any(p => p.Equals("nonce", StringComparison.OrdinalIgnoreCase)))
         {
-            hostInWp = hostVal;
+            var nonce = await NonceService.GetNonceAsync();
+            loginMsg = string.IsNullOrEmpty(nonce);
+        }
+        if (loginMsg != showLoginFirst)
+        {
+            showLoginFirst = loginMsg;
             changed = true;
         }
 
@@ -126,12 +135,6 @@
         }
 
         return null;
-    }
-
-    private async Task OnHostInWpChanged()
-    {
-        await StorageJs.SetItemAsync(HostInWpKey, hostInWp.ToString().ToLowerInvariant());
-        await InvokeAsync(StateHasChanged);
     }
 
     public async ValueTask DisposeAsync()

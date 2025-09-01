@@ -1,19 +1,19 @@
 using System.Net.Http.Headers;
+using Microsoft.AspNetCore.Components;
 
 namespace BlazorWP;
 
 public class AuthMessageHandler : DelegatingHandler
 {
     private readonly JwtService _jwtService;
-    private readonly LocalStorageJsInterop _storage;
     private readonly INonceService _nonceService;
-    private const string HostInWpKey = "hostInWp";
+    private readonly NavigationManager _navManager;
 
-    public AuthMessageHandler(JwtService jwtService, LocalStorageJsInterop storage, INonceService nonceService)
+    public AuthMessageHandler(JwtService jwtService, NavigationManager navManager, INonceService nonceService)
     {
         _jwtService = jwtService;
-        _storage = storage;
         _nonceService = nonceService;
+        _navManager = navManager;
         InnerHandler = new HttpClientHandler();
     }
 
@@ -32,8 +32,10 @@ public class AuthMessageHandler : DelegatingHandler
 
     protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
     {
-        var hostPref = await _storage.GetItemAsync(HostInWpKey);
-        var useNonce = !string.IsNullOrEmpty(hostPref) && bool.TryParse(hostPref, out var hv) && hv;
+        var uri = new Uri(_navManager.Uri);
+        var query = uri.Query.TrimStart('?');
+        var parts = query.Split('&', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+        var useNonce = parts.Any(p => p.Equals("nonce", StringComparison.OrdinalIgnoreCase));
 
         if (useNonce)
         {
