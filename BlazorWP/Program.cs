@@ -69,11 +69,26 @@ namespace BlazorWP
 
             flags.SetAppMode(appMode);
 
+            var wordpressUrl = config["WordPress:Url"];
             var authMode = AuthType.Jwt;
-            if (queryParams.TryGetValue("auth", out var authValues) &&
-                authValues.ToString().Equals("nonce", StringComparison.OrdinalIgnoreCase))
+            if (!string.IsNullOrWhiteSpace(wordpressUrl) &&
+                Uri.TryCreate(wordpressUrl, UriKind.Absolute, out var wpUri) &&
+                string.Equals(uri.Host, wpUri.Host, StringComparison.OrdinalIgnoreCase))
             {
                 authMode = AuthType.Nonce;
+            }
+
+            if (queryParams.TryGetValue("auth", out var authValues))
+            {
+                var val = authValues.ToString();
+                if (val.Equals("nonce", StringComparison.OrdinalIgnoreCase))
+                {
+                    authMode = AuthType.Nonce;
+                }
+                else if (val.Equals("jwt", StringComparison.OrdinalIgnoreCase))
+                {
+                    authMode = AuthType.Jwt;
+                }
             }
 
             flags.SetAuthMode(authMode);
