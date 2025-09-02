@@ -83,6 +83,15 @@ namespace BlazorWP
 
             flags.SetAppMode(appMode);
 
+            var authMode = AuthType.Jwt;
+            if (queryParams.TryGetValue("auth", out var authValues) &&
+                authValues.ToString().Equals("nonce", StringComparison.OrdinalIgnoreCase))
+            {
+                authMode = AuthType.Nonce;
+            }
+
+            flags.SetAuthMode(authMode);
+
             var lang = "en";
             if (queryParams.TryGetValue("lang", out var langValues) &&
                 langValues.ToString().Equals("ja", StringComparison.OrdinalIgnoreCase))
@@ -104,7 +113,9 @@ namespace BlazorWP
                 !queryParams.TryGetValue("appmode", out var existingMode) ||
                 !existingMode.ToString().Equals(appMode == AppMode.Basic ? "basic" : "full", StringComparison.OrdinalIgnoreCase) ||
                 queryParams.ContainsKey("basic") ||
-                queryParams.ContainsKey("full");
+                queryParams.ContainsKey("full") ||
+                !queryParams.TryGetValue("auth", out var existingAuth) ||
+                !existingAuth.ToString().Equals(authMode == AuthType.Nonce ? "nonce" : "jwt", StringComparison.OrdinalIgnoreCase);
 
             if (needsNormalization)
             {
@@ -115,7 +126,8 @@ namespace BlazorWP
                         kvp.Key.Equals("ja", StringComparison.OrdinalIgnoreCase) ||
                         kvp.Key.Equals("basic", StringComparison.OrdinalIgnoreCase) ||
                         kvp.Key.Equals("full", StringComparison.OrdinalIgnoreCase) ||
-                        kvp.Key.Equals("appmode", StringComparison.OrdinalIgnoreCase))
+                        kvp.Key.Equals("appmode", StringComparison.OrdinalIgnoreCase) ||
+                        kvp.Key.Equals("auth", StringComparison.OrdinalIgnoreCase))
                     {
                         continue;
                     }
@@ -135,6 +147,7 @@ namespace BlazorWP
 
                 segments.Add($"appmode={(appMode == AppMode.Basic ? "basic" : "full")}");
                 segments.Add($"lang={lang}");
+                segments.Add($"auth={(authMode == AuthType.Nonce ? "nonce" : "jwt")}");
 
                 var newQuery = string.Join("&", segments);
                 var normalizedUri = uri.GetLeftPart(UriPartial.Path) + (newQuery.Length > 0 ? "?" + newQuery : string.Empty);

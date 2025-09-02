@@ -1,20 +1,19 @@
 using System.Net.Http.Headers;
-using Microsoft.JSInterop;
+using BlazorWP.Data;
 
 namespace BlazorWP;
 
 public class AuthMessageHandler : DelegatingHandler
 {
     private readonly JwtService _jwtService;
-    private readonly LocalStorageJsInterop _storage;
     private readonly WpNonceJsInterop _nonceJs;
-    private const string HostInWpKey = "hostInWp";
+    private readonly AppFlags _flags;
 
-    public AuthMessageHandler(JwtService jwtService, LocalStorageJsInterop storage, WpNonceJsInterop nonceJs)
+    public AuthMessageHandler(JwtService jwtService, WpNonceJsInterop nonceJs, AppFlags flags)
     {
         _jwtService = jwtService;
-        _storage = storage;
         _nonceJs = nonceJs;
+        _flags = flags;
         InnerHandler = new HttpClientHandler();
     }
 
@@ -33,8 +32,7 @@ public class AuthMessageHandler : DelegatingHandler
 
     protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
     {
-        var hostPref = await _storage.GetItemAsync(HostInWpKey);
-        var useNonce = !string.IsNullOrEmpty(hostPref) && bool.TryParse(hostPref, out var hv) && hv;
+        var useNonce = _flags.Auth == AuthType.Nonce;
 
         if (useNonce)
         {
