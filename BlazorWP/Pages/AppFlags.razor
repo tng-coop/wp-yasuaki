@@ -1,6 +1,8 @@
 @page "/appflags"
 @using BlazorWP.Data
+@using Microsoft.AspNetCore.WebUtilities
 @inject BlazorWP.Data.AppFlags Flags
+@inject NavigationManager Navigation
 
 <PageTitle>App Flags</PageTitle>
 
@@ -20,7 +22,10 @@
                 @foreach (AppMode mode in Enum.GetValues<AppMode>())
                 {
                     var active = Flags.Mode == mode;
-                    <span class="badge @(active ? "bg-primary" : "bg-secondary") me-1">@mode</span>
+                    var url = BuildUrl("appmode", mode == AppMode.Basic ? "basic" : "full");
+                    <a href="@url" class="text-decoration-none">
+                        <span class="badge @(active ? "bg-primary" : "bg-secondary") me-1">@mode</span>
+                    </a>
                 }
             </td>
         </tr>
@@ -30,7 +35,10 @@
                 @foreach (AuthType type in Enum.GetValues<AuthType>())
                 {
                     var active = Flags.Auth == type;
-                    <span class="badge @(active ? "bg-primary" : "bg-secondary") me-1">@type</span>
+                    var url = BuildUrl("auth", type == AuthType.Nonce ? "nonce" : "jwt");
+                    <a href="@url" class="text-decoration-none">
+                        <span class="badge @(active ? "bg-primary" : "bg-secondary") me-1">@type</span>
+                    </a>
                 }
             </td>
         </tr>
@@ -40,10 +48,30 @@
                 @foreach (Language lang in Enum.GetValues<Language>())
                 {
                     var active = Flags.Language == lang;
-                    <span class="badge @(active ? "bg-primary" : "bg-secondary") me-1">@lang</span>
+                    var url = BuildUrl("lang", lang == Language.Japanese ? "jp" : "en");
+                    <a href="@url" class="text-decoration-none">
+                        <span class="badge @(active ? "bg-primary" : "bg-secondary") me-1">@lang</span>
+                    </a>
                 }
             </td>
         </tr>
     </tbody>
 </table>
+
+@code {
+    private string BuildUrl(string key, string value)
+    {
+        var uri = Navigation.ToAbsoluteUri(Navigation.Uri);
+        var query = QueryHelpers.ParseQuery(uri.Query);
+        var dict = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var kvp in query)
+        {
+            dict[kvp.Key] = kvp.Value.ToString();
+        }
+
+        dict[key] = value;
+
+        return QueryHelpers.AddQueryString(uri.GetLeftPart(UriPartial.Path), dict);
+    }
+}
 
