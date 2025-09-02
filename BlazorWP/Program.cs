@@ -2,7 +2,10 @@ using BlazorWP.Data;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Web;
 using Microsoft.AspNetCore.Components.WebAssembly.Hosting;
+using Microsoft.AspNetCore.WebUtilities;
+using Microsoft.Extensions.Primitives;
 using PanoramicData.Blazor.Extensions;
+using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
 
@@ -46,28 +49,65 @@ namespace BlazorWP
 
             // 6) Now that the JSON has been loaded, enumerate via ILogger
             var config = host.Services.GetRequiredService<IConfiguration>();
-var flags = host.Services.GetRequiredService<AppFlags>();
-            // Set culture from query parameter (?en or ?jp) before first render
+            var flags = host.Services.GetRequiredService<AppFlags>();
+            // Set culture from query parameter before first render
             var languageService = host.Services.GetRequiredService<LanguageService>();
             var navigationManager = host.Services.GetRequiredService<NavigationManager>();
             var uri = new Uri(navigationManager.Uri);
-            var query = uri.Query.TrimStart('?');
-            var parts = query.Split('&', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
-// set basic flag
-flags.SetBasic(parts.Contains("basic", StringComparer.OrdinalIgnoreCase));
+            var queryParams = QueryHelpers.ParseQuery(uri.Query);
 
-            string culture = "en-US";
-            if (parts.Any(p => p.Equals("ja", StringComparison.OrdinalIgnoreCase)))
+            // set basic flag
+            flags.SetBasic(queryParams.ContainsKey("basic"));
+
+            var lang = "en";
+            if (queryParams.TryGetValue("lang", out var langValues) &&
+                langValues.ToString().Equals("ja", StringComparison.OrdinalIgnoreCase))
             {
-                culture = "ja-JP";
+                lang = "ja";
             }
-            if (parts.Any(p => p.Equals("basic", StringComparison.OrdinalIgnoreCase)))
+            else if (queryParams.ContainsKey("ja"))
             {
-                culture = "ja-JP";
+                lang = "ja";
             }
 
-
+            var culture = lang == "ja" ? "ja-JP" : "en-US";
             languageService.SetCulture(culture);
+
+            var needsNormalization =
+                !queryParams.TryGetValue("lang", out var existingLang) ||
+                !existingLang.ToString().Equals(lang, StringComparison.OrdinalIgnoreCase) ||
+                queryParams.ContainsKey("ja");
+
+            if (needsNormalization)
+            {
+                var segments = new List<string>();
+                foreach (var kvp in queryParams)
+                {
+                    if (kvp.Key.Equals("lang", StringComparison.OrdinalIgnoreCase) ||
+                        kvp.Key.Equals("ja", StringComparison.OrdinalIgnoreCase))
+                    {
+                        continue;
+                    }
+
+                    if (StringValues.IsNullOrEmpty(kvp.Value))
+                    {
+                        segments.Add(Uri.EscapeDataString(kvp.Key));
+                    }
+                    else
+                    {
+                        foreach (var v in kvp.Value)
+                        {
+                            segments.Add($"{Uri.EscapeDataString(kvp.Key)}={Uri.EscapeDataString(v)}");
+                        }
+                    }
+                }
+
+                segments.Add($"lang={lang}");
+
+                var newQuery = string.Join("&", segments);
+                var normalizedUri = uri.GetLeftPart(UriPartial.Path) + (newQuery.Length > 0 ? "?" + newQuery : string.Empty);
+                navigationManager.NavigateTo(normalizedUri, replace: true);
+            }
 
             // 7) And finally run
             await host.RunAsync();
