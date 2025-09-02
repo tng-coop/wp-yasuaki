@@ -56,8 +56,24 @@ namespace BlazorWP
             var uri = new Uri(navigationManager.Uri);
             var queryParams = QueryHelpers.ParseQuery(uri.Query);
 
-            // set basic flag
-            flags.SetBasic(queryParams.ContainsKey("basic"));
+            // Determine basic/full mode
+            var basic = false;
+            if (queryParams.TryGetValue("basic", out var basicValues))
+            {
+                var val = basicValues.ToString();
+                if (string.IsNullOrEmpty(val) ||
+                    val.Equals("true", StringComparison.OrdinalIgnoreCase) ||
+                    val.Equals("1"))
+                {
+                    basic = true;
+                }
+            }
+            else if (queryParams.TryGetValue("full", out var _))
+            {
+                basic = false;
+            }
+
+            flags.SetBasic(basic);
 
             var lang = "en";
             if (queryParams.TryGetValue("lang", out var langValues) &&
@@ -76,7 +92,10 @@ namespace BlazorWP
             var needsNormalization =
                 !queryParams.TryGetValue("lang", out var existingLang) ||
                 !existingLang.ToString().Equals(lang, StringComparison.OrdinalIgnoreCase) ||
-                queryParams.ContainsKey("ja");
+                queryParams.ContainsKey("ja") ||
+                !queryParams.TryGetValue("basic", out var existingBasic) ||
+                !existingBasic.ToString().Equals(basic.ToString().ToLowerInvariant(), StringComparison.OrdinalIgnoreCase) ||
+                queryParams.ContainsKey("full");
 
             if (needsNormalization)
             {
@@ -84,7 +103,9 @@ namespace BlazorWP
                 foreach (var kvp in queryParams)
                 {
                     if (kvp.Key.Equals("lang", StringComparison.OrdinalIgnoreCase) ||
-                        kvp.Key.Equals("ja", StringComparison.OrdinalIgnoreCase))
+                        kvp.Key.Equals("ja", StringComparison.OrdinalIgnoreCase) ||
+                        kvp.Key.Equals("basic", StringComparison.OrdinalIgnoreCase) ||
+                        kvp.Key.Equals("full", StringComparison.OrdinalIgnoreCase))
                     {
                         continue;
                     }
@@ -102,6 +123,7 @@ namespace BlazorWP
                     }
                 }
 
+                segments.Add($"basic={basic.ToString().ToLowerInvariant()}");
                 segments.Add($"lang={lang}");
 
                 var newQuery = string.Join("&", segments);
