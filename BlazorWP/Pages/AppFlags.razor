@@ -1,0 +1,39 @@
+@page "/appflags"
+@using BlazorWP.Data
+@inject AppFlags Flags
+
+<PageTitle>App Flags</PageTitle>
+
+<h3>Application Flags</h3>
+
+<table class="table table-striped">
+    <thead>
+        <tr>
+            <th>Feature</th>
+            <th>Options</th>
+        </tr>
+    </thead>
+    <tbody>
+        <tr>
+            <td>App Mode</td>
+            <td>
+                @foreach (AppMode mode in Enum.GetValues<AppMode>())
+                {
+                    var active = Flags.Mode == mode;
+                    <span class="badge @(active ? "bg-primary" : "bg-secondary") me-1">@mode</span>
+                }
+            </td>
+        </tr>
+        <tr>
+            <td>Auth Type</td>
+            <td>
+                @foreach (AuthType type in Enum.GetValues<AuthType>())
+                {
+                    var active = Flags.Auth == type;
+                    <span class="badge @(active ? "bg-primary" : "bg-secondary") me-1">@type</span>
+                }
+            </td>
+        </tr>
+    </tbody>
+</table>
+
