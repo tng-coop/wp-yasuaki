@@ -1,7 +1,7 @@
 <?php
 /**
  * Plugin Name: MU – Adjust BlazorApp Links
- * Description: Adds query flags (e.g. ?lang=jp&appmode=basic&auth=nonce) to /blazorapp links based on user role and locale, or strips links for logged-out users.
+ * Description: Adds query flags (e.g. ?lang=jp&appmode=basic&auth=nonce) to /blazorapp links based on user role and locale, or strips links for logged-out users or users below Author role.
  * Author: Your Name
  * Network: true
  */
@@ -23,6 +23,11 @@ function mu_adjust_blazorapp_links( $html, $block ) {
     }
 
     $user = wp_get_current_user();
+
+    // Require at least "Author" role
+    if ( ! user_can( $user, 'publish_posts' ) ) {
+        return '';
+    }
 
     $params = [
         // Default to English and full mode; override as needed below.
