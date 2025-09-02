@@ -23,7 +23,7 @@
                 {
                     var active = Flags.Mode == mode;
                     var url = BuildUrl("appmode", mode == AppMode.Basic ? "basic" : "full");
-                    <a href="@url" class="text-decoration-none">
+                    <a href="@url" class="text-decoration-none" @onclick="() => Reload(url)" @onclick:preventDefault>
                         <span class="badge @(active ? "bg-primary" : "bg-secondary") me-1">@mode</span>
                     </a>
                 }
@@ -36,7 +36,7 @@
                 {
                     var active = Flags.Auth == type;
                     var url = BuildUrl("auth", type == AuthType.Nonce ? "nonce" : "jwt");
-                    <a href="@url" class="text-decoration-none">
+                    <a href="@url" class="text-decoration-none" @onclick="() => Reload(url)" @onclick:preventDefault>
                         <span class="badge @(active ? "bg-primary" : "bg-secondary") me-1">@type</span>
                     </a>
                 }
@@ -49,7 +49,7 @@
                 {
                     var active = Flags.Language == lang;
                     var url = BuildUrl("lang", lang == Language.Japanese ? "jp" : "en");
-                    <a href="@url" class="text-decoration-none">
+                    <a href="@url" class="text-decoration-none" @onclick="() => Reload(url)" @onclick:preventDefault>
                         <span class="badge @(active ? "bg-primary" : "bg-secondary") me-1">@lang</span>
                     </a>
                 }
@@ -72,6 +72,11 @@
         dict[key] = value;
 
         return QueryHelpers.AddQueryString(uri.GetLeftPart(UriPartial.Path), dict);
+    }
+
+    private void Reload(string url)
+    {
+        Navigation.NavigateTo(url, forceLoad: true);
     }
 }
 
