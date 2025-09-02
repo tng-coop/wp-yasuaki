@@ -66,20 +66,6 @@ namespace BlazorWP
                     appMode = AppMode.Basic;
                 }
             }
-            else if (queryParams.TryGetValue("basic", out var basicValues))
-            {
-                var val = basicValues.ToString();
-                if (string.IsNullOrEmpty(val) ||
-                    val.Equals("true", StringComparison.OrdinalIgnoreCase) ||
-                    val.Equals("1"))
-                {
-                    appMode = AppMode.Basic;
-                }
-            }
-            else if (queryParams.ContainsKey("full"))
-            {
-                appMode = AppMode.Full;
-            }
 
             flags.SetAppMode(appMode);
 
@@ -94,27 +80,20 @@ namespace BlazorWP
 
             var lang = "en";
             if (queryParams.TryGetValue("lang", out var langValues) &&
-                langValues.ToString().Equals("ja", StringComparison.OrdinalIgnoreCase))
+                langValues.ToString().Equals("jp", StringComparison.OrdinalIgnoreCase))
             {
-                lang = "ja";
-            }
-            else if (queryParams.ContainsKey("ja"))
-            {
-                lang = "ja";
+                lang = "jp";
             }
 
-            var culture = lang == "ja" ? "ja-JP" : "en-US";
+            var culture = lang == "jp" ? "ja-JP" : "en-US";
             languageService.SetCulture(culture);
-            flags.SetLanguage(lang == "ja" ? Language.Japanese : Language.English);
+            flags.SetLanguage(lang == "jp" ? Language.Japanese : Language.English);
 
             var needsNormalization =
                 !queryParams.TryGetValue("lang", out var existingLang) ||
                 !existingLang.ToString().Equals(lang, StringComparison.OrdinalIgnoreCase) ||
-                queryParams.ContainsKey("ja") ||
                 !queryParams.TryGetValue("appmode", out var existingMode) ||
                 !existingMode.ToString().Equals(appMode == AppMode.Basic ? "basic" : "full", StringComparison.OrdinalIgnoreCase) ||
-                queryParams.ContainsKey("basic") ||
-                queryParams.ContainsKey("full") ||
                 !queryParams.TryGetValue("auth", out var existingAuth) ||
                 !existingAuth.ToString().Equals(authMode == AuthType.Nonce ? "nonce" : "jwt", StringComparison.OrdinalIgnoreCase);
 
@@ -124,9 +103,6 @@ namespace BlazorWP
                 foreach (var kvp in queryParams)
                 {
                     if (kvp.Key.Equals("lang", StringComparison.OrdinalIgnoreCase) ||
-                        kvp.Key.Equals("ja", StringComparison.OrdinalIgnoreCase) ||
-                        kvp.Key.Equals("basic", StringComparison.OrdinalIgnoreCase) ||
-                        kvp.Key.Equals("full", StringComparison.OrdinalIgnoreCase) ||
                         kvp.Key.Equals("appmode", StringComparison.OrdinalIgnoreCase) ||
                         kvp.Key.Equals("auth", StringComparison.OrdinalIgnoreCase))
                     {
