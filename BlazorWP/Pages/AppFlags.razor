@@ -23,7 +23,7 @@
                 {
                     var active = Flags.Mode == mode;
                     var url = BuildUrl("appmode", mode == AppMode.Basic ? "basic" : "full");
-                    <a href="@url" class="text-decoration-none" @onclick="() => Reload(url)" @onclick:preventDefault>
+                    <a href="@url" class="text-decoration-none" @onclick="() => SetAppMode(mode, url)" @onclick:preventDefault>
                         <span class="badge @(active ? "bg-primary" : "bg-secondary") me-1">@mode</span>
                     </a>
                 }
@@ -36,7 +36,7 @@
                 {
                     var active = Flags.Auth == type;
                     var url = BuildUrl("auth", type == AuthType.Nonce ? "nonce" : "jwt");
-                    <a href="@url" class="text-decoration-none" @onclick="() => Reload(url)" @onclick:preventDefault>
+                    <a href="@url" class="text-decoration-none" @onclick="() => SetAuth(type, url)" @onclick:preventDefault>
                         <span class="badge @(active ? "bg-primary" : "bg-secondary") me-1">@type</span>
                     </a>
                 }
@@ -49,7 +49,7 @@
                 {
                     var active = Flags.Language == lang;
                     var url = BuildUrl("lang", lang == Language.Japanese ? "jp" : "en");
-                    <a href="@url" class="text-decoration-none" @onclick="() => Reload(url)" @onclick:preventDefault>
+                    <a href="@url" class="text-decoration-none" @onclick="() => SetLanguage(lang, url)" @onclick:preventDefault>
                         <span class="badge @(active ? "bg-primary" : "bg-secondary") me-1">@lang</span>
                     </a>
                 }
@@ -74,8 +74,21 @@
         return QueryHelpers.AddQueryString(uri.GetLeftPart(UriPartial.Path), dict);
     }
 
-    private void Reload(string url)
+    private void SetAppMode(AppMode mode, string url)
     {
+        Flags.SetAppMode(mode);
+        Navigation.NavigateTo(url);
+    }
+
+    private void SetAuth(AuthType type, string url)
+    {
+        Flags.SetAuthMode(type);
+        Navigation.NavigateTo(url);
+    }
+
+    private void SetLanguage(Language lang, string url)
+    {
+        Flags.SetLanguage(lang);
         Navigation.NavigateTo(url, forceLoad: true);
     }
 }
