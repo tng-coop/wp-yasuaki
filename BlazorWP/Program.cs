@@ -105,6 +105,7 @@ namespace BlazorWP
 
             var culture = lang == "ja" ? "ja-JP" : "en-US";
             languageService.SetCulture(culture);
+            flags.SetLanguage(lang == "ja" ? Language.Japanese : Language.English);
 
             var needsNormalization =
                 !queryParams.TryGetValue("lang", out var existingLang) ||

@@ -34,6 +34,16 @@
                 }
             </td>
         </tr>
+        <tr>
+            <td>Language</td>
+            <td>
+                @foreach (Language lang in Enum.GetValues<Language>())
+                {
+                    var active = Flags.Language == lang;
+                    <span class="badge @(active ? "bg-primary" : "bg-secondary") me-1">@lang</span>
+                }
+            </td>
+        </tr>
     </tbody>
 </table>
 
