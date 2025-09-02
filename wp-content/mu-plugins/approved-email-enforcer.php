@@ -58,3 +58,27 @@ function ael_is_email_approved( $email ) {
     }
     return in_array( strtolower( $email ), $cache, true );
 }
+
+/**
+ * If a new user's email is approved, default their role to Author.
+ */
+add_action( 'user_register', function( $user_id ) {
+    // Make sure helper is available
+    if ( ! function_exists( 'ael_is_email_approved' ) ) {
+        return;
+    }
+
+    $user = get_user_by( 'id', $user_id );
+    if ( ! $user || empty( $user->user_email ) ) {
+        return;
+    }
+
+    if ( ael_is_email_approved( $user->user_email ) ) {
+        $roles = (array) $user->roles;
+
+        // Only promote if they’re role-less or a Subscriber.
+        if ( empty( $roles ) || in_array( 'subscriber', $roles, true ) ) {
+            $user->set_role( 'author' );
+        }
+    }
+}, 20 );
