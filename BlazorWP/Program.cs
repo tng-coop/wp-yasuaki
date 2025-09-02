@@ -56,24 +56,32 @@ namespace BlazorWP
             var uri = new Uri(navigationManager.Uri);
             var queryParams = QueryHelpers.ParseQuery(uri.Query);
 
-            // Determine basic/full mode
-            var basic = false;
-            if (queryParams.TryGetValue("basic", out var basicValues))
+            // Determine app mode
+            var appMode = AppMode.Full;
+            if (queryParams.TryGetValue("appmode", out var modeValues))
+            {
+                var val = modeValues.ToString();
+                if (val.Equals("basic", StringComparison.OrdinalIgnoreCase))
+                {
+                    appMode = AppMode.Basic;
+                }
+            }
+            else if (queryParams.TryGetValue("basic", out var basicValues))
             {
                 var val = basicValues.ToString();
                 if (string.IsNullOrEmpty(val) ||
                     val.Equals("true", StringComparison.OrdinalIgnoreCase) ||
                     val.Equals("1"))
                 {
-                    basic = true;
+                    appMode = AppMode.Basic;
                 }
             }
-            else if (queryParams.TryGetValue("full", out var _))
+            else if (queryParams.ContainsKey("full"))
             {
-                basic = false;
+                appMode = AppMode.Full;
             }
 
-            flags.SetBasic(basic);
+            flags.SetAppMode(appMode);
 
             var lang = "en";
             if (queryParams.TryGetValue("lang", out var langValues) &&
@@ -93,8 +101,9 @@ namespace BlazorWP
                 !queryParams.TryGetValue("lang", out var existingLang) ||
                 !existingLang.ToString().Equals(lang, StringComparison.OrdinalIgnoreCase) ||
                 queryParams.ContainsKey("ja") ||
-                !queryParams.TryGetValue("basic", out var existingBasic) ||
-                !existingBasic.ToString().Equals(basic.ToString().ToLowerInvariant(), StringComparison.OrdinalIgnoreCase) ||
+                !queryParams.TryGetValue("appmode", out var existingMode) ||
+                !existingMode.ToString().Equals(appMode == AppMode.Basic ? "basic" : "full", StringComparison.OrdinalIgnoreCase) ||
+                queryParams.ContainsKey("basic") ||
                 queryParams.ContainsKey("full");
 
             if (needsNormalization)
@@ -105,7 +114,8 @@ namespace BlazorWP
                     if (kvp.Key.Equals("lang", StringComparison.OrdinalIgnoreCase) ||
                         kvp.Key.Equals("ja", StringComparison.OrdinalIgnoreCase) ||
                         kvp.Key.Equals("basic", StringComparison.OrdinalIgnoreCase) ||
-                        kvp.Key.Equals("full", StringComparison.OrdinalIgnoreCase))
+                        kvp.Key.Equals("full", StringComparison.OrdinalIgnoreCase) ||
+                        kvp.Key.Equals("appmode", StringComparison.OrdinalIgnoreCase))
                     {
                         continue;
                     }
@@ -123,7 +133,7 @@ namespace BlazorWP
                     }
                 }
 
-                segments.Add($"basic={basic.ToString().ToLowerInvariant()}");
+                segments.Add($"appmode={(appMode == AppMode.Basic ? "basic" : "full")}");
                 segments.Add($"lang={lang}");
 
                 var newQuery = string.Join("&", segments);
