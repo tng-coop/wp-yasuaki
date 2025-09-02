@@ -1,7 +1,7 @@
 <?php
 /**
  * Plugin Name: MU – Adjust BlazorApp Links
- * Description: Adds query flags (e.g. ?ja&basic) to /blazorapp links based on user role and locale, or strips links for logged-out users.
+ * Description: Adds query flags (e.g. ?lang=jp&appmode=basic&auth=nonce) to /blazorapp links based on user role and locale, or strips links for logged-out users.
  * Author: Your Name
  * Network: true
  */
@@ -23,30 +23,35 @@ function mu_adjust_blazorapp_links( $html, $block ) {
     }
 
     $user = wp_get_current_user();
-    $params = [];
+
+    $params = [
+        // Default to English and full mode; override as needed below.
+        'lang'    => 'en',
+        'appmode' => 'full',
+        // WordPress integration uses nonce-based auth.
+        'auth'    => 'nonce',
+    ];
 
     // Locale: user-specific
     $user_locale = get_user_locale( $user->ID );
     if ( $user_locale === 'ja' || strpos( $user_locale, 'ja_' ) === 0 ) {
-        $params[] = 'ja';
+        $params['lang'] = 'jp';
     }
 
     // Role: unless admin, mark as basic
     if ( ! in_array( 'administrator', (array) $user->roles, true ) ) {
-        $params[] = 'basic';
+        $params['appmode'] = 'basic';
     }
 
-    if ( ! empty( $params ) ) {
-        $separator = ( strpos( $url, '?' ) !== false ) ? '&' : '?';
-        $url .= $separator . implode( '&', $params );
+    $separator = ( strpos( $url, '?' ) !== false ) ? '&' : '?';
+    $url      .= $separator . http_build_query( $params );
 
-        // Replace in HTML output
-        $html = preg_replace(
-            '#href=(["\'])' . preg_quote( $block['attrs']['url'], '#' ) . '\1#',
-            'href=$1' . esc_url( $url ) . '$1',
-            $html
-        );
-    }
+    // Replace in HTML output
+    $html = preg_replace(
+        '#href=(["\'])' . preg_quote( $block['attrs']['url'], '#' ) . '\1#',
+        'href=$1' . esc_url( $url ) . '$1',
+        $html
+    );
 
     return $html;
 }
