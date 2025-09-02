@@ -1,6 +1,7 @@
 @using BlazorWP.Data
 @inject IStringLocalizer<NavMenu> L
 @inject AppFlags Flags
+@implements IDisposable
 
 <div class="top-row ps-3 navbar navbar-dark">
     <div class="container-fluid">
@@ -95,10 +96,22 @@
 @code {
     private bool collapseNavMenu = true;
 
+    protected override void OnInitialized()
+    {
+        Flags.OnChange += HandleFlagsChanged;
+    }
+
+    private void HandleFlagsChanged() => InvokeAsync(StateHasChanged);
+
     private string? NavMenuCssClass => collapseNavMenu ? "collapse" : null;
 
     private void ToggleNavMenu()
     {
         collapseNavMenu = !collapseNavMenu;
+    }
+
+    public void Dispose()
+    {
+        Flags.OnChange -= HandleFlagsChanged;
     }
 }
