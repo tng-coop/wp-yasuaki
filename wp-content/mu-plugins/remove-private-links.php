@@ -1,41 +1,54 @@
 <?php
 /**
- * Plugin Name: MU – Remove BlazorApp Links
- * Description: Strips out any core/navigation-link block items linking to "/blazorapp" (or any subpath), only for logged-out users.
+ * Plugin Name: MU – Adjust BlazorApp Links
+ * Description: Adds query flags (e.g. ?ja&basic) to /blazorapp links based on user role and locale, or strips links for logged-out users.
  * Author: Your Name
  * Network: true
  */
 
-/**
- * Remove <a> tags pointing at /blazorapp/* for anyone who cannot edit posts.
- */
-function mu_remove_blazorapp_path_links_for_low_roles( $html, $block ) {
+function mu_adjust_blazorapp_links( $html, $block ) {
     $url = $block['attrs']['url'] ?? '';
     if ( ! $url ) {
         return $html;
     }
-	
-    // Only target links whose path begins with /blazorapp
+
     $path = parse_url( $url, PHP_URL_PATH ) ?: '';
     if ( ! preg_match( '#^/blazorapp(/|$)#i', $path ) ) {
         return $html;
     }
 
-    // If the current user cannot edit posts (i.e. is not a Contributor or higher), strip the link
-    if ( ! current_user_can( 'edit_posts' ) ) {
+    // If not logged in, remove link entirely
+    if ( ! is_user_logged_in() ) {
         return '';
     }
 
-
     $user = wp_get_current_user();
+    $params = [];
 
-    // 2) Build a little debug string
-    $roles_str   = ! empty( $user->roles ) ? implode( ',', $user->roles ) : 'none';
-    $can_edit    = current_user_can( 'edit_posts' ) ? 'yes' : 'no';
+    // Locale: user-specific
+    $user_locale = get_user_locale( $user->ID );
+    if ( $user_locale === 'ja' || strpos( $user_locale, 'ja_' ) === 0 ) {
+        $params[] = 'ja';
+    }
 
-    // Otherwise, leave the HTML intact
+    // Role: unless admin, mark as basic
+    if ( ! in_array( 'administrator', (array) $user->roles, true ) ) {
+        $params[] = 'basic';
+    }
+
+    if ( ! empty( $params ) ) {
+        $separator = ( strpos( $url, '?' ) !== false ) ? '&' : '?';
+        $url .= $separator . implode( '&', $params );
+
+        // Replace in HTML output
+        $html = preg_replace(
+            '#href=(["\'])' . preg_quote( $block['attrs']['url'], '#' ) . '\1#',
+            'href=$1' . esc_url( $url ) . '$1',
+            $html
+        );
+    }
+
     return $html;
 }
-// Adjust the hook name/place as appropriate for your block/render setup:
-add_filter( 'render_block', 'mu_remove_blazorapp_path_links_for_low_roles', 10, 2 );
 
+add_filter( 'render_block', 'mu_adjust_blazorapp_links', 10, 2 );
