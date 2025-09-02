@@ -1,12 +1,18 @@
 namespace BlazorWP.Data
 {
+    public enum AppMode
+    {
+        Full,
+        Basic
+    }
+
     public class AppFlags
     {
-        public bool Basic { get; private set; }
+        public AppMode Mode { get; private set; } = AppMode.Full;
 
-        public void SetBasic(bool value)
+        public void SetAppMode(AppMode mode)
         {
-            Basic = value;
+            Mode = mode;
         }
     }
 }

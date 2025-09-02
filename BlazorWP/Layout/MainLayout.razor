@@ -28,7 +28,7 @@
             }
             <!-- 🔹 show Basic/Full mode -->
             <span class="badge bg-info ms-3">
-                @(Flags.Basic ? "Basic mode" : "Full mode")
+                @(Flags.Mode == AppMode.Basic ? "Basic mode" : "Full mode")
             </span>
         </div>
 
