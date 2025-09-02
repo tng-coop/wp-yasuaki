@@ -12,10 +12,17 @@ namespace BlazorWP.Data
         Nonce
     }
 
+    public enum Language
+    {
+        English,
+        Japanese
+    }
+
     public class AppFlags
     {
         public AppMode Mode { get; private set; } = AppMode.Full;
         public AuthType Auth { get; private set; } = AuthType.Jwt;
+        public Language Language { get; private set; } = Language.English;
 
         public void SetAppMode(AppMode mode)
         {
@@ -25,6 +32,11 @@ namespace BlazorWP.Data
         public void SetAuthMode(AuthType auth)
         {
             Auth = auth;
+        }
+
+        public void SetLanguage(Language language)
+        {
+            Language = language;
         }
     }
 }
