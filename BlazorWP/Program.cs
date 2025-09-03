@@ -165,7 +165,7 @@ namespace BlazorWP
                     {
                         foreach (var v in kvp.Value)
                         {
-                            segments.Add($"{Uri.EscapeDataString(kvp.Key)}={Uri.EscapeDataString(v)}");
+                            segments.Add($"{Uri.EscapeDataString(kvp.Key)}={Uri.EscapeDataString(v ?? string.Empty)}");
                         }
                     }
                 }
