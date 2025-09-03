@@ -1,24 +1,26 @@
 <?php
 /**
  * Plugin Name: Block Delete User Content
- * Description: Prevents deletion of a user's posts/pages when deleting that user. Forces reassignment.
+ * Description: Forces reassignment when deleting a user; blocks the "delete all content" option.
  */
 
 defined('ABSPATH') || exit;
 
-/**
- * Stop "delete all content" when deleting a user.
- *
- * @param int      $id       ID of the deleted user.
- * @param int|bool $reassign ID of the user to reassign posts to, or false if content should be deleted.
- */
-add_action('delete_user', function( $id, $reassign ) {
-    if ( $reassign === false ) {
+add_action('load-users.php', function () {
+    // Only act on the actual deletion submit step
+    $action  = $_REQUEST['action']  ?? '';
+    $action2 = $_REQUEST['action2'] ?? '';
+    if ($action !== 'dodelete' && $action2 !== 'dodelete') {
+        return;
+    }
+
+    // If the form tried to delete content instead of reassigning, stop it
+    $delete_option = $_REQUEST['delete_option'] ?? '';
+    if ($delete_option === 'delete') {
         wp_die(
-            __( 'Deleting a user\'s content is disabled. You must reassign their posts/pages to another user.' ),
+            __( "Deleting a user's content is disabled. You must reassign their posts/pages to another user." ),
             __( 'Deletion Blocked' ),
             [ 'response' => 403 ]
         );
     }
-}, 5, 2);
-
+}, 0);
