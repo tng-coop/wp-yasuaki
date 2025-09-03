@@ -3,12 +3,14 @@
 @using System.Text.Json
 @using System.Threading
 @using Humanizer
+@using BlazorWP.Data
 @inject IJSRuntime JS
 @inject JwtService JwtService
 @inject LocalStorageJsInterop StorageJs
 @inject WordPressApiService Api
 @inject IStringLocalizer<Edit> L
 @inject IConfiguration Config
+@inject AppFlags Flags
 @implements IDisposable
 @implements IAsyncDisposable
 
@@ -32,7 +34,7 @@
         <label class="form-label" for="postTitle">@L["Title"]</label>
         <input id="postTitle" class="form-control" @bind="postTitle" @bind:event="oninput" @bind:after="OnTitleChanged" />
     </div>
-    @if (mediaSources.Any())
+    @if (mediaSources.Any() && Flags.Mode != AppMode.Basic)
     {
         <div class="mb-3">
             <label class="form-label" for="mediaSource">@L["MediaSource"]</label>
