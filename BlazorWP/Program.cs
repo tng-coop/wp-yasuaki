@@ -5,7 +5,7 @@ using Microsoft.AspNetCore.Components.WebAssembly.Hosting;
 using Microsoft.AspNetCore.WebUtilities;
 using Microsoft.Extensions.Primitives;
 using PanoramicData.Blazor.Extensions;
-using Tavenem.Blazor.IndexedDB;
+using TG.Blazor.IndexedDB;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
@@ -44,8 +44,27 @@ namespace BlazorWP
             builder.Services.AddLocalization(options => options.ResourcesPath = "Resources");
             builder.Services.AddSingleton<LanguageService>();
             builder.Services.AddSingleton<AppFlags>();
-            builder.Services.AddIndexedDbService();
-            builder.Services.AddIndexedDb("BlazorWPDB", objectStores: new[] { "notes" }, version: 1);
+
+            var dbStore = new IndexedDbOptions
+            {
+                Name = "BlazorWPDB",
+                Version = 1,
+                Stores = new List<StoreSchema>
+                {
+                    new StoreSchema
+                    {
+                        Name = "notes",
+                        PrimaryKey = new IndexSpec
+                        {
+                            Name = "id",
+                            KeyPath = "id",
+                            Auto = false
+                        }
+                    }
+                }
+            };
+
+            builder.Services.AddIndexedDB(dbStore);
 
             // 5) Build the host (this hooks up the logging provider)
             var host = builder.Build();

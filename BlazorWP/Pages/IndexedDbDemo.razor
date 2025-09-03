@@ -1,6 +1,5 @@
 @page "/indexeddb-demo"
-@using Tavenem.DataStore
-@using Tavenem.Blazor.IndexedDB
+@using TG.Blazor.IndexedDB
 <PageTitle>IndexedDB Demo</PageTitle>
 
 <h3>IndexedDB Demo – Notes</h3>
@@ -56,8 +55,8 @@ else
 }
 
 @code {
-    // Inject the configured IndexedDb instance by its key ("BlazorWPDB")
-    [Inject(Key = "BlazorWPDB")] private IndexedDb<string> NotesDb { get; set; } = default!;
+    private IndexedDBManager? dbManager;
+    [Inject] private IIndexedDbFactory DbFactory { get; set; } = default!;
 
     private List<Note> notes = new();
     private Note currentNote = new Note();  // holds data for the form (new or editing)
@@ -65,6 +64,7 @@ else
 
     protected override async Task OnInitializedAsync()
     {
+        dbManager = await DbFactory.Create("BlazorWPDB");
         // Load all existing notes from IndexedDB on page load
         await LoadNotesAsync();
     }
@@ -72,21 +72,30 @@ else
     // Fetch all notes from the "notes" object store
     private async Task LoadNotesAsync()
     {
-        var store = NotesDb["notes"];                         // get the object store by name
-        var allNotes = await store.GetAllAsync<Note>();       // retrieve all Note entries
-        notes = allNotes?.ToList() ?? new List<Note>();
+        notes = await dbManager!.GetRecords<Note>("notes") ?? new List<Note>();
     }
 
     // Add a new note or update an existing one
     private async Task SaveNote()
     {
-        var store = NotesDb["notes"];
         if (!isEditing)
         {
-            // Assign a new ID for the new note (GUID ensures uniqueness)
             currentNote.Id = Guid.NewGuid().ToString();
+            await dbManager!.AddRecord(new StoreRecord<Note>
+            {
+                StoreName = "notes",
+                Record = currentNote
+            });
         }
-        await store.StoreItemAsync(currentNote);  // Add or update the note in IndexedDB
+        else
+        {
+            await dbManager!.UpdateRecord(new StoreRecord<Note>
+            {
+                StoreName = "notes",
+                Record = currentNote
+            });
+        }
+
         await LoadNotesAsync();                  // Refresh the notes list from the database
         currentNote = new Note();                // Reset form to a new blank note
         isEditing = false;
@@ -108,8 +117,7 @@ else
     // Delete a note from the database
     private async Task DeleteNote(Note note)
     {
-        var store = NotesDb["notes"];
-        await store.RemoveItemAsync(note);   // Remove the item by object (uses note.Id internally)
+        await dbManager!.DeleteRecord("notes", note.Id);
         await LoadNotesAsync();             // Refresh the list to reflect deletion
     }
 
@@ -120,8 +128,8 @@ else
         isEditing = false;
     }
 
-    // Note model (Id required by IIdItem)
-    private class Note : IIdItem<string>
+    // Note model
+    private class Note
     {
         public string Id { get; set; } = Guid.NewGuid().ToString();
         public string Name { get; set; } = string.Empty;
