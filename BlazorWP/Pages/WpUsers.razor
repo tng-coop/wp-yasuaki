@@ -12,13 +12,13 @@
 {
     <p>@((MarkupString)string.Format(L["NoEndpoint"], $"<NavLink href=\"/\">{L["Home"]}</NavLink>"))</p>
 }
-else if (users == null && string.IsNullOrEmpty(error))
-{
-    <p><em>@L["Loading"]</em></p>
-}
 else if (!string.IsNullOrEmpty(error))
 {
     <p class="text-danger">@L["Error", error]</p>
+}
+else if (users == null)
+{
+    <p><em>@L["Loading"]</em></p>
 }
 else
 {

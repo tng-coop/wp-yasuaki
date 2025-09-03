@@ -63,7 +63,7 @@
     {
         var uri = Navigation.ToAbsoluteUri(Navigation.Uri);
         var query = QueryHelpers.ParseQuery(uri.Query);
-        var dict = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        var dict = new Dictionary<string, string?>(StringComparer.OrdinalIgnoreCase);
 
         foreach (var kvp in query)
         {
