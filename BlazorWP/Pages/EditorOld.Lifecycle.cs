@@ -8,7 +8,7 @@ using WordPressPCL.Utility;
 
 namespace BlazorWP.Pages;
 
-public partial class Edit
+public partial class EditorOld
 {
     protected override async Task OnInitializedAsync()
     {

@@ -9,7 +9,7 @@ using WordPressPCL.Utility;
 
 namespace BlazorWP.Pages;
 
-public partial class Edit
+public partial class EditorOld
 {
     private async Task LoadPosts(int page = 1, bool append = false, int? perPageOverride = null)
     {

@@ -8,7 +8,7 @@ using WordPressPCL.Utility;
 
 namespace BlazorWP.Pages;
 
-public partial class Edit : IDisposable, IAsyncDisposable
+public partial class EditorOld : IDisposable, IAsyncDisposable
 {
     private const string DraftsKey = "editorDrafts";
     private const string ShowTrashedKey = "showTrashed";
