@@ -45,26 +45,22 @@ namespace BlazorWP
             builder.Services.AddSingleton<LanguageService>();
             builder.Services.AddSingleton<AppFlags>();
 
-            var dbStore = new IndexedDbOptions
+            builder.Services.AddIndexedDB(db =>
             {
-                Name = "BlazorWPDB",
-                Version = 1,
-                Stores = new List<StoreSchema>
+                db.DbName = "BlazorWPDB";
+                db.Version = 1;
+                db.Stores.Add(new StoreSchema
                 {
-                    new StoreSchema
+                    Name = "notes",
+                    PrimaryKey = new IndexSpec
                     {
-                        Name = "notes",
-                        PrimaryKey = new IndexSpec
-                        {
-                            Name = "id",
-                            KeyPath = "id",
-                            Auto = false
-                        }
+                        Name = "id",
+                        KeyPath = "id",
+                        Auto = false
                     }
-                }
-            };
-
-            builder.Services.AddIndexedDB(dbStore);
+                    // Add Indexes = new List<IndexSpec> { ... } if you want secondary indexes
+                });
+            });
 
             // 5) Build the host (this hooks up the logging provider)
             var host = builder.Build();

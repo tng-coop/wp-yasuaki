@@ -1,5 +1,7 @@
 @page "/indexeddb-demo"
 @using TG.Blazor.IndexedDB
+@inject IndexedDBManager DbManager
+
 <PageTitle>IndexedDB Demo</PageTitle>
 
 <h3>IndexedDB Demo – Notes</h3>
@@ -55,16 +57,12 @@ else
 }
 
 @code {
-    private IndexedDBManager? dbManager;
-    [Inject] private IIndexedDbFactory DbFactory { get; set; } = default!;
-
     private List<Note> notes = new();
-    private Note currentNote = new Note();  // holds data for the form (new or editing)
-    private bool isEditing = false;         // flag to indicate if we are editing an existing note
+    private Note currentNote = new();  // holds data for the form (new or editing)
+    private bool isEditing = false;    // flag to indicate if we are editing an existing note
 
     protected override async Task OnInitializedAsync()
     {
-        dbManager = await DbFactory.Create("BlazorWPDB");
         // Load all existing notes from IndexedDB on page load
         await LoadNotesAsync();
     }
@@ -72,7 +70,8 @@ else
     // Fetch all notes from the "notes" object store
     private async Task LoadNotesAsync()
     {
-        notes = await dbManager!.GetRecords<Note>("notes") ?? new List<Note>();
+        notes = await DbManager.GetRecords<Note>("notes") ?? new List<Note>();
+        StateHasChanged();
     }
 
     // Add a new note or update an existing one
@@ -81,23 +80,23 @@ else
         if (!isEditing)
         {
             currentNote.Id = Guid.NewGuid().ToString();
-            await dbManager!.AddRecord(new StoreRecord<Note>
+            await DbManager.AddRecord(new StoreRecord<Note>
             {
-                StoreName = "notes",
-                Record = currentNote
+                Storename = "notes",
+                Data = currentNote
             });
         }
         else
         {
-            await dbManager!.UpdateRecord(new StoreRecord<Note>
+            await DbManager.UpdateRecord(new StoreRecord<Note>
             {
-                StoreName = "notes",
-                Record = currentNote
+                Storename = "notes",
+                Data = currentNote
             });
         }
 
-        await LoadNotesAsync();                  // Refresh the notes list from the database
-        currentNote = new Note();                // Reset form to a new blank note
+        await LoadNotesAsync();   // Refresh the notes list from the database
+        currentNote = new Note(); // Reset form to a new blank note
         isEditing = false;
     }
 
@@ -105,11 +104,11 @@ else
     private void EditNote(Note note)
     {
         // Clone the selected note into currentNote (to avoid directly editing the list item until saved)
-        currentNote = new Note 
-        { 
-            Id = note.Id, 
-            Name = note.Name, 
-            Description = note.Description 
+        currentNote = new Note
+        {
+            Id = note.Id,
+            Name = note.Name,
+            Description = note.Description
         };
         isEditing = true;
     }
@@ -117,8 +116,8 @@ else
     // Delete a note from the database
     private async Task DeleteNote(Note note)
     {
-        await dbManager!.DeleteRecord("notes", note.Id);
-        await LoadNotesAsync();             // Refresh the list to reflect deletion
+        await DbManager.DeleteRecord<string>("notes", note.Id);
+        await LoadNotesAsync(); // Refresh the list to reflect deletion
     }
 
     // Cancel edit mode and clear the form
@@ -136,4 +135,3 @@ else
         public string? Description { get; set; }
     }
 }
-
