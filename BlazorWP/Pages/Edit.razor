@@ -16,86 +16,18 @@
 
 <PageTitle>@L["EditTitle"]</PageTitle>
 
-<h1>@L["EditTitle"]</h1>
 
-<div class="mb-2">
-    <button class="btn btn-sm btn-outline-secondary me-1" @onclick="ToggleControls">@(showControls ? L["HideDetails"] : L["ShowDetails"])</button>
-    <button class="btn btn-sm btn-outline-secondary me-1" @onclick="ToggleTable">@(showTable ? L["HidePosts"] : L["ShowPosts"])</button>
-</div>
-
-@if (showControls)
+@if (mediaSources.Any() && Flags.Mode != AppMode.Basic)
 {
-    @if (!string.IsNullOrEmpty(status))
-    {
-        <p>@status</p>
-    }
-
     <div class="mb-3">
-        <label class="form-label" for="postTitle">@L["Title"]</label>
-        <input id="postTitle" class="form-control" @bind="postTitle" @bind:event="oninput" @bind:after="OnTitleChanged" />
-    </div>
-    @if (mediaSources.Any() && Flags.Mode != AppMode.Basic)
-    {
-        <div class="mb-3">
-            <label class="form-label" for="mediaSource">@L["MediaSource"]</label>
-            <select id="mediaSource" class="form-select" @bind="selectedMediaSource" @bind:after="OnMediaSourceChanged">
-                <option value="">@L["ChooseMediaSite"]</option>
-                @foreach (var site in mediaSources)
-                {
-                    <option value="@site">@site</option>
-                }
-            </select>
-        </div>
-    }
-    @if (categories.Any())
-    {
-        <div class="mb-3">
-            <label class="form-label">@L["Categories"]</label>
-            <div>
-                @foreach (var cat in categories)
-                {
-                    <div class="form-check form-check-inline">
-                        <input class="form-check-input" type="checkbox" id="cat-@cat.Id" checked="@selectedCategoryIds.Contains(cat.Id)" @onchange="e => OnCategoryCheckboxChanged(cat.Id, e)" disabled="@EditorReadOnly" />
-                        <label class="form-check-label" for="cat-@cat.Id">@cat.Name</label>
-                    </div>
-                }
-            </div>
-        </div>
-    }
-
-    <div class="d-flex align-items-center mb-2">
-        <button class="btn btn-success me-2" @onclick="NewPost">@L["New"]</button>
-        @if (ShowSaveDraftButton)
-        {
-            <button class="btn btn-primary me-2" @onclick="SaveDraft" disabled="@(!CanSaveDraft)">@L["SaveDraft"]</button>
-        }
-        @if (ShowSubmitForReviewButton)
-        {
-            <button class="btn btn-secondary me-2" @onclick="SubmitForReview">@L["SubmitForReview"]</button>
-        }
-        @if (showRetractReview)
-        {
-            <button class="btn btn-warning me-2" @onclick="RetractReview">@L["RetractReview"]</button>
-        }
-        <button class="btn btn-danger me-2" @onclick="CloseEditor">@L["Close"]</button>
-        <div class="ms-auto d-flex align-items-center">
-
-    <div class="d-flex align-items-center mb-2">
-        <button class="btn btn-sm btn-outline-secondary me-2" @onclick="RefreshPosts" disabled="@isLoading">@L["Refresh"]</button>
-        <select class="form-select form-select-sm w-auto me-2" @bind="selectedRefreshCount">
-            @foreach (var opt in refreshOptions)
+        <label class="form-label" for="mediaSource">@L["MediaSource"]</label>
+        <select id="mediaSource" class="form-select" @bind="selectedMediaSource" @bind:after="OnMediaSourceChanged">
+            <option value="">@L["ChooseMediaSite"]</option>
+            @foreach (var site in mediaSources)
             {
-                <option value="@opt">@opt</option>
+                <option value="@site">@site</option>
             }
         </select>
-        <div class="form-check form-switch me-2">
-            <input class="form-check-input" type="checkbox" id="showTrashedToggle" @bind="showTrashed" @bind:after="OnShowTrashedChanged" />
-            <label class="form-check-label" for="showTrashedToggle">@L["IncludeTrashedArticles"]</label>
-        </div>
-        <span class="ms-2">@string.Format(L["ArticlesCount"], DisplayCount)</span>
-    </div>
-            <span><strong>@L["StatusLabel"]</strong> @(isDirty ? L["Dirty"] : L["Clean"])</span>
-        </div>
     </div>
 }
 
@@ -120,24 +52,28 @@ else if (showTable)
             <tbody>
                 @foreach (var p in DisplayPosts)
                 {
-                    <tr @key="p.Id" class="article-row @(IsSelected(p, postId) ? "table-primary" : null)" @onclick="() => OpenPost(p)">
+                    <tr @key="p.Id" class="article-row @(IsSelected(p, postId) ? "table-primary" : null)"
+                        @onclick="() => OpenPost(p)">
                         <td>@(p.Id > 0 ? p.Id.ToString() : "")</td>
                         <td>@p.Title</td>
-                        <td>@(string.IsNullOrEmpty(p.AuthorName) ? (p.Author > 0 ? p.Author.ToString() : "") : p.AuthorName)</td>
+                        <td>@(string.IsNullOrEmpty(p.AuthorName) ? (p.Author > 0 ? p.Author.ToString() : "") : p.AuthorName)
+                        </td>
                         <td>@p.Status</td>
-                        <td>@(p.Date.HasValue ? p.Date.Value.Humanize() : "")</td>
+                        <td>@(p.Date.HasValue? p.Date.Value.Humanize() : "")</td>
                         <td>
                             @if (p.Id > 0 && !string.IsNullOrEmpty(p.Status))
                             {
                                 <div class="dropdown">
-                                    <button class="btn btn-sm @(GetStatusButtonClass(p.Status)) dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false" @onclick:stopPropagation="true">
+                                    <button class="btn btn-sm @(GetStatusButtonClass(p.Status)) dropdown-toggle" type="button"
+                                        data-bs-toggle="dropdown" aria-expanded="false" @onclick:stopPropagation="true">
                                         @p.Status
                                     </button>
                                     <ul class="dropdown-menu">
                                         @foreach (var st in availableStatuses)
                                         {
                                             <li>
-                                                <button type="button" class="dropdown-item @(p.Status == st ? "active" : null)" @onclick="() => ChangeStatus(p, st)" @onclick:stopPropagation="true">@st</button>
+                                                <button type="button" class="dropdown-item @(p.Status == st ? "active" : null)"
+                                                    @onclick="() => ChangeStatus(p, st)" @onclick:stopPropagation="true">@st</button>
                                             </li>
                                         }
                                     </ul>
@@ -154,12 +90,5 @@ else if (showTable)
 
 
 
-<Editor
-    Id="mainEditor"
-    ScriptSrc="libman/tinymce/tinymce.min.js"
-    LicenseKey="gpl"
-    JsConfSrc="myTinyMceConfig"
-    Readonly="@EditorReadOnly"
-    @bind-Value="_content"
-    @bind-Value:after="UpdateDirty" />
-
+<Editor Id="mainEditor" ScriptSrc="libman/tinymce/tinymce.min.js" LicenseKey="gpl" JsConfSrc="myTinyMceConfig"
+    Readonly="@EditorReadOnly" @bind-Value="_content" @bind-Value:after="UpdateDirty" />
