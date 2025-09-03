@@ -1,6 +1,5 @@
 ﻿@page "/weather"
 @inject HttpClient Http
-@inject JwtService JwtService
 
 <PageTitle>Weather</PageTitle>
 
@@ -8,10 +7,6 @@
 
 <p>This component demonstrates fetching data from the server.</p>
 
-@if (!string.IsNullOrEmpty(jwtToken))
-{
-    <p><strong>JWT:</strong> <code>@jwtToken</code></p>
-}
 
 @if (forecasts == null)
 {
@@ -48,7 +43,6 @@ else
 
     protected override async Task OnInitializedAsync()
     {
-        jwtToken = await JwtService.GetCurrentJwtAsync();
         forecasts = await Http.GetFromJsonAsync<WeatherForecast[]>("sample-data/weather.json");
     }
 
