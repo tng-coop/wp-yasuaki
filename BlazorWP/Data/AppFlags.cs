@@ -1,3 +1,7 @@
+using BlazorWP;
+using System;
+using System.Threading.Tasks;
+
 namespace BlazorWP.Data
 {
     public enum AppMode
@@ -20,6 +24,13 @@ namespace BlazorWP.Data
 
     public class AppFlags
     {
+        private readonly LocalStorageJsInterop _storage;
+
+        public AppFlags(LocalStorageJsInterop storage)
+        {
+            _storage = storage;
+        }
+
         public AppMode Mode { get; private set; } = AppMode.Full;
         public AuthType Auth { get; private set; } = AuthType.Jwt;
         public Language Language { get; private set; } = Language.English;
@@ -28,21 +39,36 @@ namespace BlazorWP.Data
 
         private void NotifyStateChanged() => OnChange?.Invoke();
 
-        public void SetAppMode(AppMode mode)
+        public async Task SetAppMode(AppMode mode)
         {
             Mode = mode;
+            try
+            {
+                await _storage.SetItemAsync("appmode", mode == AppMode.Basic ? "basic" : "full");
+            }
+            catch { }
             NotifyStateChanged();
         }
 
-        public void SetAuthMode(AuthType auth)
+        public async Task SetAuthMode(AuthType auth)
         {
             Auth = auth;
+            try
+            {
+                await _storage.SetItemAsync("auth", auth == AuthType.Nonce ? "nonce" : "jwt");
+            }
+            catch { }
             NotifyStateChanged();
         }
 
-        public void SetLanguage(Language language)
+        public async Task SetLanguage(Language language)
         {
             Language = language;
+            try
+            {
+                await _storage.SetItemAsync("lang", language == Language.Japanese ? "jp" : "en");
+            }
+            catch { }
             NotifyStateChanged();
         }
     }

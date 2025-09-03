@@ -83,21 +83,21 @@
         return QueryHelpers.AddQueryString(uri.GetLeftPart(UriPartial.Path), dict);
     }
 
-    private void SetAppMode(AppMode mode, string url)
+    private async Task SetAppMode(AppMode mode, string url)
     {
-        Flags.SetAppMode(mode);
+        await Flags.SetAppMode(mode);
         Navigation.NavigateTo(url);
     }
 
-    private void SetAuth(AuthType type, string url)
+    private async Task SetAuth(AuthType type, string url)
     {
-        Flags.SetAuthMode(type);
+        await Flags.SetAuthMode(type);
         Navigation.NavigateTo(url);
     }
 
-    private void SetLanguage(Language lang, string url)
+    private async Task SetLanguage(Language lang, string url)
     {
-        Flags.SetLanguage(lang);
+        await Flags.SetLanguage(lang);
         Navigation.NavigateTo(url, forceLoad: true);
     }
 }

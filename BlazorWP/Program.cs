@@ -34,7 +34,7 @@ namespace BlazorWP
             builder.Services.AddScoped<UploadPdfJsInterop>();
             builder.Services.AddScoped<WpNonceJsInterop>();
             builder.Services.AddScoped<WpEndpointSyncJsInterop>();
-            builder.Services.AddScoped<LocalStorageJsInterop>();
+            builder.Services.AddSingleton<LocalStorageJsInterop>();
             builder.Services.AddScoped<SessionStorageJsInterop>();
             builder.Services.AddScoped<CredentialManagerJsInterop>();
             builder.Services.AddScoped<ClipboardJsInterop>();
@@ -50,6 +50,8 @@ namespace BlazorWP
             // 6) Now that the JSON has been loaded, enumerate via ILogger
             var config = host.Services.GetRequiredService<IConfiguration>();
             var flags = host.Services.GetRequiredService<AppFlags>();
+            var storage = host.Services.GetRequiredService<LocalStorageJsInterop>();
+
             // Set culture from query parameter before first render
             var languageService = host.Services.GetRequiredService<LanguageService>();
             var navigationManager = host.Services.GetRequiredService<NavigationManager>();
@@ -66,28 +68,56 @@ namespace BlazorWP
                     appMode = AppMode.Basic;
                 }
             }
-
-            flags.SetAppMode(appMode);
-
-            var authMode = AuthType.Jwt;
-            if (queryParams.TryGetValue("auth", out var authValues) &&
-                authValues.ToString().Equals("nonce", StringComparison.OrdinalIgnoreCase))
+            else
             {
-                authMode = AuthType.Nonce;
+                var storedMode = await storage.GetItemAsync("appmode");
+                if (storedMode?.Equals("basic", StringComparison.OrdinalIgnoreCase) == true)
+                {
+                    appMode = AppMode.Basic;
+                }
             }
 
-            flags.SetAuthMode(authMode);
+            await flags.SetAppMode(appMode);
+
+            var authMode = AuthType.Jwt;
+            if (queryParams.TryGetValue("auth", out var authValues))
+            {
+                if (authValues.ToString().Equals("nonce", StringComparison.OrdinalIgnoreCase))
+                {
+                    authMode = AuthType.Nonce;
+                }
+            }
+            else
+            {
+                var storedAuth = await storage.GetItemAsync("auth");
+                if (storedAuth?.Equals("nonce", StringComparison.OrdinalIgnoreCase) == true)
+                {
+                    authMode = AuthType.Nonce;
+                }
+            }
+
+            await flags.SetAuthMode(authMode);
 
             var lang = "en";
-            if (queryParams.TryGetValue("lang", out var langValues) &&
-                langValues.ToString().Equals("jp", StringComparison.OrdinalIgnoreCase))
+            if (queryParams.TryGetValue("lang", out var langValues))
             {
-                lang = "jp";
+                if (langValues.ToString().Equals("jp", StringComparison.OrdinalIgnoreCase))
+                {
+                    lang = "jp";
+                }
+            }
+            else
+            {
+                var storedLang = await storage.GetItemAsync("lang");
+                if (storedLang?.Equals("jp", StringComparison.OrdinalIgnoreCase) == true)
+                {
+                    lang = "jp";
+                }
             }
 
             var culture = lang == "jp" ? "ja-JP" : "en-US";
             languageService.SetCulture(culture);
-            flags.SetLanguage(lang == "jp" ? Language.Japanese : Language.English);
+            await flags.SetLanguage(lang == "jp" ? Language.Japanese : Language.English);
 
             var needsNormalization =
                 !queryParams.TryGetValue("lang", out var existingLang) ||
