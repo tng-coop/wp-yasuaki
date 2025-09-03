@@ -5,6 +5,7 @@
   <data name="Weather" xml:space="preserve"><value>Weather</value></data>
   <data name="IconsDemo" xml:space="preserve"><value>Icons Demo</value></data>
   <data name="DataStorage" xml:space="preserve"><value>Data Storage</value></data>
+  <data name="IndexedDbDemo" xml:space="preserve"><value>IndexedDB Demo</value></data>
   <data name="Edit" xml:space="preserve"><value>Edit</value></data>
   <data name="PclDemo" xml:space="preserve"><value>PCL Demo</value></data>
   <data name="UploadPdf" xml:space="preserve"><value>Upload PDF</value></data>
