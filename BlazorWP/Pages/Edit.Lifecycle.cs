@@ -89,6 +89,14 @@ public partial class Edit
             //Console.WriteLine("[OnAfterRenderAsync] firstRender");
             mediaSources = await JwtService.GetSiteInfoKeysAsync();
             selectedMediaSource = await StorageJs.GetItemAsync("mediaSource");
+            if (string.IsNullOrEmpty(selectedMediaSource))
+            {
+                selectedMediaSource = Config["WordPress:Url"];
+                if (!string.IsNullOrEmpty(selectedMediaSource))
+                {
+                    await StorageJs.SetItemAsync("mediaSource", selectedMediaSource);
+                }
+            }
             if (!string.IsNullOrEmpty(selectedMediaSource))
             {
                 await JS.InvokeVoidAsync("setTinyMediaSource", selectedMediaSource);
