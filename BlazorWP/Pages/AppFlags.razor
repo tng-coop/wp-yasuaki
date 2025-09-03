@@ -64,11 +64,20 @@
         var uri = Navigation.ToAbsoluteUri(Navigation.Uri);
         var query = QueryHelpers.ParseQuery(uri.Query);
         var dict = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+
         foreach (var kvp in query)
         {
+            // Preserve any existing query parameters
             dict[kvp.Key] = kvp.Value.ToString();
         }
 
+        // Always include the current flags so that navigating to the new URL
+        // retains the full set of features regardless of the starting query.
+        dict["appmode"] = Flags.Mode == AppMode.Basic ? "basic" : "full";
+        dict["auth"] = Flags.Auth == AuthType.Nonce ? "nonce" : "jwt";
+        dict["lang"] = Flags.Language == Language.Japanese ? "jp" : "en";
+
+        // Override the flag being changed with the new value.
         dict[key] = value;
 
         return QueryHelpers.AddQueryString(uri.GetLeftPart(UriPartial.Path), dict);
