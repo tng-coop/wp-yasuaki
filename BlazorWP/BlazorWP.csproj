@@ -19,6 +19,7 @@
     <PackageReference Include="TinyMCE.Blazor" Version="2.1.0" />
     <PackageReference Include="WordPressPCL" Version="2.1.0" />
     <PackageReference Include="Tavenem.Blazor.IndexedDB" Version="1.0.0" />
+    <PackageReference Include="Tavenem.DataStore" Version="1.0.0" />
   </ItemGroup>
 
 </Project>

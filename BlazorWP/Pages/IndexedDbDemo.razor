@@ -57,7 +57,7 @@ else
 
 @code {
     // Inject the configured IndexedDb instance by its key ("BlazorWPDB")
-    [Inject(Key = "BlazorWPDB")] private IndexedDb NotesDb { get; set; } = default!;
+    [Inject(Key = "BlazorWPDB")] private IndexedDb<string> NotesDb { get; set; } = default!;
 
     private List<Note> notes = new();
     private Note currentNote = new Note();  // holds data for the form (new or editing)
@@ -121,7 +121,7 @@ else
     }
 
     // Note model (Id required by IIdItem)
-    private class Note : IIdItem
+    private class Note : IIdItem<string>
     {
         public string Id { get; set; } = Guid.NewGuid().ToString();
         public string Name { get; set; } = string.Empty;
