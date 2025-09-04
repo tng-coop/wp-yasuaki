@@ -4,6 +4,7 @@ using System.Text;
 using FluentAssertions;
 using Xunit;
 
+[Collection("WP EndToEnd")]
 public class AdminAuthTests
 {
     private static HttpClient NewClient(string baseUrl, bool allowInsecure = true)
@@ -79,7 +80,7 @@ public class AdminAuthTests
         resp.StatusCode.Should().Be(HttpStatusCode.OK);
 
         var json = await resp.Content.ReadAsStringAsync();
-        json.Should().Contain("\"title\"");   // settings payload contains site settings like title, etc.
+        json.Should().Contain("\"title\"");
     }
 
     [Fact]

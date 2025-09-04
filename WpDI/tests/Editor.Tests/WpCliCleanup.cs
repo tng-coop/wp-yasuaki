@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using FluentAssertions;
 using Xunit;
+using System.Text.RegularExpressions;
 
 [CollectionDefinition("WP EndToEnd", DisableParallelization = true)]
 public class WpEndToEndCollection : ICollectionFixture<WpCliCleanupFixture> { }
@@ -43,14 +44,12 @@ public sealed class WpCliCleanupFixture : IAsyncLifetime
 
     private static async Task<int> GetAdminIdAsync(string wp)
     {
-        // If you prefer, set WP_ADMIN_ID in env to pin the admin account.
         var fromEnv = Environment.GetEnvironmentVariable("WP_ADMIN_ID");
         if (int.TryParse(fromEnv, out var envId) && envId > 0) return envId;
 
         var (code, output, err) = await RunAsync(wp, "user list --role=administrator --field=ID --format=ids");
         code.Should().Be(0, $"wp user list (admins) should succeed. stderr: {err}");
 
-        // Take the first admin ID (space or newline separated)
         var first = output.Split(new[] { ' ', '\n', '\r', '\t', ',' }, StringSplitOptions.RemoveEmptyEntries)
                           .FirstOrDefault();
         int.TryParse(first, out var adminId).Should().BeTrue("must have at least one admin user");
@@ -79,12 +78,13 @@ public sealed class WpCliCleanupFixture : IAsyncLifetime
     {
         var wp = ResolveWpPath();
 
-        // Quick sanity: ensure wp is reachable
+        // Sanity check wp-cli is available
         var (verCode, verOut, verErr) = await RunAsync(wp, "--version");
         verCode.Should().Be(0, $"wp --version must work before tests. stderr: {verErr}");
         Console.WriteLine($"Using WP-CLI: {verOut.Trim()}");
 
         var adminId = await GetAdminIdAsync(wp);
+        Console.WriteLine($"WP-CLI cleanup: adminId = {adminId}");
         await DeleteNonAdminsAsync(wp, adminId);
     }
 
