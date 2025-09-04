@@ -5,7 +5,7 @@ using System.Threading.Tasks;
 
 namespace BlazorWP;
 
-public sealed class WordPressApiService
+public sealed class WordPressApiService : IWordPressApiService
 {
     private readonly AuthMessageHandler _auth;
     private readonly LocalStorageJsInterop _storage;
