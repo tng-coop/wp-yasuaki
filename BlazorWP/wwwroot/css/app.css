@@ -144,3 +144,14 @@ code {
 .article-row {
     cursor: pointer;
 }
+
+#pclAccordion code {
+    overflow-wrap: anywhere;
+    word-break: break-word;
+}
+
+#pclAccordion .json-view {
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+    word-break: break-word;
+}
