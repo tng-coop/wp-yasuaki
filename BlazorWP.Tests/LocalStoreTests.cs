@@ -18,6 +18,6 @@ public class LocalStoreTests
 
     private class Todo
     {
-        public string? Title { get; set; }
+        public string Title { get; set; } = "";
     }
 }

@@ -1,5 +1,7 @@
+using System;                      // for StringComparer
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading.Tasks;      // <-- needed
 using BlazorWP.Data;
 
 namespace BlazorWP.Tests;
@@ -10,7 +12,7 @@ public sealed class InMemoryLocalStore : ILocalStore
 
     public Task InitializeAsync() => Task.CompletedTask;
 
-    public Task<T?> GetByKeyAsync<T>(string storeName, object key)
+    public Task<T> GetByKeyAsync<T>(string storeName, object key)
     {
         var list = _stores.GetValueOrDefault(storeName) ?? [];
         var match = list.Cast<T>().FirstOrDefault();
