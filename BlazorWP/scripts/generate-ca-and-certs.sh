@@ -48,7 +48,7 @@ openssl req -newkey rsa:4096 -nodes \
 # --- Create an extensions file for the leaf cert ---
 cat > "${DOMAIN}.ext" <<EOF
 basicConstraints=CA:FALSE
-subjectAltName=DNS:${DOMAIN},DNS:localhost,IP:127.0.0.1,IP:::1
+subjectAltName=DNS:${DOMAIN},DNS:wp.lan,DNS:localhost,IP:127.0.0.1,IP:::1
 keyUsage=digitalSignature,keyEncipherment
 extendedKeyUsage=serverAuth
 EOF
@@ -92,5 +92,6 @@ echo "✅ All certificate files copied to ${SHARED_CERT_DIR} (group: ${SHARE_GRO
 echo
 echo "✅ iOS-compatible certificates generated for:"
 echo "   • DNS: ${DOMAIN}"
+echo "   • DNS: wp.lan"
 echo "   • DNS: localhost"
 echo "   • IP: 127.0.0.1 and ::1"
