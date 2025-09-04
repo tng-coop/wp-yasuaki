@@ -12,7 +12,7 @@ public sealed class IndexedDbLocalStore : ILocalStore
     public Task InitializeAsync() => _db.OpenDb();
 
     public async Task<T?> GetByKeyAsync<T>(string storeName, object key)
-        => await _db.GetRecordById<T>(storeName, key);
+        => await _db.GetRecordById<object, T>(storeName, key);
 
     public async Task<IReadOnlyList<T>> GetAllAsync<T>(string storeName)
         => (await _db.GetRecords<T>(storeName)).AsReadOnly();
