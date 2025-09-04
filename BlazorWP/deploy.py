@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+import hashlib
 import os
 import re
 import shutil
@@ -19,7 +20,6 @@ def run(cmd, *, check=True, capture=False, cwd=None):
             cmd, cwd=cwd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True
         )
         if check and result.returncode != 0:
-            # Stream the captured output, then exit with the same code
             print(result.stdout, end="")
             sys.exit(result.returncode)
         return result
@@ -28,6 +28,80 @@ def run(cmd, *, check=True, capture=False, cwd=None):
         if check and result.returncode != 0:
             sys.exit(result.returncode)
         return result
+
+def sha256_file(path: Path) -> str:
+    h = hashlib.sha256()
+    with path.open("rb") as f:
+        for chunk in iter(lambda: f.read(1024 * 1024), b""):
+            h.update(chunk)
+    return h.hexdigest()
+
+def posix_rel(base: Path, p: Path) -> str:
+    """base-relative path with forward slashes (what HTML uses)."""
+    return p.relative_to(base).as_posix()
+
+def collect_assets(wwwroot: Path) -> list[Path]:
+    """All .css/.js under wwwroot, excluding _framework/**."""
+    exts = {".css", ".js"}
+    results: list[Path] = []
+    for p in wwwroot.rglob("*"):
+        if not p.is_file():
+            continue
+        if p.suffix.lower() not in exts:
+            continue
+        # skip framework-managed assets (already fingerprinted by Blazor)
+        try:
+            rel = p.relative_to(wwwroot)
+        except ValueError:
+            continue
+        if rel.parts and rel.parts[0] == "_framework":
+            continue
+        results.append(p)
+    return results
+
+def collect_html(wwwroot: Path) -> list[Path]:
+    return list(wwwroot.rglob("*.html"))
+
+def version_assets_in_html(wwwroot: Path, assets: list[Path], html_files: list[Path]) -> None:
+    """
+    For each asset, compute sha256 and update all HTML files so that any
+    matching href/src="asset[?v=...]" becomes href/src="asset?v=<hash>".
+    """
+    if not assets or not html_files:
+        return
+
+    # Precompute hashes and escaped patterns
+    entries = []
+    for a in assets:
+        try:
+            rel_posix = posix_rel(wwwroot, a)  # e.g. 'css/app.css'
+        except Exception:
+            continue
+        digest = sha256_file(a)
+        # Escape for regex
+        rel_escaped = re.escape(rel_posix)
+        # Build a regex that matches:
+        #   (href|src)=["']<rel>(?P<v>\?v=[^"' ]*)?["']
+        #
+        # We capture the quote to re-use the same quote style in replacement.
+        pattern = re.compile(
+            rf'(href|src)\s*=\s*(["\']){rel_escaped}(?:\?v=[^"\']*)?\2',
+            flags=re.IGNORECASE,
+        )
+        replacement = rf'\1=\2{rel_posix}?v={digest}\2'
+        entries.append((pattern, replacement, rel_posix, digest))
+
+    # Rewrite each HTML once, applying all asset rules
+    for html in html_files:
+        text = html.read_text(encoding="utf-8")
+        original = text
+        total_subs = 0
+        for pattern, replacement, rel_posix, digest in entries:
+            (text, nsubs) = pattern.subn(replacement, text)
+            total_subs += nsubs
+        if total_subs > 0 and text != original:
+            html.write_text(text, encoding="utf-8")
+            print(f"   → {html.relative_to(wwwroot)}: updated {total_subs} reference(s)")
 
 def main():
     # === Ensure required environment variables are set ===
@@ -53,25 +127,23 @@ def main():
 
     # === 3) Publish the project (implicit NuGet restore/build/pack) ===
     print(f"→ Publishing {PROJECT_FILE} to {PUBLISH_DIR}…")
-    # Capture combined stdout+stderr, filter specific WASM warnings/optimizations
     result = run(
         ["dotnet", "publish", str(PROJECT_FILE), "-c", "Release", "-o", str(PUBLISH_DIR)],
         check=False,
         capture=True,
     )
 
-    # Filter out specific lines from the output (like the sed in Bash)
+    # Filter out specific lines (parity with the bash version)
     filtered = []
     pattern = re.compile(r"(WASM0001|WASM0060|WASM0062|Optimizing assemblies for size)")
     for line in result.stdout.splitlines():
         if not pattern.search(line):
             filtered.append(line)
     print("\n".join(filtered))
-
     if result.returncode != 0:
         sys.exit(result.returncode)
 
-    # === 5) Patch <base> href in the generated index.html ===
+    # === 4) Patch <base> href in the generated index.html ===
     index_html = WWWROOT_DIR / "index.html"
     print(f"→ Patching <base> href in {index_html}…")
     if not index_html.is_file():
@@ -79,7 +151,6 @@ def main():
         sys.exit(1)
 
     html = index_html.read_text(encoding="utf-8")
-    # Replace any <base href="..."> or <base href="..." /> with desired base
     new_html, nsubs = re.subn(
         r'<base\s+href="[^"]*"\s*/?>',
         f'<base href="{DESIRED_BASE}" />',
@@ -87,16 +158,21 @@ def main():
         flags=re.IGNORECASE,
     )
     if nsubs == 0:
-        # If no existing base tag is found, you could choose to insert one.
-        # To preserve behavior closest to the Bash version (which expects it),
-        # treat this as an error.
-        print("❌ ERROR: No <base href=\"…\"> tag found to replace", file=sys.stderr)
+        print('❌ ERROR: No <base href="…"> tag found to replace', file=sys.stderr)
         sys.exit(1)
     index_html.write_text(new_html, encoding="utf-8")
 
-    # === 6) Deploy via rsync (quiet mode to reduce verbosity) ===
+    # === 5) Cache-busting (fingerprint) for all CSS/JS in wwwroot (except _framework) ===
+    print("→ Fingerprinting static assets and rewriting HTML links…")
+    assets = collect_assets(WWWROOT_DIR)
+    html_files = collect_html(WWWROOT_DIR)
+    # Quick log of what we’re about to fingerprint
+    for a in sorted(assets):
+        print(f"   • {a.relative_to(WWWROOT_DIR)}")
+    version_assets_in_html(WWWROOT_DIR, assets, html_files)
+
+    # === 6) Deploy via rsync ===
     print(f"→ Rsyncing to {REMOTE_HOST}:{REMOTE_WEBPATH}…")
-    # Ensure trailing slash semantics match the Bash script ("WWWROOT_DIR/" -> contents)
     run([
         "rsync", "-azq", "--delete",
         str(WWWROOT_DIR) + "/",
