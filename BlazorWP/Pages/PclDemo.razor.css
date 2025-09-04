@@ -1,0 +1,6 @@
+pre.json-view {
+  white-space: pre-wrap;     /* preserve newlines, but allow wrapping */
+  overflow-wrap: anywhere;   /* break long words/URLs if needed */
+  word-break: break-word;    /* fallback for older browsers */
+  max-width: 100%;           /* prevent it from expanding wider than the parent */
+}
