@@ -25,5 +25,6 @@
 /* make sure iframe is block-level in flexbox */
 .media-iframe {
   border: 5px solid purple; 
+  width: 100%; height: 100%;
   display: block;
 }
