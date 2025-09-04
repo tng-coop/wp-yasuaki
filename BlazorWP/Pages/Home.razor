@@ -205,7 +205,7 @@ This token was minted by https://yasuaki.com at 2025-06-19 06:43:23 UTC (15:43 J
     }
 
     [Inject]
-    private HttpClient Http { get; set; } = default!;
+    private IWordPressApiService Api { get; set; } = default!;
 
     [Inject]
     private LocalStorageJsInterop StorageJs { get; set; } = default!;
@@ -237,6 +237,7 @@ This token was minted by https://yasuaki.com at 2025-06-19 06:43:23 UTC (15:43 J
             userUrl = verifiedEndpoint;
             if (!string.IsNullOrEmpty(verifiedEndpoint))
             {
+                Api.SetEndpoint(verifiedEndpoint);
                 var info = await LoadJwtInfoAsync(verifiedEndpoint);
                 if (info != null)
                 {
@@ -354,11 +355,13 @@ This token was minted by https://yasuaki.com at 2025-06-19 06:43:23 UTC (15:43 J
                     continue;
                 }
 
-                var builder = new UriBuilder(baseUri)
+                Api.SetEndpoint(baseUri.ToString());
+                var http = Api.HttpClient;
+                if (http == null)
                 {
-                    Path = baseUri.AbsolutePath.TrimEnd('/') + "/wp-json/wp/v2"
-                };
-                var apiEndpoint = builder.Uri.ToString().TrimEnd('/');
+                    continue;
+                }
+                var apiEndpoint = new Uri(http.BaseAddress!, "wp/v2").ToString().TrimEnd('/');
 
                 logs.Add($"Requesting {apiEndpoint}");
                 await InvokeAsync(StateHasChanged);
@@ -369,7 +372,7 @@ This token was minted by https://yasuaki.com at 2025-06-19 06:43:23 UTC (15:43 J
                 logs.Add($"-> {rawRequest}");
                 await InvokeAsync(StateHasChanged);
 
-                var response = await Http.SendAsync(request, cts.Token);
+                var response = await http.SendAsync(request, cts.Token);
                 var raw = await FormatRawResponse(response);
                 logs.Add($"<- {raw}");
                 await InvokeAsync(StateHasChanged);
@@ -554,13 +557,18 @@ This token was minted by https://yasuaki.com at 2025-06-19 06:43:23 UTC (15:43 J
             return;
         }
 
-        var url = GetJwtUrl(verifiedEndpoint);
+        var http = Api.HttpClient;
+        if (http == null)
+        {
+            return;
+        }
+
         var payload = JsonSerializer.Serialize(new { username = jwtLoginModel.Username, password = jwtLoginModel.Password });
         using var content = new StringContent(payload, Encoding.UTF8, "application/json");
         try
         {
-            using var request = new HttpRequestMessage(HttpMethod.Post, url) { Content = content };
-            var response = await Http.SendAsync(request);
+            using var request = new HttpRequestMessage(HttpMethod.Post, "jwt-auth/v1/token") { Content = content };
+            var response = await http.SendAsync(request);
             var json = await response.Content.ReadAsStringAsync();
             if (response.IsSuccessStatusCode)
             {
@@ -625,25 +633,6 @@ This token was minted by https://yasuaki.com at 2025-06-19 06:43:23 UTC (15:43 J
         }
 
         return url.TrimEnd('/') + "/wp-login.php";
-    }
-
-    private static string GetJwtUrl(string endpoint)
-    {
-        var url = endpoint;
-        if (url.EndsWith("/wp-json/wp/v2", StringComparison.OrdinalIgnoreCase))
-        {
-            url = url[..^"/wp-json/wp/v2".Length];
-        }
-        else if (url.EndsWith("/wp-json", StringComparison.OrdinalIgnoreCase))
-        {
-            url = url[..^"/wp-json".Length];
-        }
-        else if (url.EndsWith("/wp/v2", StringComparison.OrdinalIgnoreCase))
-        {
-            url = url[..^"/wp/v2".Length];
-        }
-
-        return url.TrimEnd('/') + "/wp-json/jwt-auth/v1/token";
     }
 
     private static string GetJwtTokenKey(string endpoint)
@@ -789,9 +778,17 @@ This token was minted by https://yasuaki.com at 2025-06-19 06:43:23 UTC (15:43 J
         {
             var url = CombineUrl(site, fav.Path);
             fav.RequestUrl = url;
-            using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(10));
-            var response = await Http.GetAsync(url, cts.Token);
-            fav.Result = await FormatRawResponse(response);
+            var http = Api.HttpClient;
+            if (http == null)
+            {
+                fav.Result = "Error: API client not available.";
+            }
+            else
+            {
+                using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(10));
+                var response = await http.GetAsync(url, cts.Token);
+                fav.Result = await FormatRawResponse(response);
+            }
         }
         catch (Exception ex)
         {
