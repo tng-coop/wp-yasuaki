@@ -1,6 +1,5 @@
 @page "/indexeddb-demo"
-@using TG.Blazor.IndexedDB
-@inject IndexedDBManager DbManager
+@inject ILocalStore LocalStore
 
 <PageTitle>IndexedDB Demo</PageTitle>
 
@@ -70,7 +69,7 @@ else
     // Fetch all notes from the "notes" object store
     private async Task LoadNotesAsync()
     {
-        notes = await DbManager.GetRecords<Note>("notes") ?? new List<Note>();
+        notes = (await LocalStore.GetAllAsync<Note>("notes")).ToList();
         StateHasChanged();
     }
 
@@ -80,19 +79,11 @@ else
         if (!isEditing)
         {
             currentNote.Id = Guid.NewGuid().ToString();
-            await DbManager.AddRecord(new StoreRecord<Note>
-            {
-                Storename = "notes",
-                Data = currentNote
-            });
+            await LocalStore.AddAsync("notes", currentNote);
         }
         else
         {
-            await DbManager.UpdateRecord(new StoreRecord<Note>
-            {
-                Storename = "notes",
-                Data = currentNote
-            });
+            await LocalStore.PutAsync("notes", currentNote);
         }
 
         await LoadNotesAsync();   // Refresh the notes list from the database
@@ -116,7 +107,7 @@ else
     // Delete a note from the database
     private async Task DeleteNote(Note note)
     {
-        await DbManager.DeleteRecord<string>("notes", note.Id);
+        await LocalStore.DeleteAsync("notes", note.Id);
         await LoadNotesAsync(); // Refresh the list to reflect deletion
     }
 
