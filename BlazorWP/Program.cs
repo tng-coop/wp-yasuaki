@@ -40,7 +40,7 @@ namespace BlazorWP
             builder.Services.AddScoped<CredentialManagerJsInterop>();
             builder.Services.AddScoped<ClipboardJsInterop>();
             builder.Services.AddScoped<WpMediaJsInterop>();
-            builder.Services.AddScoped<WordPressApiService>();
+            builder.Services.AddScoped<IWordPressApiService, WordPressApiService>();
             builder.Services.AddLocalization(options => options.ResourcesPath = "Resources");
             builder.Services.AddSingleton<LanguageService>();
             builder.Services.AddSingleton<AppFlags>();
