@@ -7,12 +7,15 @@
     <UserSecretsId>9ad1c7c4-0886-48a8-b74b-2567549501b3</UserSecretsId>
     <InvariantGlobalization>false</InvariantGlobalization>
     <BlazorWebAssemblyLoadAllGlobalizationData>true</BlazorWebAssemblyLoadAllGlobalizationData>
+    <StaticWebAssetFingerprintingEnabled>true</StaticWebAssetFingerprintingEnabled>
   </PropertyGroup>
+
 
   <ItemGroup>
     <PackageReference Include="humanizer" Version="2.14.1" />
     <PackageReference Include="Microsoft.AspNetCore.Components.WebAssembly" Version="9.0.6" />
-    <PackageReference Include="Microsoft.AspNetCore.Components.WebAssembly.DevServer" Version="9.0.6" PrivateAssets="all" />
+    <PackageReference Include="Microsoft.AspNetCore.Components.WebAssembly.DevServer"
+      Version="9.0.6" PrivateAssets="all" />
     <PackageReference Include="Microsoft.Extensions.Localization" Version="9.0.8" />
     <PackageReference Include="Microsoft.Web.LibraryManager.Build" Version="3.0.71" />
     <PackageReference Include="PanoramicData.Blazor" Version="9.0.91" />
