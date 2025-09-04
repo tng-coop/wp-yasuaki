@@ -61,6 +61,7 @@ namespace BlazorWP
                     // Add Indexes = new List<IndexSpec> { ... } if you want secondary indexes
                 });
             });
+            builder.Services.AddScoped<ILocalStore, IndexedDbLocalStore>();
 
             // 5) Build the host (this hooks up the logging provider)
             var host = builder.Build();
