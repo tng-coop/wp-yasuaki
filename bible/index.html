@@ -26,14 +26,9 @@
 
   <script type="module" defer>
     // --- Imports ---
-    import bibleQuotes from 'https://esm.sh/bible-quotes@1.0.0';
-    import { EdgeTTSClient, ProsodyOptions, OUTPUT_FORMAT }
-      from 'https://esm.sh/edge-tts-client@1.0.2';
+    import bibleQuotes from 'https://esm.sh/bible-quotes';
 
     // --- Globals & UI refs ---
-    const tts = new EdgeTTSClient();
-    let ttsStream = null, ttsAudio = null;
-
     const verseEl     = document.getElementById('verse');
     const newVerseBtn = document.getElementById('new-verse');
     const langSelect  = document.getElementById('lang-select');
@@ -48,37 +43,58 @@
 
     // --- Helpers ---
     function abortTTS() {
-      if (ttsStream) {
-        ttsStream.destroy?.();
-        ttsStream = null;
-      }
-      if (ttsAudio) {
-        ttsAudio.pause();
-        URL.revokeObjectURL(ttsAudio.src);
-        ttsAudio = null;
+      if (window.speechSynthesis) {
+        window.speechSynthesis.cancel();
       }
     }
 
-    async function speak(text, lang) {
-      abortTTS();
-      const voice = lang === 'jp' ? 'ja-JP-NanamiNeural' : 'en-US-GuyNeural';
-      await tts.setMetadata(voice, OUTPUT_FORMAT.AUDIO_24KHZ_48KBITRATE_MONO_MP3);
-      const opts = new ProsodyOptions();
-      opts.pitch  = 'medium';
-      opts.rate   = 1.0;
-      opts.volume = 90;
+    function getPreferredVoice(lang) {
+      const voices = window.speechSynthesis?.getVoices?.() ?? [];
+      if (!voices.length) return null;
 
-      const chunks = [];
-      const stream = tts.toStream(text, opts);
-      ttsStream = stream;
-      stream.on('data', c => chunks.push(c));
-      stream.on('end', () => {
-        const blob  = new Blob(chunks, { type: 'audio/mpeg' });
-        const url   = URL.createObjectURL(blob);
-        const audio = new Audio(url);
-        ttsAudio = audio;
-        audio.play();
-      });
+      if (lang === 'jp') {
+        const jpExact = voices.find(v => v.lang?.toLowerCase().startsWith('ja-jp'));
+        if (jpExact) return jpExact;
+        const anyJa = voices.find(v => v.lang?.toLowerCase().startsWith('ja'));
+        if (anyJa) return anyJa;
+      } else {
+        const enUS = voices.find(v => v.lang?.toLowerCase().startsWith('en-us'));
+        if (enUS) return enUS;
+        const anyEn = voices.find(v => v.lang?.toLowerCase().startsWith('en'));
+        if (anyEn) return anyEn;
+      }
+      return voices[0] ?? null;
+    }
+
+    function speak(text, lang) {
+      abortTTS();
+      if (!('speechSynthesis' in window)) {
+        console.warn('SpeechSynthesis not supported in this browser.');
+        return;
+      }
+      const utter = new SpeechSynthesisUtterance(text);
+      utter.lang = (lang === 'jp') ? 'ja-JP' : 'en-US';
+
+      const assignAndSpeak = () => {
+        const voice = getPreferredVoice(lang);
+        if (voice) utter.voice = voice;
+        utter.rate   = 1.0;
+        utter.pitch  = 1.0;
+        utter.volume = 1.0;
+        window.speechSynthesis.speak(utter);
+      };
+
+      const voices = window.speechSynthesis.getVoices();
+      if (!voices || voices.length === 0) {
+        const once = () => {
+          window.speechSynthesis.removeEventListener('voiceschanged', once);
+          assignAndSpeak();
+        };
+        window.speechSynthesis.addEventListener('voiceschanged', once);
+        window.speechSynthesis.getVoices();
+      } else {
+        assignAndSpeak();
+      }
     }
 
     // --- English verse fetcher ---
@@ -116,11 +132,11 @@
           if (!jpVerses.length) throw new Error('No Japanese verses');
           const { id, text } = pickJP();
           verseEl.textContent = `${id}　${text}`;
-          await speak(text, 'jp');
+          speak(text, 'jp');
         } else {
           const text = await fetchEN();
           verseEl.textContent = text;
-          await speak(text, 'en');
+          speak(text, 'en');
         }
       } catch (err) {
         console.error(err);
