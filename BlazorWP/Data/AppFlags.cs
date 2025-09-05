@@ -12,7 +12,7 @@ namespace BlazorWP.Data
 
     public enum AuthType
     {
-        Jwt,
+        AppPass,
         Nonce
     }
 
@@ -32,7 +32,7 @@ namespace BlazorWP.Data
         }
 
         public AppMode Mode { get; private set; } = AppMode.Full;
-        public AuthType Auth { get; private set; } = AuthType.Jwt;
+        public AuthType Auth { get; private set; } = AuthType.AppPass;
         public Language Language { get; private set; } = Language.English;
 
         public event Action? OnChange;
@@ -55,7 +55,7 @@ namespace BlazorWP.Data
             Auth = auth;
             try
             {
-                await _storage.SetItemAsync("auth", auth == AuthType.Nonce ? "nonce" : "jwt");
+                await _storage.SetItemAsync("auth", auth == AuthType.Nonce ? "nonce" : "apppass");
             }
             catch { }
             NotifyStateChanged();

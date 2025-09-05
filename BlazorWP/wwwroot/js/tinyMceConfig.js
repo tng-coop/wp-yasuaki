@@ -16,8 +16,8 @@ window.myTinyMceConfig = {
       text: 'Info',
       onAction: () => {
         const endpoint = localStorage.getItem('wpEndpoint') || '(none)';
-        const token = localStorage.getItem('jwtToken') || '(none)';
-        alert(`Endpoint: ${endpoint}\nJWT: ${token}`);
+        const user = localStorage.getItem('app_user') || '(none)';
+        alert(`Endpoint: ${endpoint}\nUser: ${user}`);
       }
     });
 

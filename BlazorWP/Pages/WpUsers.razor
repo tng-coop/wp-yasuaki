@@ -2,7 +2,6 @@
 @using WordPressPCL
 @using WordPressPCL.Models
 @using Microsoft.AspNetCore.Components
-@inject JwtService JwtService
 @inject IWordPressApiService Api
 @inject IStringLocalizer<WpUsers> L
 
@@ -65,12 +64,6 @@ else
         }
 
         client = wp;
-
-        var token = await JwtService.GetCurrentJwtAsync();
-        if (!string.IsNullOrEmpty(token))
-        {
-            client.Auth.SetJWToken(token);
-        }
 
         try
         {

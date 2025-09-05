@@ -87,7 +87,7 @@ public partial class Edit
         if (firstRender)
         {
             //Console.WriteLine("[OnAfterRenderAsync] firstRender");
-            mediaSources = await JwtService.GetSiteInfoKeysAsync();
+            mediaSources = new List<string>();
             selectedMediaSource = await StorageJs.GetItemAsync("mediaSource");
             if (string.IsNullOrEmpty(selectedMediaSource))
             {

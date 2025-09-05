@@ -31,7 +31,7 @@ namespace BlazorWP
                 return new HttpClient(handler) { BaseAddress = new Uri(builder.HostEnvironment.BaseAddress) };
             });
             builder.Services.AddPanoramicDataBlazor();
-            builder.Services.AddScoped<JwtService>();
+            builder.Services.AddScoped<AppPasswordService>();
             builder.Services.AddScoped<UploadPdfJsInterop>();
             builder.Services.AddScoped<WpNonceJsInterop>();
             builder.Services.AddScoped<WpEndpointSyncJsInterop>();
@@ -98,7 +98,7 @@ namespace BlazorWP
 
             await flags.SetAppMode(appMode);
 
-            var authMode = AuthType.Jwt;
+            var authMode = AuthType.AppPass;
             if (queryParams.TryGetValue("auth", out var authValues))
             {
                 if (authValues.ToString().Equals("nonce", StringComparison.OrdinalIgnoreCase))
@@ -144,7 +144,7 @@ namespace BlazorWP
                 !queryParams.TryGetValue("appmode", out var existingMode) ||
                 !existingMode.ToString().Equals(appMode == AppMode.Basic ? "basic" : "full", StringComparison.OrdinalIgnoreCase) ||
                 !queryParams.TryGetValue("auth", out var existingAuth) ||
-                !existingAuth.ToString().Equals(authMode == AuthType.Nonce ? "nonce" : "jwt", StringComparison.OrdinalIgnoreCase);
+                !existingAuth.ToString().Equals(authMode == AuthType.Nonce ? "nonce" : "apppass", StringComparison.OrdinalIgnoreCase);
 
             if (needsNormalization)
             {
@@ -173,7 +173,7 @@ namespace BlazorWP
 
                 segments.Add($"appmode={(appMode == AppMode.Basic ? "basic" : "full")}");
                 segments.Add($"lang={lang}");
-                segments.Add($"auth={(authMode == AuthType.Nonce ? "nonce" : "jwt")}");
+                segments.Add($"auth={(authMode == AuthType.Nonce ? "nonce" : "apppass")}");
 
                 var newQuery = string.Join("&", segments);
                 var normalizedUri = uri.GetLeftPart(UriPartial.Path) + (newQuery.Length > 0 ? "?" + newQuery : string.Empty);
