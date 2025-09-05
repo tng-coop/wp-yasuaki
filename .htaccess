@@ -1,12 +1,12 @@
-# Allow only 221.113.64.97
-<IfModule mod_authz_core.c>
-  Require ip 221.113.64.97
-</IfModule>
-<IfModule !mod_authz_core.c>
-  Order Deny,Allow
-  Deny from all
-  Allow from 221.113.64.97
-</IfModule>
+## Allow only 221.113.64.97
+#<IfModule mod_authz_core.c>
+#  Require ip 221.113.64.97
+#</IfModule>
+#<IfModule !mod_authz_core.c>
+#  Order Deny,Allow
+#  Deny from all
+#  Allow from 221.113.64.97
+#</IfModule>
 # === Block any dot-path (files or directories), except /.well-known/ ===
 <IfModule mod_rewrite.c>
   RewriteEngine On
