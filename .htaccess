@@ -1,3 +1,12 @@
+# Allow only 221.113.64.97
+<IfModule mod_authz_core.c>
+  Require ip 221.113.64.97
+</IfModule>
+<IfModule !mod_authz_core.c>
+  Order Deny,Allow
+  Deny from all
+  Allow from 221.113.64.97
+</IfModule>
 # === Block any dot-path (files or directories), except /.well-known/ ===
 <IfModule mod_rewrite.c>
   RewriteEngine On
@@ -128,26 +137,44 @@ Options -Indexes
 </IfModule>
 
 
+
 # ─── Global rewrites ────────────────────────────────────────────────────────────
 <IfModule mod_rewrite.c>
-    RewriteEngine On
+  RewriteEngine On
 
-    # 1) Any request for /blazorapp/... should NOT go to WordPress:
-    #    - If it’s for a real file/dir (your .dll, .js, css, etc.), serve it
-    RewriteCond %{REQUEST_URI}    ^/blazorapp
-    RewriteCond %{REQUEST_FILENAME} -f [OR]
-    RewriteCond %{REQUEST_FILENAME} -d
-    RewriteRule ^ - [L]
+  # 0) Gate: if NOT logged in to WordPress, send visitors to /bible/
+  #    (Skip when already under /bible/, or for infra endpoints/assets)
+  RewriteCond %{REQUEST_URI} !^/bible(/|$) [NC]
+  RewriteCond %{REQUEST_URI} !^/wp-login\.php$ [NC]
+  RewriteCond %{REQUEST_URI} !^/wp-admin/ [NC]
+  RewriteCond %{REQUEST_URI} !^/wp-cron\.php$ [NC]
+  RewriteCond %{REQUEST_URI} !^/wp-json/ [NC]
+  RewriteCond %{REQUEST_URI} !^/blazorapp(/|$) [NC]
+  RewriteCond %{REQUEST_URI} !\.(css|js|png|jpe?g|gif|svg|webp|ico|woff2?|ttf|eot|pdf|txt|xml|map)$ [NC]
+  RewriteCond %{HTTP_COOKIE} !wordpress_logged_in_ [NC]
+  RewriteRule ^ /bible/ [L]
 
-    #    - Otherwise (e.g. /blazorapp/edit), serve your SPA’s index.html
-    RewriteCond %{REQUEST_URI}    ^/blazorapp
-    RewriteRule ^blazorapp/.*$   /blazorapp/index.html [L]
+  # 1) Any request for /blazorapp/... should NOT go to WordPress:
+  #    - If it's a real file/dir (your .dll, .js, css, etc.), serve it
+  RewriteCond %{REQUEST_URI}    ^/blazorapp
+  RewriteCond %{REQUEST_FILENAME} -f [OR]
+  RewriteCond %{REQUEST_FILENAME} -d
+  RewriteRule ^ - [L]
 
-    ## 2) Your “bible” redirect
-    #RewriteCond %{REQUEST_URI}    !^/bible\.html$
-    #RewriteCond %{REMOTE_ADDR}    !^221\.113\.64\.97$
-    #RewriteRule ^                 /bible.html [L,R=302]
+  #    - Otherwise (e.g. /blazorapp/edit), serve your SPA’s index.html
+  RewriteCond %{REQUEST_URI}    ^/blazorapp
+  RewriteRule ^blazorapp/.*$   /blazorapp/index.html [L]
+
+  # 2) Bible files moved to /bible/: preserve old URLs with 301 redirects
+  #    /bible -> /bible/
+  RewriteRule ^bible$ /bible/ [R=301,L]
+  #    /bible.html -> /bible/ (assumes /bible/index.html exists)
+  RewriteRule ^bible\.html$ /bible/ [R=301,L]
+  #    any bible* file formerly in docroot -> /bible/<same-file>
+  RewriteRule ^(bible[^/]*\.(html|css|js|json|txt|xml|png|jpe?g|gif|svg|webp|pdf))$ /bible/$1 [R=301,L]
 </IfModule>
+
+
 
 # ─── WordPress below ────────────────────────────────────────────────────────────
 # Only one WordPress block is needed; remove any duplicates.
