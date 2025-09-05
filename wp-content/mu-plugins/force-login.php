@@ -4,7 +4,6 @@
  * Description: Redirect all non-logged-in visitors to a custom Bible page and let logged-in users toggle the front-end admin bar persistently via a cookie.
  * Version:     1.3
  * Author:      Your Name
- * License:     GPL2
  */
 
 // When a toolbar param is present, set (or clear) a cookie to remember the choice
