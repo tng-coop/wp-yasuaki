@@ -23,25 +23,25 @@
 @if (!string.IsNullOrEmpty(verifiedEndpoint))
 {
     <button class="btn btn-secondary ms-2" @onclick="OpenLogin">@L["LoginToWordPress"]</button>
-    <button class="btn btn-info ms-2" @onclick="ToggleJwtLogin">@L["JwtLogin"]</button>
+    <button class="btn btn-info ms-2" @onclick="ToggleAppPassword">@L["AppPassword"]</button>
 }
-@if (showJwtLogin && !string.IsNullOrEmpty(verifiedEndpoint))
+@if (showAppPassword && !string.IsNullOrEmpty(verifiedEndpoint))
 {
     <div class="mt-2">
-        <EditForm Model="@jwtLoginModel" OnValidSubmit="JwtLoginAsync" FormName="jwtForm">
+        <EditForm Model="@appModel" OnValidSubmit="SaveAppPasswordAsync" FormName="apppassForm">
             <DataAnnotationsValidator />
             <InputText class="form-control mb-2"
-                       @bind-Value="jwtLoginModel.Username"
+                       @bind-Value="appModel.Username"
                        name="username"
                        autocomplete="username"
                        placeholder="@L["Username"]" />
             <div class="input-group mb-2">
                 <InputText class="form-control"
                            type="@PasswordInputType"
-                           @bind-Value="jwtLoginModel.Password"
+                           @bind-Value="appModel.AppPassword"
                            name="password"
                            autocomplete="current-password"
-                           placeholder="@L["Password"]" />
+                           placeholder="@L["AppPassword"]" />
                 <button class="btn btn-outline-secondary" type="button" @onclick="TogglePasswordVisibility">
                     <i class="bi @PasswordToggleIcon" aria-hidden="true"></i>
                 </button>
@@ -49,69 +49,6 @@
             <button class="btn btn-primary" type="submit">@L["Login"]</button>
         </EditForm>
     </div>
-}
-@if (!string.IsNullOrEmpty(jwtToken))
-{
-    <div class="mt-3">
-        <label class="form-label">@L["Jwt"]</label>
-        <div class="input-group">
-            <span class="input-group-text">@L["Jwt"]</span>
-            <input class="form-control" readonly value="@jwtToken" title="@jwtToken" />
-            <button class="btn btn-outline-secondary" type="button" @onclick="CopyJwt">
-                <i class="bi bi-clipboard"></i>
-                <span class="d-none d-sm-inline ms-1">@L["Copy"]</span>
-            </button>
-        </div>
-        @if (!string.IsNullOrEmpty(jwtDecoded))
-        {
-            <div class="mt-3">
-                <strong>@L["JwtPayload"]</strong>
-                <pre class="json-view">@jwtDecoded</pre>
-                <details class="mt-2">
-                    <summary>@L["Interpretation"]</summary>
-                    <pre>
-This JSON is the payload of a JWT (JSON Web Token). Here’s what each field means:
-
-iss (Issuer):
-The token was issued by the “authority” at
-https://yasuaki.com
-Any service that trusts tokens from that URL can accept this one.
-
-iat (Issued At):
-A Unix timestamp (seconds since January 1 1970 UTC) indicating when the token was created.
-
-1750315403 → 2025-06-19 06:43:23 UTC
-                 = 2025-06-19 15:43:23 JST
-(Asia/Tokyo is UTC+9.)
-
-nbf (Not Before):
-Tokens should not be considered valid before this time. In this case it’s identical to iat, so the token is valid immediately upon issuance.
-
-exp (Expiration):
-When the token stops being valid.
-
-1750920203 → 2025-06-26 06:43:23 UTC
-                 = 2025-06-26 15:43:23 JST
-After that moment, any service should reject the token.
-
-data (Custom Claims):
-Anything you want to carry. Here it has a user object with:
-{
-  "id": "1"
-}
-so the token “knows” it refers to user #1 in your system.
-
-In plain language:
-This token was minted by https://yasuaki.com at 2025-06-19 06:43:23 UTC (15:43 JST), becomes valid immediately, and stays valid until exactly one week later, 2025-06-26 06:43:23 UTC (15:43 JST). It carries a payload identifying “user 1.” Any service that sees it should verify its signature, check that “iss” matches the expected issuer, ensure the current time is between nbf and exp, and then trust that the bearer is user 1.
-                    </pre>
-                </details>
-            </div>
-        }
-    </div>
-}
-@if (!string.IsNullOrEmpty(jwtError))
-{
-    <p class="text-danger mt-2">@jwtError</p>
 }
 
 @if (!string.IsNullOrEmpty(verifiedEndpoint))
@@ -182,26 +119,16 @@ This token was minted by https://yasuaki.com at 2025-06-19 06:43:23 UTC (15:43 J
     private List<string> logs = new();
     private List<FavoriteEndpoint> favoriteEndpoints = new();
     private List<string> knownSites = new();
-    private bool showJwtLogin;
+    private bool showAppPassword;
     private bool passwordVisible;
     private string PasswordInputType => passwordVisible ? "text" : "password";
     private string PasswordToggleIcon => passwordVisible ? "bi-eye-slash" : "bi-eye";
-    private JwtLoginModel jwtLoginModel = new();
-    private string? jwtToken;
-    private string? jwtDecoded;
-    private string? jwtError;
+    private AppPasswordModel appModel = new();
 
-    public class JwtLoginModel
+    public class AppPasswordModel
     {
         [Required] public string Username { get; set; } = string.Empty;
-        [Required] public string Password { get; set; } = string.Empty;
-    }
-
-    private class JwtInfo
-    {
-        public string Username { get; set; } = string.Empty;
-        public string Password { get; set; } = string.Empty;
-        public string? Token { get; set; }
+        [Required] public string AppPassword { get; set; } = string.Empty;
     }
 
     [Inject]
@@ -218,7 +145,7 @@ This token was minted by https://yasuaki.com at 2025-06-19 06:43:23 UTC (15:43 J
     [Inject]
     private CredentialManagerJsInterop CredentialJs { get; set; } = default!;
     [Inject]
-    private ClipboardJsInterop Clipboard { get; set; } = default!;
+    private AppPasswordService AppPasswordService { get; set; } = default!;
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
@@ -238,24 +165,13 @@ This token was minted by https://yasuaki.com at 2025-06-19 06:43:23 UTC (15:43 J
             if (!string.IsNullOrEmpty(verifiedEndpoint))
             {
                 Api.SetEndpoint(verifiedEndpoint);
-                var info = await LoadJwtInfoAsync(verifiedEndpoint);
-                if (info != null)
-                {
-                    jwtToken = info.Token;
-                    jwtLoginModel.Username = info.Username;
-                    jwtLoginModel.Password = info.Password;
-                    jwtDecoded = DecodeJwt(jwtToken);
-                }
-                else
-                {
-                    jwtToken = await StorageJs.GetItemAsync("jwtToken");
-                    jwtDecoded = DecodeJwt(jwtToken);
-                }
             }
-            else
+
+            var creds = await AppPasswordService.GetAsync();
+            if (creds is not null)
             {
-                jwtToken = await StorageJs.GetItemAsync("jwtToken");
-                jwtDecoded = DecodeJwt(jwtToken);
+                appModel.Username = creds.Value.Username;
+                appModel.AppPassword = creds.Value.AppPassword;
             }
             await LoadFavorites();
             StateHasChanged();
@@ -301,15 +217,6 @@ This token was minted by https://yasuaki.com at 2025-06-19 06:43:23 UTC (15:43 J
             favoriteEndpoints = dict.OrderBy(kv => kv.Key)
                 .Select(kv => new FavoriteEndpoint { Path = kv.Key, Sites = kv.Value.ToList() })
                 .ToList();
-        }
-
-        var siteInfo = await LoadSiteInfoAsync();
-        foreach (var site in siteInfo.Keys)
-        {
-            if (!knownSites.Contains(site))
-            {
-                knownSites.Add(site);
-            }
         }
 
         knownSites = knownSites.OrderBy(k => k).ToList();
@@ -382,36 +289,6 @@ This token was minted by https://yasuaki.com at 2025-06-19 06:43:23 UTC (15:43 J
                     verifiedEndpoint = root;
                     userUrl = root;
                     await EndpointSyncJs.SetAsync(root);
-
-                    var siteInfo = await LoadSiteInfoAsync();
-                    if (!siteInfo.ContainsKey(root))
-                    {
-                        siteInfo[root] = new JwtInfo();
-                        await SaveSiteInfoAsync(siteInfo);
-                    }
-
-                    var info = await LoadJwtInfoAsync(root);
-                    if (info != null)
-                    {
-                        jwtToken = info.Token;
-                        jwtLoginModel.Username = info.Username;
-                        jwtLoginModel.Password = info.Password;
-                        jwtDecoded = DecodeJwt(jwtToken);
-                        if (!string.IsNullOrEmpty(jwtToken))
-                        {
-                            await StorageJs.SetItemAsync("jwtToken", jwtToken);
-                        }
-                        else
-                        {
-                            await StorageJs.DeleteAsync("jwtToken");
-                        }
-                    }
-                    else
-                    {
-                        jwtToken = null;
-                        jwtDecoded = null;
-                        await StorageJs.DeleteAsync("jwtToken");
-                    }
                     await LoadFavorites();
                     status = $"Success! v2 endpoint is {apiEndpoint}";
                     return;
@@ -517,20 +394,16 @@ This token was minted by https://yasuaki.com at 2025-06-19 06:43:23 UTC (15:43 J
         await JS.InvokeVoidAsync("open", loginUrl, "_blank", "noopener,noreferrer,width=800,height=600");
     }
 
-    private async Task ToggleJwtLogin()
+    private async Task ToggleAppPassword()
     {
-        showJwtLogin = !showJwtLogin;
-        jwtError = null;
-        jwtToken = null;
-        jwtDecoded = null;
-
-        if (showJwtLogin && !string.IsNullOrEmpty(verifiedEndpoint))
+        showAppPassword = !showAppPassword;
+        if (showAppPassword)
         {
-            var info = await LoadJwtInfoAsync(verifiedEndpoint);
-            if (info != null)
+            var creds = await AppPasswordService.GetAsync();
+            if (creds is not null)
             {
-                jwtLoginModel.Username = info.Username;
-                jwtLoginModel.Password = info.Password;
+                appModel.Username = creds.Value.Username;
+                appModel.AppPassword = creds.Value.AppPassword;
             }
         }
     }
@@ -540,84 +413,12 @@ This token was minted by https://yasuaki.com at 2025-06-19 06:43:23 UTC (15:43 J
         passwordVisible = !passwordVisible;
     }
 
-    private async Task CopyJwt()
+    private async Task SaveAppPasswordAsync()
     {
-        if (!string.IsNullOrEmpty(jwtToken))
-        {
-            await Clipboard.CopyAsync(jwtToken);
-            status = "JWT copied to clipboard.";
-            StateHasChanged();
-        }
-    }
-
-    private async Task JwtLoginAsync()
-    {
-        if (string.IsNullOrEmpty(verifiedEndpoint))
-        {
-            return;
-        }
-
-        var http = Api.HttpClient;
-        if (http == null)
-        {
-            return;
-        }
-
-        var payload = JsonSerializer.Serialize(new { username = jwtLoginModel.Username, password = jwtLoginModel.Password });
-        using var content = new StringContent(payload, Encoding.UTF8, "application/json");
-        try
-        {
-            using var request = new HttpRequestMessage(HttpMethod.Post, "jwt-auth/v1/token") { Content = content };
-            var response = await http.SendAsync(request);
-            var json = await response.Content.ReadAsStringAsync();
-            if (response.IsSuccessStatusCode)
-            {
-                try
-                {
-                    var doc = JsonDocument.Parse(json);
-                    if (doc.RootElement.TryGetProperty("token", out var tokenEl))
-                    {
-                        jwtToken = tokenEl.GetString();
-                        if (!string.IsNullOrEmpty(jwtToken))
-                        {
-                            jwtDecoded = DecodeJwt(jwtToken);
-                            var info = new JwtInfo
-                            {
-                                Username = jwtLoginModel.Username,
-                                Password = jwtLoginModel.Password,
-                                Token = jwtToken
-                            };
-                            await SaveJwtInfoAsync(verifiedEndpoint, info);
-                            await CredentialJs.StoreAsync(jwtLoginModel.Username, jwtLoginModel.Password);
-                        }
-                    }
-                    else
-                    {
-                        jwtToken = json;
-                        jwtDecoded = DecodeJwt(jwtToken);
-                    }
-                    jwtError = null;
-                }
-                catch
-                {
-                    jwtToken = json;
-                    jwtDecoded = DecodeJwt(jwtToken);
-                    jwtError = null;
-                }
-            }
-            else
-            {
-                jwtError = json;
-                jwtToken = null;
-                jwtDecoded = null;
-            }
-        }
-        catch (Exception ex)
-        {
-            jwtError = ex.Message;
-            jwtToken = null;
-            jwtDecoded = null;
-        }
+        await AppPasswordService.SetAsync(appModel.Username, appModel.AppPassword);
+        await CredentialJs.StoreAsync(appModel.Username, appModel.AppPassword);
+        status = "Credentials stored.";
+        StateHasChanged();
     }
 
     private static string GetLoginUrl(string endpoint)
@@ -633,143 +434,6 @@ This token was minted by https://yasuaki.com at 2025-06-19 06:43:23 UTC (15:43 J
         }
 
         return url.TrimEnd('/') + "/wp-login.php";
-    }
-
-    private static string GetJwtTokenKey(string endpoint)
-        => $"jwtToken:{endpoint}";
-
-    private const string SiteInfoKey = "siteinfo";
-
-    private static string GetJwtInfoKey(string endpoint)
-        => endpoint;
-
-    private static string GetOldJwtInfoKey(string endpoint)
-        => $"jwtInfo:{endpoint}";
-
-    private async Task<Dictionary<string, JwtInfo>> LoadSiteInfoAsync()
-    {
-        var json = await StorageJs.GetItemAsync(SiteInfoKey);
-        if (string.IsNullOrEmpty(json))
-        {
-            return new();
-        }
-
-        try
-        {
-            return JsonSerializer.Deserialize<Dictionary<string, JwtInfo>>(json) ?? new();
-        }
-        catch
-        {
-            return new();
-        }
-    }
-
-    private Task SaveSiteInfoAsync(Dictionary<string, JwtInfo> data)
-    {
-        var json = JsonSerializer.Serialize(data);
-        return StorageJs.SetItemAsync(SiteInfoKey, json).AsTask();
-    }
-
-    private async Task<JwtInfo?> LoadJwtInfoAsync(string endpoint)
-    {
-        var data = await LoadSiteInfoAsync();
-        if (data.TryGetValue(endpoint, out var info))
-        {
-            return info;
-        }
-
-        // Fallback to old storage formats
-        var key = GetJwtInfoKey(endpoint);
-        var json = await StorageJs.GetItemAsync(key);
-        if (string.IsNullOrEmpty(json))
-        {
-            var oldKey = GetOldJwtInfoKey(endpoint);
-            json = await StorageJs.GetItemAsync(oldKey);
-        }
-
-        if (string.IsNullOrEmpty(json))
-        {
-            var token = await StorageJs.GetItemAsync(GetJwtTokenKey(endpoint));
-            if (!string.IsNullOrEmpty(token))
-            {
-                info = new JwtInfo { Token = token };
-                data[endpoint] = info;
-                await SaveSiteInfoAsync(data);
-                return info;
-            }
-            return null;
-        }
-
-        try
-        {
-            info = JsonSerializer.Deserialize<JwtInfo>(json);
-        }
-        catch
-        {
-            info = new JwtInfo { Token = json };
-        }
-
-        if (info != null)
-        {
-            data[endpoint] = info;
-            await SaveSiteInfoAsync(data);
-        }
-
-        return info;
-    }
-
-    private async Task SaveJwtInfoAsync(string endpoint, JwtInfo info)
-    {
-        var data = await LoadSiteInfoAsync();
-        data[endpoint] = info;
-        await SaveSiteInfoAsync(data);
-
-        if (!string.IsNullOrEmpty(info.Token))
-        {
-            await StorageJs.SetItemAsync("jwtToken", info.Token);
-        }
-        else
-        {
-            await StorageJs.DeleteAsync("jwtToken");
-        }
-
-        var oldKey = GetOldJwtInfoKey(endpoint);
-        await StorageJs.DeleteAsync(oldKey);
-        await StorageJs.DeleteAsync(GetJwtTokenKey(endpoint));
-        await StorageJs.DeleteAsync(endpoint);
-    }
-
-    private static string? DecodeJwt(string? token)
-    {
-        if (string.IsNullOrWhiteSpace(token))
-        {
-            return null;
-        }
-
-        var parts = token.Split('.');
-        if (parts.Length < 2)
-        {
-            return null;
-        }
-
-        try
-        {
-            var payload = parts[1]
-                .Replace('-', '+')
-                .Replace('_', '/');
-            switch (payload.Length % 4)
-            {
-                case 2: payload += "=="; break;
-                case 3: payload += "="; break;
-            }
-            var bytes = Convert.FromBase64String(payload);
-            using var doc = JsonDocument.Parse(bytes);
-            return JsonSerializer.Serialize(doc, new JsonSerializerOptions { WriteIndented = true });
-        }
-        catch
-        {
-            return null;
-        }
     }
 
     private async Task InvokeGet(FavoriteEndpoint fav, string site)
