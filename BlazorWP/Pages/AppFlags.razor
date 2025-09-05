@@ -35,7 +35,7 @@
                 @foreach (AuthType type in Enum.GetValues<AuthType>())
                 {
                     var active = Flags.Auth == type;
-                    var url = BuildUrl("auth", type == AuthType.Nonce ? "nonce" : "jwt");
+                    var url = BuildUrl("auth", type == AuthType.Nonce ? "nonce" : "apppass");
                     <a href="@url" class="text-decoration-none" @onclick="() => SetAuth(type, url)" @onclick:preventDefault>
                         <span class="badge @(active ? "bg-primary" : "bg-secondary") me-1">@type</span>
                     </a>
@@ -74,7 +74,7 @@
         // Always include the current flags so that navigating to the new URL
         // retains the full set of features regardless of the starting query.
         dict["appmode"] = Flags.Mode == AppMode.Basic ? "basic" : "full";
-        dict["auth"] = Flags.Auth == AuthType.Nonce ? "nonce" : "jwt";
+        dict["auth"] = Flags.Auth == AuthType.Nonce ? "nonce" : "apppass";
         dict["lang"] = Flags.Language == Language.Japanese ? "jp" : "en";
 
         // Override the flag being changed with the new value.

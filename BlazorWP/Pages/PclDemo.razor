@@ -1,7 +1,7 @@
 @page "/pcl-demo"
 @using WordPressPCL
 @inject IJSRuntime JS
-@inject JwtService JwtService
+@inject AppPasswordService AppPasswordService
 @inject IWordPressApiService Api
 
 <PageTitle>PCL Demo</PageTitle>
@@ -45,7 +45,8 @@ else
     private WordPressClient? client;
     private string? baseUrl;
     private List<ApiEndpoint> endpoints = new();
-    private string? jwtToken;
+    private string? username;
+    private string? appPassword;
 
     protected override async Task OnInitializedAsync()
     {
@@ -57,10 +58,11 @@ else
 
         client = wp;
         baseUrl = Api.HttpClient.BaseAddress?.ToString();
-        jwtToken = await JwtService.GetCurrentJwtAsync();
-        if (!string.IsNullOrEmpty(jwtToken))
+        var creds = await AppPasswordService.GetAsync();
+        if (creds is not null)
         {
-            client.Auth.SetJWToken(jwtToken);
+            username = creds.Value.Username;
+            appPassword = creds.Value.AppPassword;
         }
 
         endpoints = new()
@@ -88,10 +90,11 @@ else
             return;
         }
 
-        jwtToken = await JwtService.GetCurrentJwtAsync();
-        if (!string.IsNullOrEmpty(jwtToken))
+        var creds = await AppPasswordService.GetAsync();
+        if (creds is not null)
         {
-            client.Auth.SetJWToken(jwtToken);
+            username = creds.Value.Username;
+            appPassword = creds.Value.AppPassword;
         }
 
         try
@@ -113,7 +116,12 @@ else
             return;
         }
 
-        jwtToken = await JwtService.GetCurrentJwtAsync();
+        var creds = await AppPasswordService.GetAsync();
+        if (creds is not null)
+        {
+            username = creds.Value.Username;
+            appPassword = creds.Value.AppPassword;
+        }
         var command = GetCurlCommand(ep);
         await JS.InvokeVoidAsync("navigator.clipboard.writeText", command);
     }
@@ -126,12 +134,12 @@ else
         }
 
         var urlPart = $"{baseUrl}{ep.Path}";
-        if (string.IsNullOrEmpty(jwtToken))
+        if (string.IsNullOrEmpty(username) || string.IsNullOrEmpty(appPassword))
         {
             return $"curl {urlPart}";
         }
 
-        return $"curl -H \"Authorization: Bearer {jwtToken}\" {urlPart}";
+        return $"curl -u {username}:{appPassword} {urlPart}";
     }
 
     private class ApiEndpoint

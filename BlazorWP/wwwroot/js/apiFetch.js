@@ -15,9 +15,11 @@ export async function apiFetch(path, options = {}) {
     options.headers['X-WP-Nonce'] = nonce;
     options.credentials = 'include';
   } else {
-    const token = localStorage.getItem('jwtToken');
-    if (token) {
-      options.headers['Authorization'] = 'Bearer ' + token;
+    const user = localStorage.getItem('app_user');
+    const pass = localStorage.getItem('app_pass');
+    if (user && pass) {
+      const basic = btoa(`${user}:${pass}`);
+      options.headers['Authorization'] = 'Basic ' + basic;
     }
   }
   const response = await fetch(url, options);

@@ -5,13 +5,13 @@ namespace BlazorWP;
 
 public class AuthMessageHandler : DelegatingHandler
 {
-    private readonly JwtService _jwtService;
+    private readonly AppPasswordService _appPasswordService;
     private readonly WpNonceJsInterop _nonceJs;
     private readonly AppFlags _flags;
 
-    public AuthMessageHandler(JwtService jwtService, WpNonceJsInterop nonceJs, AppFlags flags)
+    public AuthMessageHandler(AppPasswordService appPasswordService, WpNonceJsInterop nonceJs, AppFlags flags)
     {
-        _jwtService = jwtService;
+        _appPasswordService = appPasswordService;
         _nonceJs = nonceJs;
         _flags = flags;
         InnerHandler = new HttpClientHandler();
@@ -25,9 +25,7 @@ public class AuthMessageHandler : DelegatingHandler
             return false;
         }
         var path = uri.AbsolutePath.TrimEnd('/');
-        return path.EndsWith("/wp-json/wp/v2", StringComparison.OrdinalIgnoreCase)
-            || path.EndsWith("/wp-json/jwt-auth/v1/token", StringComparison.OrdinalIgnoreCase)
-            || path.EndsWith("/jwt-auth/v1/token", StringComparison.OrdinalIgnoreCase);
+        return path.EndsWith("/wp-json/wp/v2", StringComparison.OrdinalIgnoreCase);
     }
 
     protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
@@ -49,10 +47,12 @@ public class AuthMessageHandler : DelegatingHandler
         }
         else if (!ShouldSkipAuth(request))
         {
-            var token = await _jwtService.GetCurrentJwtAsync();
-            if (!string.IsNullOrWhiteSpace(token))
+            var creds = await _appPasswordService.GetAsync();
+            if (creds is not null)
             {
-                request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+                var (u, p) = creds.Value;
+                var basic = Convert.ToBase64String(System.Text.Encoding.UTF8.GetBytes($"{u}:{p}"));
+                request.Headers.Authorization = new AuthenticationHeaderValue("Basic", basic);
             }
         }
 
