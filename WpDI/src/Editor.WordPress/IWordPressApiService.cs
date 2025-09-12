@@ -2,7 +2,7 @@ using WordPressPCL;
 using System.Net.Http;
 using System.Threading.Tasks;
 
-namespace BlazorWP;
+namespace Editor.WordPress;
 
 public interface IWordPressApiService
 {

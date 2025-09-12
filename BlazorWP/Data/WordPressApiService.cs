@@ -2,6 +2,7 @@ using WordPressPCL;
 using System.Net.Http;
 using System;
 using System.Threading.Tasks;
+using Editor.WordPress;
 
 namespace BlazorWP;
 
