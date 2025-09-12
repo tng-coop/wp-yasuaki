@@ -1,6 +1,6 @@
-using System.Net.Http.Headers;
 using BlazorWP.Data;
 using Microsoft.AspNetCore.Components.WebAssembly.Http;
+using Editor.WordPress;
 
 namespace BlazorWP;
 
@@ -18,17 +18,6 @@ public class AuthMessageHandler : DelegatingHandler
         InnerHandler = new HttpClientHandler();
     }
 
-    private static bool ShouldSkipAuth(HttpRequestMessage request)
-    {
-        var uri = request.RequestUri;
-        if (uri == null)
-        {
-            return false;
-        }
-        var path = uri.AbsolutePath.TrimEnd('/');
-        return path.EndsWith("/wp-json/wp/v2", StringComparison.OrdinalIgnoreCase);
-    }
-
     protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
     {
         var useNonce = _flags.Auth == AuthType.Nonce;
@@ -38,7 +27,7 @@ public class AuthMessageHandler : DelegatingHandler
             var nonce = await _nonceJs.GetNonceAsync();
             if (!string.IsNullOrWhiteSpace(nonce))
             {
-                if (!ShouldSkipAuth(request))
+                if (!BasicAuth.ShouldSkip(request))
                 {
                     request.Headers.Remove("Authorization");
                     request.Headers.Remove("X-WP-Nonce");
@@ -46,14 +35,13 @@ public class AuthMessageHandler : DelegatingHandler
                 }
             }
         }
-        else if (!ShouldSkipAuth(request))
+        else if (!BasicAuth.ShouldSkip(request))
         {
             var creds = await _appPasswordService.GetAsync();
             if (creds is not null)
             {
                 var (u, p) = creds.Value;
-                var basic = Convert.ToBase64String(System.Text.Encoding.UTF8.GetBytes($"{u}:{p}"));
-                request.Headers.Authorization = new AuthenticationHeaderValue("Basic", basic);
+                BasicAuth.Apply(request, u, p);
                 // 👇 prevent cookies from being sent when using AppPass
                 request.SetBrowserRequestCredentials(BrowserRequestCredentials.Omit);
             }
