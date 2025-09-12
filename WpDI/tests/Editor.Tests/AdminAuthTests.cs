@@ -1,7 +1,6 @@
 using System.Net;
 using System.Net.Http.Headers;
 using System.Text;
-using FluentAssertions;
 using Xunit;
 
 [Collection("WP EndToEnd")]
@@ -49,7 +48,7 @@ public class AdminAuthTests
 
         using var http = NewClient(baseUrl!);
         var resp = await http.GetAsync("/wp-json/wp/v2/settings/");
-        resp.StatusCode.Should().BeOneOf(HttpStatusCode.Unauthorized, HttpStatusCode.Forbidden);
+        Assert.Contains(resp.StatusCode, new[] { HttpStatusCode.Unauthorized, HttpStatusCode.Forbidden });
 
     }
 
@@ -63,7 +62,7 @@ public class AdminAuthTests
         SetBasicAuth(http, "admin", "DefinitelyWrongPassword123!");
 
         var resp = await http.GetAsync("/wp-json/wp/v2/settings");
-        resp.StatusCode.Should().BeOneOf(HttpStatusCode.Unauthorized, HttpStatusCode.Forbidden);
+        Assert.Contains(resp.StatusCode, new[] { HttpStatusCode.Unauthorized, HttpStatusCode.Forbidden });
     }
 
     [Fact]
@@ -78,9 +77,9 @@ public class AdminAuthTests
         SetBasicAuth(http, user, pass);
 
         var resp = await http.GetAsync("/wp-json/wp/v2/settings/");
-        resp.StatusCode.Should().Be(HttpStatusCode.OK);
+        Assert.Equal(HttpStatusCode.OK, resp.StatusCode);
         var json = await resp.Content.ReadAsStringAsync();
-        json.Should().Contain("\"title\"");
+        Assert.Contains("\"title\"", json);
     }
 
     [Fact]
@@ -92,11 +91,11 @@ public class AdminAuthTests
         SetBasicAuth(http, user, pass);
 
         var resp = await http.GetAsync("/wp-json/wp/v2/users/me/");
-        resp.StatusCode.Should().Be(HttpStatusCode.OK);
+        Assert.Equal(HttpStatusCode.OK, resp.StatusCode);
 
         var body = await resp.Content.ReadAsStringAsync();
-        body.Should().Contain("\"id\"");
-        body.Should().Contain("\"name\"");
+        Assert.Contains("\"id\"", body);
+        Assert.Contains("\"name\"", body);
     }
 }
 

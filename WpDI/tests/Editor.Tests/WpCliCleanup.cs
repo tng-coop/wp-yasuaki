@@ -1,5 +1,4 @@
 using System.Diagnostics;
-using FluentAssertions;
 using Xunit;
 
 [CollectionDefinition("WP EndToEnd", DisableParallelization = true)]
@@ -48,12 +47,12 @@ public sealed class WpCliCleanupFixture : IAsyncLifetime
         if (int.TryParse(fromEnv, out var envId) && envId > 0) return envId;
 
         var (code, output, err) = await RunWpAsync(wp, wpPath, "user list --role=administrator --field=ID --format=ids");
-        code.Should().Be(0, $"wp user list (admins) should succeed. stderr: {err}");
+        Assert.True(code == 0, $"wp user list (admins) should succeed. stderr: {err}");
 
         var first = output.Split(new[] { ' ', '\n', '\r', '\t', ',' }, StringSplitOptions.RemoveEmptyEntries)
                           .FirstOrDefault();
-        int.TryParse(first, out var adminId).Should().BeTrue("must have at least one admin user");
-        adminId.Should().BeGreaterThan(0);
+        Assert.True(int.TryParse(first, out var adminId), "must have at least one admin user");
+        Assert.True(adminId > 0);
         return adminId;
     }
 
@@ -64,7 +63,7 @@ public sealed class WpCliCleanupFixture : IAsyncLifetime
             "post list --post_type=any --post_status=any --field=ID --format=ids",
             timeoutMs: 30000);
 
-        codeList.Should().Be(0, $"wp post list should succeed. stderr: {errList}");
+        Assert.True(codeList == 0, $"wp post list should succeed. stderr: {errList}");
 
         ids = (ids ?? "").Trim();
         if (string.IsNullOrEmpty(ids))
@@ -85,7 +84,7 @@ public sealed class WpCliCleanupFixture : IAsyncLifetime
                 $"post delete {batch} --force",
                 timeoutMs: 60000);
 
-            codeDel.Should().Be(0, $"wp post delete should succeed. stderr: {errDel}");
+            Assert.True(codeDel == 0, $"wp post delete should succeed. stderr: {errDel}");
         }
     }
 
@@ -95,7 +94,7 @@ public sealed class WpCliCleanupFixture : IAsyncLifetime
             wp, wpPath,
             "user list --field=ID --role__not_in=administrator --format=ids");
 
-        codeList.Should().Be(0, $"wp user list (non-admins) should succeed. stderr: {errList}");
+        Assert.True(codeList == 0, $"wp user list (non-admins) should succeed. stderr: {errList}");
 
         ids = (ids ?? "").Trim();
         if (string.IsNullOrEmpty(ids))
@@ -110,7 +109,7 @@ public sealed class WpCliCleanupFixture : IAsyncLifetime
             $"user delete {ids} --yes",
             timeoutMs: 60000);
 
-        codeDel.Should().Be(0, $"wp user delete should succeed. stderr: {errDel}");
+        Assert.True(codeDel == 0, $"wp user delete should succeed. stderr: {errDel}");
     }
 
     public async Task InitializeAsync()
@@ -124,7 +123,7 @@ public sealed class WpCliCleanupFixture : IAsyncLifetime
         }
 
         var (verCode, verOut, verErr) = await RunWpAsync(wp, wpPath, "--version");
-        verCode.Should().Be(0, $"wp --version must work. stderr: {verErr}");
+        Assert.True(verCode == 0, $"wp --version must work. stderr: {verErr}");
         Console.WriteLine($"Using WP-CLI: {verOut.Trim()}");
 
         // 1) Delete all posts first

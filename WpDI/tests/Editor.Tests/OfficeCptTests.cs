@@ -4,7 +4,6 @@ using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text;
 using System.Text.Json;
-using FluentAssertions;
 using Xunit;
 
 [Collection("WP EndToEnd")]
@@ -67,40 +66,39 @@ public class OfficeCptTests
         };
 
         var createResp = await http.PostAsJsonAsync(collectionPath, createPayload, JsonOpts);
-        createResp.StatusCode.Should().Be(HttpStatusCode.Created,
+        Assert.True(createResp.StatusCode == HttpStatusCode.Created,
             $"POST {collectionPath} should succeed (got {createResp.StatusCode}).");
         var createdJson = JsonDocument.Parse(await createResp.Content.ReadAsStringAsync());
         var officeId = createdJson.RootElement.GetProperty("id").GetInt32();
-        officeId.Should().BeGreaterThan(0);
+        Assert.True(officeId > 0);
 
         try
         {
             // 2) READ
             var getResp = await http.GetAsync($"{collectionPath}/{officeId}?context=edit");
-            getResp.StatusCode.Should().Be(HttpStatusCode.OK);
+            Assert.Equal(HttpStatusCode.OK, getResp.StatusCode);
             var getDoc = JsonDocument.Parse(await getResp.Content.ReadAsStringAsync());
 
-            getDoc.RootElement.GetProperty("title").GetProperty("rendered").GetString()
-                 .Should().Contain("Tokyo HQ");
+            var rendered = getDoc.RootElement.GetProperty("title").GetProperty("rendered").GetString();
+            Assert.Contains("Tokyo HQ", rendered);
             var dataObj = getDoc.RootElement.GetProperty("data");
-            dataObj.GetProperty("address").GetString().Should().Be("1-1 Chiyoda, Tokyo");
-            dataObj.GetProperty("floors").GetInt32().Should().Be(12);
+            Assert.Equal("1-1 Chiyoda, Tokyo", dataObj.GetProperty("address").GetString());
+            Assert.Equal(12, dataObj.GetProperty("floors").GetInt32());
 
             // 3) UPDATE
             var updatePayload = new { data = new { address = "2-2 Chiyoda, Tokyo", floors = 13 } };
             var updResp = await http.PostAsJsonAsync($"{collectionPath}/{officeId}", updatePayload, JsonOpts);
-            updResp.StatusCode.Should().Be(HttpStatusCode.OK);
+            Assert.Equal(HttpStatusCode.OK, updResp.StatusCode);
 
             var afterDoc = JsonDocument.Parse(await updResp.Content.ReadAsStringAsync());
-            afterDoc.RootElement.GetProperty("data").GetProperty("address").GetString()
-                    .Should().Be("2-2 Chiyoda, Tokyo");
-            afterDoc.RootElement.GetProperty("data").GetProperty("floors").GetInt32().Should().Be(13);
+            Assert.Equal("2-2 Chiyoda, Tokyo", afterDoc.RootElement.GetProperty("data").GetProperty("address").GetString());
+            Assert.Equal(13, afterDoc.RootElement.GetProperty("data").GetProperty("floors").GetInt32());
         }
         finally
         {
             // 4) DELETE
             var delResp = await http.DeleteAsync($"{collectionPath}/{officeId}?force=true");
-            delResp.StatusCode.Should().BeOneOf(HttpStatusCode.OK, HttpStatusCode.NoContent, HttpStatusCode.NotFound);
+            Assert.Contains(delResp.StatusCode, new[] { HttpStatusCode.OK, HttpStatusCode.NoContent, HttpStatusCode.NotFound });
         }
     }
 }

@@ -4,7 +4,6 @@ using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text;
 using System.Text.Json;
-using FluentAssertions;
 using Xunit;
 
 [Collection("WP EndToEnd")]
@@ -76,7 +75,7 @@ public class RobustnessTests
 
         var collectionPath = $"/wp-json/wp/v2/{type}";
         var createResp = await http.PostAsJsonAsync(collectionPath, createPayload, JsonOpts);
-        createResp.StatusCode.Should().BeOneOf(HttpStatusCode.Created, HttpStatusCode.OK);
+        Assert.Contains(createResp.StatusCode, new[] { HttpStatusCode.Created, HttpStatusCode.OK });
         var created = JsonDocument.Parse(await createResp.Content.ReadAsStringAsync());
         var id = created.RootElement.GetProperty("id").GetInt32();
 
@@ -89,7 +88,7 @@ public class RobustnessTests
                     : new { data = new { blurb = "version A" } };
 
             var saveA = await http.PostAsJsonAsync($"{collectionPath}/{id}", payloadA, JsonOpts);
-            saveA.StatusCode.Should().Be(HttpStatusCode.OK);
+            Assert.Equal(HttpStatusCode.OK, saveA.StatusCode);
 
             // Second save (B) — "later" update
             object payloadB =
@@ -98,11 +97,11 @@ public class RobustnessTests
                     : new { data = new { blurb = "version B" } };
 
             var saveB = await http.PostAsJsonAsync($"{collectionPath}/{id}", payloadB, JsonOpts);
-            saveB.StatusCode.Should().Be(HttpStatusCode.OK);
+            Assert.Equal(HttpStatusCode.OK, saveB.StatusCode);
 
             // Live content should reflect B
             var get = await http.GetAsync($"{collectionPath}/{id}?context=edit");
-            get.StatusCode.Should().Be(HttpStatusCode.OK);
+            Assert.Equal(HttpStatusCode.OK, get.StatusCode);
             var live = JsonDocument.Parse(await get.Content.ReadAsStringAsync());
 
             if (type == "posts")
@@ -110,26 +109,27 @@ public class RobustnessTests
                 var contentEl = live.RootElement.GetProperty("content");
                 JsonElement raw;
                 var hasRaw = contentEl.TryGetProperty("raw", out raw);
-                (hasRaw ? raw.GetString() : contentEl.GetProperty("rendered").GetString())
-                    .Should().Contain("version B");
+                var contentStr = hasRaw ? raw.GetString() : contentEl.GetProperty("rendered").GetString();
+                Assert.Contains("version B", contentStr);
             }
             else
             {
-                live.RootElement.GetProperty("data").GetProperty("blurb").GetString()
-                    .Should().Be("version B");
+                Assert.Equal("version B",
+                    live.RootElement.GetProperty("data").GetProperty("blurb").GetString());
             }
 
             // Revisions should include at least one
             var revPath = $"/wp-json/wp/v2/{type}/{id}/revisions";
             var revResp = await http.GetAsync(revPath);
-            revResp.StatusCode.Should().Be(HttpStatusCode.OK, $"GET {revPath} should succeed when revisions are enabled for '{type}'.");
+            Assert.True(revResp.StatusCode == HttpStatusCode.OK,
+                $"GET {revPath} should succeed when revisions are enabled for '{type}'.");
             var revJson = await revResp.Content.ReadFromJsonAsync<JsonElement[]>() ?? Array.Empty<JsonElement>();
-            (revJson.Length >= 1).Should().BeTrue("At least one revision should be present after updates.");
+            Assert.True(revJson.Length >= 1, "At least one revision should be present after updates.");
         }
         finally
         {
             var del = await http.DeleteAsync($"{collectionPath}/{id}");
-            del.StatusCode.Should().BeOneOf(HttpStatusCode.OK, HttpStatusCode.NoContent, HttpStatusCode.NotFound);
+            Assert.Contains(del.StatusCode, new[] { HttpStatusCode.OK, HttpStatusCode.NoContent, HttpStatusCode.NotFound });
         }
     }
 
@@ -149,7 +149,7 @@ public class RobustnessTests
                 : new { title = $"Office Trash {Guid.NewGuid():N}", status = "draft", data = new { blurb = "hello" } };
 
         var create = await http.PostAsJsonAsync(collectionPath, createPayload, JsonOpts);
-        create.StatusCode.Should().BeOneOf(HttpStatusCode.Created, HttpStatusCode.OK);
+        Assert.Contains(create.StatusCode, new[] { HttpStatusCode.Created, HttpStatusCode.OK });
         var created = JsonDocument.Parse(await create.Content.ReadAsStringAsync());
         var id = created.RootElement.GetProperty("id").GetInt32();
 
@@ -157,29 +157,29 @@ public class RobustnessTests
         {
             // Soft delete (no ?force=true)
             var del = await http.DeleteAsync($"{collectionPath}/{id}");
-            del.StatusCode.Should().BeOneOf(HttpStatusCode.OK, HttpStatusCode.NoContent);
+            Assert.Contains(del.StatusCode, new[] { HttpStatusCode.OK, HttpStatusCode.NoContent });
 
             var getTrash = await http.GetAsync($"{collectionPath}/{id}?context=edit");
             if (getTrash.StatusCode == HttpStatusCode.OK)
             {
                 var trashed = JsonDocument.Parse(await getTrash.Content.ReadAsStringAsync());
-                trashed.RootElement.GetProperty("status").GetString().Should().Be("trash");
+                Assert.Equal("trash", trashed.RootElement.GetProperty("status").GetString());
             }
 
             // Restore by setting status back to draft
             var restore = await http.PostAsJsonAsync($"{collectionPath}/{id}", new { status = "draft" }, JsonOpts);
-            restore.StatusCode.Should().Be(HttpStatusCode.OK);
+            Assert.Equal(HttpStatusCode.OK, restore.StatusCode);
 
             // Verify restored
             var getBack = await http.GetAsync($"{collectionPath}/{id}?context=edit");
-            getBack.StatusCode.Should().Be(HttpStatusCode.OK);
+            Assert.Equal(HttpStatusCode.OK, getBack.StatusCode);
             var doc = JsonDocument.Parse(await getBack.Content.ReadAsStringAsync());
-            doc.RootElement.GetProperty("status").GetString().Should().Be("draft");
+            Assert.Equal("draft", doc.RootElement.GetProperty("status").GetString());
         }
         finally
         {
             var hard = await http.DeleteAsync($"{collectionPath}/{id}?force=true");
-            hard.StatusCode.Should().BeOneOf(HttpStatusCode.OK, HttpStatusCode.NoContent, HttpStatusCode.NotFound);
+            Assert.Contains(hard.StatusCode, new[] { HttpStatusCode.OK, HttpStatusCode.NoContent, HttpStatusCode.NotFound });
         }
     }
 }

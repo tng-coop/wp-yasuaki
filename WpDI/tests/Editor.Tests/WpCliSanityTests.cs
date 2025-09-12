@@ -1,6 +1,6 @@
 using System.Diagnostics;
 using System.Text.RegularExpressions;
-using FluentAssertions;
+using Xunit;
 
 public class WpCliSanityTests
 {
@@ -40,13 +40,13 @@ public class WpCliSanityTests
 
         // 1) Check version first — does not require a WP install and is fast
         var (codeVer, outVer, errVer) = Run(wp, "--version");
-        codeVer.Should().Be(0, $"wp --version should succeed but stderr was: {errVer}");
-        outVer.Should().MatchRegex(new Regex(@"WP-CLI\s+\d+\.\d+(\.\d+)?", RegexOptions.IgnoreCase));
+        Assert.True(codeVer == 0, $"wp --version should succeed but stderr was: {errVer}");
+        Assert.Matches(new Regex(@"WP-CLI\s+\d+\.\d+(\.\d+)?", RegexOptions.IgnoreCase), outVer);
 
         // 2) Optional: info command — also lightweight
         var (codeInfo, outInfo, errInfo) = Run(wp, "--info");
-        codeInfo.Should().Be(0, $"wp --info should succeed but stderr was: {errInfo}");
-        outInfo.Should().ContainAny("WP-CLI root dir", "PHP binary", "OS:", "Shell:");
+        Assert.True(codeInfo == 0, $"wp --info should succeed but stderr was: {errInfo}");
+        Assert.True(outInfo.Contains("WP-CLI root dir") || outInfo.Contains("PHP binary") || outInfo.Contains("OS:") || outInfo.Contains("Shell:"));
         
         // For visibility in test logs
         Console.WriteLine($"WP_CLI used: {wp}");
