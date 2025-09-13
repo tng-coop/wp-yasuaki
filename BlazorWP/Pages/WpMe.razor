@@ -36,10 +36,10 @@ else
   {
     try
     {
-      var client = await Api.GetClientAsync(); // reads wpEndpoint from localStorage if needed
+      var client = await Api.GetClientAsync(); // uses wpurl app flag
       if (client is null)
       {
-        error = "No WordPress endpoint configured (localStorage 'wpEndpoint' missing).";
+        error = "No WordPress endpoint configured (wpurl app flag missing).";
         return;
       }
 

@@ -138,8 +138,6 @@
     [Inject]
     private LocalStorageJsInterop StorageJs { get; set; } = default!;
     [Inject]
-    private WpEndpointSyncJsInterop EndpointSyncJs { get; set; } = default!;
-    [Inject]
     private IJSRuntime JS { get; set; } = default!;
     [Inject]
     private CredentialManagerJsInterop CredentialJs { get; set; } = default!;
@@ -147,21 +145,14 @@
     private AppPasswordService AppPasswordService { get; set; } = default!;
     [Inject]
     private AppFlags Flags { get; set; } = default!;
+    [Inject]
+    private NavigationManager Navigation { get; set; } = default!;
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
         if (firstRender)
         {
-            verifiedEndpoint = await StorageJs.GetItemAsync("wpEndpoint");
-            if (string.IsNullOrEmpty(verifiedEndpoint))
-            {
-                var configEndpoint = Flags.WpUrl;
-                if (!string.IsNullOrEmpty(configEndpoint))
-                {
-                    verifiedEndpoint = configEndpoint;
-                    await StorageJs.SetItemAsync("wpEndpoint", verifiedEndpoint);
-                }
-            }
+            verifiedEndpoint = Flags.WpUrl;
             userUrl = verifiedEndpoint;
             if (!string.IsNullOrEmpty(verifiedEndpoint))
             {
@@ -289,7 +280,9 @@
                     var root = baseUri.ToString().TrimEnd('/');
                     verifiedEndpoint = root;
                     userUrl = root;
-                    await EndpointSyncJs.SetAsync(root);
+                    await Flags.SetWpUrl(root);
+                    var newUrl = Navigation.GetUriWithQueryParameter("wpurl", root);
+                    Navigation.NavigateTo(newUrl, replace: true);
                     await LoadFavorites();
                     status = $"Success! v2 endpoint is {apiEndpoint}";
                     return;

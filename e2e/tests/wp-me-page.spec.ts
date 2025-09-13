@@ -11,14 +11,13 @@ test.describe('Blazor Razor page /wp-me via WPDI (AppPass mode)', () => {
 
   test('renders current user on /wp-me', async ({ page, baseURL }) => {
     // 1) Prime localStorage BEFORE the app loads
-    await page.addInitScript(({ base, user, pass }) => {
-      localStorage.setItem('wpEndpoint', base); // e.g., https://wp.lan
+    await page.addInitScript(({ user, pass }) => {
       localStorage.setItem('app_user',   user);
       localStorage.setItem('app_pass',   pass);
-    }, { base: wpBase, user: wpUser, pass: wpAppPwd });
+    }, { user: wpUser, pass: wpAppPwd });
 
-    // 2) Navigate to the Razor page with auth=apppass (robust URL join)
-    const target = new URL('wp-me?auth=apppass', baseURL );
+    // 2) Navigate to the Razor page with auth=apppass and wpurl
+    const target = new URL(`wp-me?auth=apppass&wpurl=${encodeURIComponent(wpBase)}`, baseURL );
     await page.goto(target.toString());
 
     // 3) Expect the page to show the current user

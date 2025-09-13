@@ -9,14 +9,14 @@ namespace BlazorWP;
 public sealed class WordPressApiService : IWordPressApiService
 {
     private readonly AuthMessageHandler _auth;
-    private readonly LocalStorageJsInterop _storage;
+    private readonly AppFlags _flags;
     private WordPressClient? _client;
     private HttpClient? _httpClient;
 
-    public WordPressApiService(AuthMessageHandler auth, LocalStorageJsInterop storage)
+    public WordPressApiService(AuthMessageHandler auth, AppFlags flags)
     {
         _auth = auth;
-        _storage = storage;
+        _flags = flags;
     }
 
     public void SetEndpoint(string endpoint)
@@ -32,7 +32,7 @@ public sealed class WordPressApiService : IWordPressApiService
         {
             return _client;
         }
-        var endpoint = await _storage.GetItemAsync("wpEndpoint");
+        var endpoint = _flags.WpUrl;
         if (string.IsNullOrEmpty(endpoint))
         {
             return null;

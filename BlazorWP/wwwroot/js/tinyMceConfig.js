@@ -15,7 +15,7 @@ window.myTinyMceConfig = {
     editor.ui.registry.addButton('showInfoButton', {
       text: 'Info',
       onAction: () => {
-        const endpoint = localStorage.getItem('wpEndpoint') || '(none)';
+        const endpoint = new URLSearchParams(window.location.search).get('wpurl') || '(none)';
         const user = localStorage.getItem('app_user') || '(none)';
         alert(`Endpoint: ${endpoint}\nUser: ${user}`);
       }

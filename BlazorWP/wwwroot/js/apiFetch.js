@@ -3,7 +3,7 @@ import { getNonce } from './wpNonce.js';
 export async function apiFetch(path, options = {}) {
   const authMode = new URLSearchParams(window.location.search).get('auth');
   const useNonce = authMode === 'nonce';
-  const baseUrl = localStorage.getItem('wpEndpoint') || '';
+  const baseUrl = new URLSearchParams(window.location.search).get('wpurl') || '';
   const url = path.startsWith('http') ? path : baseUrl.replace(/\/$/, '') + path;
   options.headers = options.headers || {};
   if (useNonce) {
