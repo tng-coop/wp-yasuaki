@@ -55,10 +55,23 @@
                 }
             </td>
         </tr>
+        <tr>
+            <td>WordPress URL</td>
+            <td>
+                <input class="form-control" @bind="wpUrl" @bind:after="UpdateWpUrl" />
+            </td>
+        </tr>
     </tbody>
 </table>
 
 @code {
+    private string wpUrl = string.Empty;
+
+    protected override void OnInitialized()
+    {
+        wpUrl = Flags.WpUrl;
+    }
+
     private string BuildUrl(string key, string value)
     {
         var uri = Navigation.ToAbsoluteUri(Navigation.Uri);
@@ -100,6 +113,13 @@
     {
         await Flags.SetLanguage(lang);
         Navigation.NavigateTo(url, forceLoad: true);
+    }
+
+    private async Task UpdateWpUrl()
+    {
+        var url = BuildUrl("wpurl", wpUrl);
+        await Flags.SetWpUrl(wpUrl);
+        Navigation.NavigateTo(url);
     }
 }
 
