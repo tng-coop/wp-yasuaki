@@ -34,6 +34,7 @@ namespace BlazorWP.Data
         public AppMode Mode { get; private set; } = AppMode.Full;
         public AuthType Auth { get; private set; } = AuthType.AppPass;
         public Language Language { get; private set; } = Language.English;
+        public string WpUrl { get; private set; } = string.Empty;
 
         public event Action? OnChange;
 
@@ -67,6 +68,17 @@ namespace BlazorWP.Data
             try
             {
                 await _storage.SetItemAsync("lang", language == Language.Japanese ? "jp" : "en");
+            }
+            catch { }
+            NotifyStateChanged();
+        }
+
+        public async Task SetWpUrl(string url)
+        {
+            WpUrl = url;
+            try
+            {
+                await _storage.SetItemAsync("wpEndpoint", url);
             }
             catch { }
             NotifyStateChanged();

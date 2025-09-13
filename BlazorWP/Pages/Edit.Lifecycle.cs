@@ -91,7 +91,7 @@ public partial class Edit
             selectedMediaSource = await StorageJs.GetItemAsync("mediaSource");
             if (string.IsNullOrEmpty(selectedMediaSource))
             {
-                selectedMediaSource = Config["WordPress:Url"];
+                selectedMediaSource = Flags.WpUrl;
                 if (!string.IsNullOrEmpty(selectedMediaSource))
                 {
                     await StorageJs.SetItemAsync("mediaSource", selectedMediaSource);

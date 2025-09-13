@@ -1,5 +1,6 @@
 @page "/"
 @using System.ComponentModel.DataAnnotations
+@using BlazorWP.Data
 @inject IStringLocalizer<Home> L
 
 <PageTitle>@L["HomeTitle"]</PageTitle>
@@ -141,11 +142,11 @@
     [Inject]
     private IJSRuntime JS { get; set; } = default!;
     [Inject]
-    private IConfiguration Config { get; set; } = default!;
-    [Inject]
     private CredentialManagerJsInterop CredentialJs { get; set; } = default!;
     [Inject]
     private AppPasswordService AppPasswordService { get; set; } = default!;
+    [Inject]
+    private AppFlags Flags { get; set; } = default!;
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
@@ -154,7 +155,7 @@
             verifiedEndpoint = await StorageJs.GetItemAsync("wpEndpoint");
             if (string.IsNullOrEmpty(verifiedEndpoint))
             {
-                var configEndpoint = Config["WordPress:Url"];
+                var configEndpoint = Flags.WpUrl;
                 if (!string.IsNullOrEmpty(configEndpoint))
                 {
                     verifiedEndpoint = configEndpoint;

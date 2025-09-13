@@ -139,13 +139,35 @@ namespace BlazorWP
             languageService.SetCulture(culture);
             await flags.SetLanguage(lang == "jp" ? Language.Japanese : Language.English);
 
+            var wpurl = config["WordPress:Url"] ?? string.Empty;
+            if (queryParams.TryGetValue("wpurl", out var wpurlValues))
+            {
+                var val = wpurlValues.ToString();
+                if (!string.IsNullOrEmpty(val))
+                {
+                    wpurl = val;
+                }
+            }
+            else
+            {
+                var storedWp = await storage.GetItemAsync("wpEndpoint");
+                if (!string.IsNullOrEmpty(storedWp))
+                {
+                    wpurl = storedWp;
+                }
+            }
+
+            await flags.SetWpUrl(wpurl);
+
             var needsNormalization =
                 !queryParams.TryGetValue("lang", out var existingLang) ||
                 !existingLang.ToString().Equals(lang, StringComparison.OrdinalIgnoreCase) ||
                 !queryParams.TryGetValue("appmode", out var existingMode) ||
                 !existingMode.ToString().Equals(appMode == AppMode.Basic ? "basic" : "full", StringComparison.OrdinalIgnoreCase) ||
                 !queryParams.TryGetValue("auth", out var existingAuth) ||
-                !existingAuth.ToString().Equals(authMode == AuthType.Nonce ? "nonce" : "apppass", StringComparison.OrdinalIgnoreCase);
+                !existingAuth.ToString().Equals(authMode == AuthType.Nonce ? "nonce" : "apppass", StringComparison.OrdinalIgnoreCase) ||
+                !queryParams.TryGetValue("wpurl", out var existingWpUrl) ||
+                !existingWpUrl.ToString().Equals(wpurl, StringComparison.Ordinal);
 
             if (needsNormalization)
             {
@@ -154,7 +176,8 @@ namespace BlazorWP
                 {
                     if (kvp.Key.Equals("lang", StringComparison.OrdinalIgnoreCase) ||
                         kvp.Key.Equals("appmode", StringComparison.OrdinalIgnoreCase) ||
-                        kvp.Key.Equals("auth", StringComparison.OrdinalIgnoreCase))
+                        kvp.Key.Equals("auth", StringComparison.OrdinalIgnoreCase) ||
+                        kvp.Key.Equals("wpurl", StringComparison.OrdinalIgnoreCase))
                     {
                         continue;
                     }
@@ -175,6 +198,7 @@ namespace BlazorWP
                 segments.Add($"appmode={(appMode == AppMode.Basic ? "basic" : "full")}");
                 segments.Add($"lang={lang}");
                 segments.Add($"auth={(authMode == AuthType.Nonce ? "nonce" : "apppass")}");
+                segments.Add($"wpurl={Uri.EscapeDataString(wpurl)}");
 
                 var newQuery = string.Join("&", segments);
                 var normalizedUri = uri.GetLeftPart(UriPartial.Path) + (newQuery.Length > 0 ? "?" + newQuery : string.Empty);

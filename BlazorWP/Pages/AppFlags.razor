@@ -76,6 +76,7 @@
         dict["appmode"] = Flags.Mode == AppMode.Basic ? "basic" : "full";
         dict["auth"] = Flags.Auth == AuthType.Nonce ? "nonce" : "apppass";
         dict["lang"] = Flags.Language == Language.Japanese ? "jp" : "en";
+        dict["wpurl"] = Flags.WpUrl;
 
         // Override the flag being changed with the new value.
         dict[key] = value;
