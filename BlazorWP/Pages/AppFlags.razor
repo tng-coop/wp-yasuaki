@@ -92,7 +92,7 @@
     private async Task SetAuth(AuthType type, string url)
     {
         await Flags.SetAuthMode(type);
-        Navigation.NavigateTo(url);
+        Navigation.NavigateTo(url, forceLoad: true);
     }
 
     private async Task SetLanguage(Language lang, string url)
