@@ -83,10 +83,16 @@ jobs:
           ADMIN_PASS: a
           ADMIN_EMAIL: admin@example.com
         run: |
-          ADMIN_APP=$(bash scripts/reset-wp.sh)
+          ADMIN_APP="$(bash scripts/reset-wp.sh)"
           echo "::add-mask::$ADMIN_APP"
-          echo "wp_admin_app_password=$ADMIN_APP" >> $GITHUB_OUTPUT
-          echo "WP_APP_PASSWORD=$ADMIN_APP" >> $GITHUB_ENV
+          echo "wp_admin_app_password=$ADMIN_APP" >> "$GITHUB_OUTPUT"
+          {
+            echo "WP_APP_PASSWORD=$ADMIN_APP"
+            echo "WP_USER=admin"
+            echo "WP_USERNAME=admin"
+            echo "WP_BASE_URL=$WP_URL"   # just mirror WP_URL here
+          } >> "$GITHUB_ENV"
+
 
       - name: Materialize plugins and mu-plugins (no symlinks)
         shell: bash
