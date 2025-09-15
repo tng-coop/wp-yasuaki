@@ -74,14 +74,19 @@ jobs:
           wp config set WP_DEBUG_DISPLAY false --path=wordpress --type=constant --raw
           wp config set WP_DISABLE_FATAL_ERROR_HANDLER true --path=wordpress --type=constant --raw
 
-      - name: Install WordPress
+      - name: Reset + Install WordPress
+        id: reset
+        env:
+          WP_PATH: wordpress
+          WP_URL: https://aspnet.lan:8443
+          ADMIN_USER: admin
+          ADMIN_PASS: a
+          ADMIN_EMAIL: admin@example.com
         run: |
-          wp core install --path=wordpress \
-            --url="https://aspnet.lan:8443" \
-            --title="wptest" \
-            --admin_user=admin \
-            --admin_password=ChangeMe! \
-            --admin_email=admin@example.com
+          ADMIN_APP=$(bash scripts/reset-wp.sh)
+          echo "::add-mask::$ADMIN_APP"
+          echo "wp_admin_app_password=$ADMIN_APP" >> $GITHUB_OUTPUT
+          echo "WP_APP_PASSWORD=$ADMIN_APP" >> $GITHUB_ENV
 
       - name: Materialize plugins and mu-plugins (no symlinks)
         shell: bash
@@ -107,35 +112,6 @@ jobs:
       - name: Map dev hostnames to loopback
         run: |
           echo "127.0.0.1 aspnet.lan wp.lan" | sudo tee -a /etc/hosts
-
-      - name: Create CI users + Application Passwords
-        id: app
-        run: |
-          set -euo pipefail
-          wp user create ci-poster ci-poster@example.com --role=author --user_pass="$(openssl rand -base64 18)" --path=wordpress
-          CI_APP=$(wp user application-password create ci-poster gha --porcelain --path=wordpress)
-          # admin for tests
-          ADMIN_APP=$(wp user application-password create admin gha --porcelain --path=wordpress)
-          {
-            echo "wp_base_url=https://aspnet.lan:8443"
-            echo "wp_user=ci-poster"
-            echo "wp_app_password=$CI_APP"
-            echo "wp_admin_user=admin"
-            echo "wp_admin_app_password=$ADMIN_APP"
-          } >> "$GITHUB_OUTPUT"
-
-      # Promote WP vars to the job environment (available to all later steps)
-      - name: Export WP env for rest of job (and mask secrets)
-        run: |
-          echo "::add-mask::${{ steps.app.outputs.wp_admin_app_password }}"
-          echo "::add-mask::${{ steps.app.outputs.wp_app_password }}"
-          {
-            echo "WP_BASE_URL=${{ steps.app.outputs.wp_base_url }}"
-            echo "WordPress__Url=${{ steps.app.outputs.wp_base_url }}"
-            echo "WP_USER=${{ steps.app.outputs.wp_admin_user }}"
-            echo "WP_USERNAME=${{ steps.app.outputs.wp_admin_user }}"
-            echo "WP_APP_PASSWORD=${{ steps.app.outputs.wp_admin_app_password }}"
-          } >> "$GITHUB_ENV"
 
       - name: Export Office CPT rest base
         run: echo "WP_REST_BASE_OFFICE=office-cpt" >> "$GITHUB_ENV"
