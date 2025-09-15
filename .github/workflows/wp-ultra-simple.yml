@@ -78,7 +78,7 @@ jobs:
         id: reset
         env:
           WP_PATH: wordpress
-          WP_URL: https://aspnet.lan:443
+          WP_URL: https://aspnet.lan
           ADMIN_USER: admin
           ADMIN_PASS: a
           ADMIN_EMAIL: admin@example.com
@@ -166,17 +166,17 @@ jobs:
       - name: HTTPS smoke test (Apache TLS → WordPress)
         run: |
           set -euxo pipefail
-          curl -I https://aspnet.lan:443/
+          curl -I https://aspnet.lan/
           curl -I https://wp.lan:443/
-          curl -fsS https://aspnet.lan:443/ -o /tmp/index.html
+          curl -fsS https://aspnet.lan/ -o /tmp/index.html
           head -n 20 /tmp/index.html
 
       - name: Verify REST pretty route works
         run: |
           set -euxo pipefail
-          curl -fsSI https://aspnet.lan:443/wp-json/
+          curl -fsSI https://aspnet.lan/wp-json/
           curl -fsSI https://wp.lan:443/wp-json/
-          curl -fsS  https://aspnet.lan:443/wp-json/wp/v2 | jq '.namespace'
+          curl -fsS  https://aspnet.lan/wp-json/wp/v2 | jq '.namespace'
 
       - name: Verify Office CPT is registered (fail fast)
         env:

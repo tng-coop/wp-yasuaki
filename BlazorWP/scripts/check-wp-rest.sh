@@ -2,7 +2,7 @@
 # BlazorWP/scripts/check-wp-rest.sh
 set -euo pipefail
 
-: "${WP_BASE_URL:?Need WP_BASE_URL (e.g. https://aspnet.lan:443 or https://wp.lan)}"
+: "${WP_BASE_URL:?Need WP_BASE_URL (e.g. https://aspnet.lan or https://wp.lan)}"
 : "${WP_USERNAME:?Need WP_USERNAME}"
 : "${WP_APP_PASSWORD:?Need WP_APP_PASSWORD}"
 
