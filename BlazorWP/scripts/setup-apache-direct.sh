@@ -4,7 +4,7 @@ set -euo pipefail
 
 DOMAIN="${DOMAIN:-aspnet.lan}"
 DOMAIN_ALIASES="${DOMAIN_ALIASES:-}"   # space-separated, e.g. "wp.lan other.lan"
-PORT="${PORT:-8444}"
+PORT="${PORT:-443}"
 SRC_WP_DIR="${WP_DIR:-$GITHUB_WORKSPACE/wordpress}"           # source in workspace
 DST_WP_DIR="/var/www/wordpress"                                # final docroot
 CERT_DIR="${CERT_DIR:-$GITHUB_WORKSPACE/BlazorWP/cert}"
