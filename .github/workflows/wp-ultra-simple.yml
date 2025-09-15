@@ -78,7 +78,7 @@ jobs:
         id: reset
         env:
           WP_PATH: wordpress
-          WP_URL: https://aspnet.lan:8443
+          WP_URL: https://aspnet.lan:8444
           ADMIN_USER: admin
           ADMIN_PASS: a
           ADMIN_EMAIL: admin@example.com
@@ -158,7 +158,7 @@ jobs:
         env:
           DOMAIN: aspnet.lan
           DOMAIN_ALIASES: wp.lan
-          PORT: '8443'
+          PORT: '8444'
           WP_DIR: ${{ github.workspace }}/wordpress
           CERT_DIR: ${{ github.workspace }}/BlazorWP/cert
         run: BlazorWP/scripts/setup-apache-direct.sh
@@ -166,17 +166,17 @@ jobs:
       - name: HTTPS smoke test (Apache TLS → WordPress)
         run: |
           set -euxo pipefail
-          curl -I https://aspnet.lan:8443/
-          curl -I https://wp.lan:8443/
-          curl -fsS https://aspnet.lan:8443/ -o /tmp/index.html
+          curl -I https://aspnet.lan:8444/
+          curl -I https://wp.lan:8444/
+          curl -fsS https://aspnet.lan:8444/ -o /tmp/index.html
           head -n 20 /tmp/index.html
 
       - name: Verify REST pretty route works
         run: |
           set -euxo pipefail
-          curl -fsSI https://aspnet.lan:8443/wp-json/
-          curl -fsSI https://wp.lan:8443/wp-json/
-          curl -fsS  https://aspnet.lan:8443/wp-json/wp/v2 | jq '.namespace'
+          curl -fsSI https://aspnet.lan:8444/wp-json/
+          curl -fsSI https://wp.lan:8444/wp-json/
+          curl -fsS  https://aspnet.lan:8444/wp-json/wp/v2 | jq '.namespace'
 
       - name: Verify Office CPT is registered (fail fast)
         env:
