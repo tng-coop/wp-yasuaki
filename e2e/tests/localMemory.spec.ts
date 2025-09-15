@@ -1,10 +1,10 @@
-import { test, expect } from '@playwright/test';
+import { test, expect } from '../fixtures/test';
 
 test.describe('ILocalStore /test-memory page', () => {
-  test('should add multiple items and list them', async ({ page }, testInfo) => {
+  test('should add multiple items and list them', async ({ page, blazorURL }, testInfo) => {
 
   console.log('Configured baseURL:', testInfo.project.use.baseURL);
-    await page.goto('test-memory');
+    await page.goto(blazorURL+'test-memory');
 
     // Start clean
     await page.getByTestId('btn-list').click();
@@ -32,8 +32,8 @@ test.describe('ILocalStore /test-memory page', () => {
     await expect(page.getByTestId('draft-list')).toContainText('Second Item');
   });
 
-  test('should upsert (put) without creating duplicates', async ({ page }) => {
-    await page.goto('test-memory');
+  test('should upsert (put) without creating duplicates', async ({ page, blazorURL }) => {
+    await page.goto(blazorURL+'test-memory');
 
     // Put first version of draft:1
     await page.getByTestId('title-input').fill('Initial Title');
@@ -56,8 +56,8 @@ test.describe('ILocalStore /test-memory page', () => {
     await expect(page.getByTestId('draft-list')).not.toContainText('Initial Title');
   });
 
-  test('should retrieve and delete items by key', async ({ page }) => {
-    await page.goto('test-memory');
+  test('should retrieve and delete items by key', async ({ page, blazorURL }) => {
+    await page.goto(blazorURL+'test-memory');
 
     // Seed draft:1
     await page.getByTestId('title-input').fill('Temp Item');

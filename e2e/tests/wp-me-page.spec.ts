@@ -1,25 +1,8 @@
 // tests/wp-me.ui.spec.ts
-import { test as base, expect } from '@playwright/test';
-
-// Extend Playwright test with custom fixtures
-type WpFixtures = {
-  wpUser: string;
-  wpAppPwd: string;
-};
-
-export const test = base.extend<WpFixtures>({
-  wpUser: async ({}, use, testInfo) => {
-    await use((testInfo.project.use as any).wpUser);
-  },
-  wpAppPwd: async ({}, use, testInfo) => {
-    await use((testInfo.project.use as any).wpAppPwd);
-  },
-});
+import { test, expect } from '../fixtures/common';
 
 test.describe('Blazor Razor page /wp-me via WPDI (AppPass mode)', () => {
-  test('renders current user on /wp-me', async ({ page, baseURL, wpUser, wpAppPwd }) => {
-    test.skip(!wpUser || !wpAppPwd, 'wpUser and wpAppPwd must be provided in project.use');
-
+  test('renders current user on /wp-me', async ({ page, blazorURL, wpUser, wpAppPwd }) => {
     // 1) Prime localStorage BEFORE the app loads
     await page.addInitScript(
       ({ user, pass }) => {
@@ -29,8 +12,8 @@ test.describe('Blazor Razor page /wp-me via WPDI (AppPass mode)', () => {
       { user: wpUser, pass: wpAppPwd },
     );
 
-    // 2) Navigate to the Razor page (Playwright will prefix with baseURL)
-    await page.goto('wp-me?auth=apppass');
+    // 2) Navigate to the Razor page (absolute via blazorURL fixture)
+    await page.goto(new URL('wp-me?auth=apppass', blazorURL).toString());
 
     // 3) Expect the page to show the current user
     const ok = page.getByTestId('wp-me-ok');

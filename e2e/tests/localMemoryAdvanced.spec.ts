@@ -1,8 +1,8 @@
-import { test, expect } from '@playwright/test';
+import { test, expect } from '../fixtures/test';
 
 test.describe('ILocalStore /test-memory advanced scenarios', () => {
-  test('should add two items concurrently from a single race button', async ({ page }) => {
-    await page.goto('test-memory');
+  test('should add two items concurrently from a single race button', async ({ page, blazorURL }) => {
+    await page.goto(blazorURL+'test-memory');
 
     // Trigger internal race
     await page.getByTestId('btn-add-race').click();
@@ -13,8 +13,8 @@ test.describe('ILocalStore /test-memory advanced scenarios', () => {
     await expect(page.getByTestId('draft-list')).toContainText('Quick Beta');
   });
 
-  test('status text should update consistently after Put and Delete', async ({ page }) => {
-    await page.goto('test-memory');
+  test('status text should update consistently after Put and Delete', async ({ page, blazorURL }) => {
+    await page.goto(blazorURL+'test-memory');
 
     await page.getByTestId('title-input').fill('CountMe');
     await page.getByTestId('btn-put').click();
@@ -30,8 +30,8 @@ test.describe('ILocalStore /test-memory advanced scenarios', () => {
     await expect(page.getByTestId('status')).toHaveText(/Listed 0 items/);
   });
 
-  test('a11y sanity: all buttons and status are discoverable by test id', async ({ page }) => {
-    await page.goto('test-memory');
+  test('a11y sanity: all buttons and status are discoverable by test id', async ({ page, blazorURL }) => {
+    await page.goto(blazorURL+'test-memory');
 
     await page.getByTestId('btn-list').click();
     await expect(page.getByTestId('status')).toHaveText(/Listed \d+ items/);
@@ -45,8 +45,8 @@ test.describe('ILocalStore /test-memory advanced scenarios', () => {
     await expect(page.getByTestId('btn-add-race')).toBeVisible();
   });
 
-  test('flake guard: List status should change after Add', async ({ page }) => {
-    await page.goto('test-memory');
+  test('flake guard: List status should change after Add', async ({ page, blazorURL }) => {
+    await page.goto(blazorURL+'test-memory');
 
     await page.getByTestId('btn-list').click();
     const before = await page.getByTestId('status').textContent();

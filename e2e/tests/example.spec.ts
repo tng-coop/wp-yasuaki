@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test';
+import { test, expect } from '../fixtures/test'
 
 test('has title', async ({ page }) => {
   await page.goto('/');
@@ -6,17 +6,16 @@ test('has title', async ({ page }) => {
   // Expect a title "to contain" a substring.
   await expect(page).toHaveTitle(/wptest/);
 });
-test('has title2', async ({ page }, testInfo) => {
-  console.log('Configured baseURL:', testInfo.project.use.baseURL);
+test('has title2', async ({ page, blazorURL }, testInfo ) => {
 
-  await page.goto('');
+  await page.goto(blazorURL);
 
   console.log('Navigated to:', page.url());
 
   await expect(page).toHaveTitle(/Home/);
 });
 
-test('weather', async ({ page }) => {
+test('weather', async ({ page }, testInfo) => {
   const pageErrors: Error[] = [];
   const consoleErrors: string[] = [];
 
@@ -26,8 +25,8 @@ test('weather', async ({ page }) => {
       consoleErrors.push(msg.text());
     }
   });
-
-  await page.goto('weather');
+  const { blazorURL } = testInfo.project.use as any;
+  await page.goto(`${blazorURL}weather`);
   await expect(page.getByText('This component demonstrates')).toHaveCount(1);
 
   // Assert nothing unexpected was logged
