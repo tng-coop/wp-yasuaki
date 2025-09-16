@@ -7,10 +7,14 @@ using WordPressPCL;
 using WordPressPCL.Models;
 using Xunit;
 using Editor.WordPress; // WordPressApiService, WordPressOptions
+using TestSupport;      // RunUniqueFixture
 
 [Collection("WP EndToEnd")]
 public class RobustnessTests
 {
+    private readonly RunUniqueFixture _ids;
+    public RobustnessTests(RunUniqueFixture ids) => _ids = ids;
+
     // ---------- Service wiring ----------
     private static WordPressApiService NewApi()
     {
@@ -66,7 +70,7 @@ public class RobustnessTests
             {
                 var post = new Post
                 {
-                    Title   = new Title($"Robustness LWW {System.Guid.NewGuid():N}"),
+                    Title   = new Title(_ids.Next("Robustness LWW")),
                     Status  = Status.Draft,
                     Content = new Content("<p>v0</p>")
                 };
@@ -78,7 +82,7 @@ public class RobustnessTests
             {
                 var payload = new
                 {
-                    title = $"Office LWW {System.Guid.NewGuid():N}",
+                    title = _ids.Next("Office LWW"),
                     status = "draft",
                     data = new { blurb = "v0" }
                 };
@@ -170,7 +174,7 @@ public class RobustnessTests
             {
                 var post = new Post
                 {
-                    Title   = new Title($"Trash Test {System.Guid.NewGuid():N}"),
+                    Title   = new Title(_ids.Next("Trash Test")),
                     Status  = Status.Draft,
                     Content = new Content("<p>hello</p>")
                 };
@@ -181,7 +185,7 @@ public class RobustnessTests
             {
                 var payload = new
                 {
-                    title = $"Office Trash {System.Guid.NewGuid():N}",
+                    title = _ids.Next("Office Trash"),
                     status = "draft",
                     data = new { blurb = "hello" }
                 };
