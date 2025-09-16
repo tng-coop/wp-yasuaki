@@ -13,13 +13,25 @@ internal static class StreamingTestHost
         var pass    = Environment.GetEnvironmentVariable("WP_APP_PASSWORD")!;
 
         var services = new ServiceCollection();
-        services.AddSingleton<IOptions<WordPressOptions>>(
-            Options.Create(new WordPressOptions { BaseUrl = baseUrl, UserName = user, AppPassword = pass, Timeout = TimeSpan.FromSeconds(20) })
-        );
-        services.AddSingleton<WordPressApiService>();
 
+        // Configure WordPress options from env vars
+        services.AddSingleton<IOptions<WordPressOptions>>(
+            Options.Create(new WordPressOptions
+            {
+                BaseUrl    = baseUrl,
+                UserName   = user,
+                AppPassword= pass,
+                Timeout    = TimeSpan.FromSeconds(20)
+            })
+        );
+
+        // Register the API service (implements IWordPressApiService)
+        services.AddSingleton<WordPressApiService>();
+        services.AddSingleton<IWordPressApiService>(sp => sp.GetRequiredService<WordPressApiService>());
+
+        // Cache + streaming
         services.AddSingleton<IPostCache, MemoryPostCache>();
-        services.AddWpdiStreaming(sp => sp.GetRequiredService<WordPressApiService>().HttpClient!);
+        services.AddWpdiStreaming(); // <-- simplified, no httpProvider needed
 
         var sp = services.BuildServiceProvider();
         return (sp, sp.GetRequiredService<WordPressApiService>());

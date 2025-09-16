@@ -31,6 +31,22 @@ public class StreamOptionsDiTests
         }
     }
 
+    private sealed class FakeApi : IWordPressApiService
+    {
+        public HttpClient? HttpClient { get; }
+        public WordPressPCL.WordPressClient? Client => null;
+
+        public FakeApi(HttpClient http) { HttpClient = http; }
+
+        public void SetEndpoint(string endpoint) { /* not needed */ }
+
+        public Task<WordPressPCL.WordPressClient?> GetClientAsync()
+        {
+            // Just return a dummy; tests only care about HttpClient
+            return Task.FromResult<WordPressPCL.WordPressClient?>(null);
+        }
+    }
+
     [Fact]
     public async Task PostFeed_Uses_StreamOptions_From_DI()
     {
@@ -39,7 +55,8 @@ public class StreamOptionsDiTests
 
         var handler = new CapturingHandler();
         var http = new HttpClient(handler) { BaseAddress = new Uri("https://example.test") };
-        services.AddWpdiStreaming(_ => http, configure: () => new StreamOptions(WarmFirstCount: 5, MaxBatchSize: 50));
+        services.AddSingleton<IWordPressApiService>(sp => new FakeApi(http));
+        services.AddWpdiStreaming(configure: () => new StreamOptions(WarmFirstCount: 5, MaxBatchSize: 50));
 
         var sp = services.BuildServiceProvider();
         var feed = sp.GetRequiredService<IPostFeed>();
@@ -58,7 +75,8 @@ public class StreamOptionsDiTests
 
         var handler = new CapturingHandler();
         var http = new HttpClient(handler) { BaseAddress = new Uri("https://example.test") };
-        services.AddWpdiStreaming(_ => http, configure: () => new StreamOptions(WarmFirstCount: 0, MaxBatchSize: -1));
+        services.AddSingleton<IWordPressApiService>(sp => new FakeApi(http));
+        services.AddWpdiStreaming(configure: () => new StreamOptions(WarmFirstCount: 0, MaxBatchSize: -1));
 
         var sp = services.BuildServiceProvider();
         var feed = sp.GetRequiredService<IPostFeed>();
@@ -77,7 +95,8 @@ public class StreamOptionsDiTests
 
         var handler = new CapturingHandler();
         var http = new HttpClient(handler) { BaseAddress = new Uri("https://example.test") };
-        services.AddWpdiStreaming(_ => http); // no options supplied
+        services.AddSingleton<IWordPressApiService>(sp => new FakeApi(http));
+        services.AddWpdiStreaming(); // no options supplied
 
         var sp = services.BuildServiceProvider();
         var feed = sp.GetRequiredService<IPostFeed>();

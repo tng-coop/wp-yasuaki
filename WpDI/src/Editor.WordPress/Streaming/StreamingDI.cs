@@ -6,9 +6,12 @@ namespace Editor.WordPress;
 
 public static class StreamingDI
 {
+    /// <summary>
+    /// Register streaming services backed by IWordPressApiService.
+    /// Host must also register IPostCache (e.g., MemoryPostCache).
+    /// </summary>
     public static IServiceCollection AddWpdiStreaming(
         this IServiceCollection services,
-        Func<IServiceProvider, HttpClient> httpProvider,
         Func<StreamOptions>? configure = null)
     {
         var opts = configure?.Invoke() ?? new StreamOptions();
@@ -16,15 +19,15 @@ public static class StreamingDI
 
         services.AddScoped<IContentStream>(sp =>
         {
-            var http = httpProvider(sp) ?? throw new InvalidOperationException("HttpClient is null");
+            var api   = sp.GetRequiredService<IWordPressApiService>();
             var cache = sp.GetRequiredService<IPostCache>();
-            return new ContentStream(http, cache);
+            return new ContentStream(api, cache);
         });
 
         services.AddSingleton<IPostFeed>(sp =>
         {
             var stream = sp.GetRequiredService<IContentStream>();
-            var so = sp.GetRequiredService<IOptions<StreamOptions>>();
+            var so     = sp.GetRequiredService<IOptions<StreamOptions>>();
             return new PostFeed(stream, so);
         });
 
