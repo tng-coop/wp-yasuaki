@@ -277,6 +277,29 @@ jobs:
           WAIT_SECS: 25
         run: scripts/mailhog-test.php
 
+      - name: Provide sendmail via msmtp (match local)
+        run: |
+          set -euxo pipefail
+          sudo apt-get update -y
+          sudo apt-get install -y msmtp msmtp-mta
+
+          # Configure msmtp to relay to MailHog (no TLS, local SMTP)
+          sudo tee /etc/msmtprc >/dev/null <<'EOF'
+          defaults
+          tls off
+          account default
+          host 127.0.0.1
+          port 1025
+          # optional niceties:
+          # auto_from on
+          # maildomain local.test
+          EOF
+          sudo chmod 600 /etc/msmtprc
+
+          # Sanity checks (should match your local box)
+          ls -l /usr/sbin/sendmail || true
+          php -i | grep -E '^sendmail_path|^SMTP '
+
       - name: WordPress → MailHog (WP-CLI + verify via API)
         env:
           MH_HTTP_PORT: 8025
