@@ -3,7 +3,7 @@ set -euo pipefail
 
 # Resolve paths relative to this script file
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-BLAZORWP_DIR="$(cd "${SCRIPT_DIR}/.." && pwd)"          # .../BlazorWP
+BLAZORWP_DIR="$(cd "${SCRIPT_DIR}/../BlazorWP" && pwd)"          # .../BlazorWP
 REPO_ROOT="$(cd "${BLAZORWP_DIR}/.." && pwd)"          # .../wp-yasuaki
 
 # ===== Config (override via env) =====
