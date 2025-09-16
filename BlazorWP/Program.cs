@@ -19,11 +19,11 @@ namespace BlazorWP
             // 1) This pulls in wwwroot/appsettings.json (+ env overrides)
             var builder = WebAssemblyHostBuilder.CreateDefault(args);
 
-            // 2) Register your root components
+            // 2) Root components
             builder.RootComponents.Add<App>("#app");
             builder.RootComponents.Add<HeadOutlet>("head::after");
 
-            // 3) Your services
+            // 3) Services
             builder.Services.AddScoped<AuthMessageHandler>();
             builder.Services.AddScoped(sp =>
             {
@@ -45,9 +45,8 @@ namespace BlazorWP
 
             builder.Services.AddIndexedDB(db =>
             {
-                // inside builder.Services.AddIndexedDB(db => { ... });
                 db.DbName = "BlazorWPDB";
-                db.Version = 2; // ⬅️ bump this when you add the new store
+                db.Version = 2;
 
                 db.Stores.Add(new StoreSchema
                 {
@@ -55,126 +54,122 @@ namespace BlazorWP
                     PrimaryKey = new IndexSpec { Name = "id", KeyPath = "id", Auto = false }
                 });
 
-                // NEW: generic KV store with string key `id`
                 db.Stores.Add(new StoreSchema
                 {
                     Name = "kv",
                     PrimaryKey = new IndexSpec { Name = "id", KeyPath = "id", Auto = false }
                 });
-
             });
 
             builder.Services.AddScoped<ILocalStore, IndexedDbLocalStore>();
 
-            // ADD: WPDI caching (for streaming snapshots/index)
+            // WPDI caching + services
             builder.Services.AddSingleton<IPostCache, MemoryPostCache>();
-
-            // ADD: WPDI editor (IPostEditor) — uses HttpClient from your WordPressApiService
             builder.Services.AddWordPressEditingFromHttp(sp =>
                 sp.GetRequiredService<IWordPressApiService>().HttpClient!);
 
-            // ADD: WPDI streaming (IContentStream + IPostFeed)
-            //      Keep defaults (WarmFirstCount=10, MaxBatchSize=100) or tweak here.
             builder.Services.AddWpdiStreaming(
                 sp => sp.GetRequiredService<IWordPressApiService>().HttpClient!,
                 configure: () => new StreamOptions(WarmFirstCount: 10, MaxBatchSize: 100)
             );
 
-            // 5) Build the host (this hooks up the logging provider)
+            // 5) Build the host
             var host = builder.Build();
 
-            // 6) Now that the JSON has been loaded, enumerate via ILogger
+            // 6) Configuration + flags + storage
             var config = host.Services.GetRequiredService<IConfiguration>();
             var flags = host.Services.GetRequiredService<AppFlags>();
             var storage = host.Services.GetRequiredService<LocalStorageJsInterop>();
-
-            // Set culture from query parameter before first render
             var languageService = host.Services.GetRequiredService<LanguageService>();
             var navigationManager = host.Services.GetRequiredService<NavigationManager>();
+
             var uri = new Uri(navigationManager.Uri);
             var queryParams = QueryHelpers.ParseQuery(uri.Query);
 
-            // Determine app mode
+            // ---------- App Mode ----------
             var appMode = AppMode.Full;
             if (queryParams.TryGetValue("appmode", out var modeValues))
             {
                 var val = modeValues.ToString();
                 if (val.Equals("basic", StringComparison.OrdinalIgnoreCase))
-                {
                     appMode = AppMode.Basic;
-                }
             }
             else
             {
                 var storedMode = await storage.GetItemAsync("appmode");
                 if (storedMode?.Equals("basic", StringComparison.OrdinalIgnoreCase) == true)
-                {
                     appMode = AppMode.Basic;
-                }
             }
-
             await flags.SetAppMode(appMode);
 
+            // ---------- Auth Mode ----------
             var authMode = AuthType.AppPass;
             if (queryParams.TryGetValue("auth", out var authValues))
             {
                 if (authValues.ToString().Equals("nonce", StringComparison.OrdinalIgnoreCase))
-                {
                     authMode = AuthType.Nonce;
-                }
             }
             else
             {
                 var storedAuth = await storage.GetItemAsync("auth");
                 if (storedAuth?.Equals("nonce", StringComparison.OrdinalIgnoreCase) == true)
-                {
                     authMode = AuthType.Nonce;
-                }
             }
-
             await flags.SetAuthMode(authMode);
 
+            // ---------- Language ----------
             var lang = "en";
             if (queryParams.TryGetValue("lang", out var langValues))
             {
                 if (langValues.ToString().Equals("jp", StringComparison.OrdinalIgnoreCase))
-                {
                     lang = "jp";
-                }
             }
             else
             {
                 var storedLang = await storage.GetItemAsync("lang");
                 if (storedLang?.Equals("jp", StringComparison.OrdinalIgnoreCase) == true)
-                {
                     lang = "jp";
-                }
             }
-
             var culture = lang == "jp" ? "ja-JP" : "en-US";
             languageService.SetCulture(culture);
             await flags.SetLanguage(lang == "jp" ? Language.Japanese : Language.English);
 
-            var wpurl = config["WordPress:Url"] ?? string.Empty;
+            // ---------- WordPress URL ----------
+            // 0) HARD GATE: config must specify WordPress:Url (even if query/localStorage supply a value)
+            var configWp = (config["WordPress:Url"] ?? string.Empty).Trim();
+            if (string.IsNullOrEmpty(configWp))
+            {
+                throw new InvalidOperationException(
+                    "❌ WordPress:Url is not configured in appsettings/environment. " +
+                    "This build must not run without a configured WordPress endpoint.");
+            }
+
+            // Effective runtime wpurl still respects precedence: Query → LocalStorage → Config
+            var wpurl = configWp;
+
             if (queryParams.TryGetValue("wpurl", out var wpurlValues))
             {
-                var val = wpurlValues.ToString();
+                var val = (wpurlValues.ToString() ?? "").Trim();
                 if (!string.IsNullOrEmpty(val))
-                {
                     wpurl = val;
-                }
             }
             else
             {
-                var storedWp = await storage.GetItemAsync("wpEndpoint");
+                var storedWp = (await storage.GetItemAsync("wpEndpoint"))?.Trim();
                 if (!string.IsNullOrEmpty(storedWp))
-                {
-                    wpurl = storedWp;
-                }
+                    wpurl = storedWp!;
+            }
+
+            // Basic sanity (absolute http/https)
+            if (!Uri.TryCreate(wpurl, UriKind.Absolute, out var wpUri) ||
+                (wpUri.Scheme != Uri.UriSchemeHttp && wpUri.Scheme != Uri.UriSchemeHttps))
+            {
+                throw new InvalidOperationException($"❌ Invalid WordPress:Url '{wpurl}'. Must be an absolute http(s) URL.");
             }
 
             await flags.SetWpUrl(wpurl);
 
+            // ---------- Normalize URL query (write current flags + wpurl) ----------
             var needsNormalization =
                 !queryParams.TryGetValue("lang", out var existingLang) ||
                 !existingLang.ToString().Equals(lang, StringComparison.OrdinalIgnoreCase) ||
@@ -221,7 +216,7 @@ namespace BlazorWP
                 navigationManager.NavigateTo(normalizedUri, replace: true);
             }
 
-            // 7) And finally run
+            // 7) Run app
             await host.RunAsync();
         }
     }

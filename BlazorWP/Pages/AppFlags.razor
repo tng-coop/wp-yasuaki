@@ -1,11 +1,11 @@
 @page "/appflags"
-@using BlazorWP.Data
+@using Editor.WordPress
 @using Microsoft.AspNetCore.WebUtilities
 @inject BlazorWP.Data.AppFlags Flags
 @inject NavigationManager Navigation
 @inject IWordPressApiService Api
 @inject AppPasswordService AppPassService
-@inject IWordPressApiService Api
+@implements IDisposable
 
 <PageTitle>App Flags</PageTitle>
 
@@ -34,13 +34,9 @@
                     {
                         var active = Flags.Mode == mode;
                         var url = BuildUrl("appmode", mode == AppMode.Basic ? "basic" : "full");
-                        <button type="button"
-                                class="btn btn-sm me-1 @(active ? "btn-primary" : "btn-outline-secondary")"
-                                role="button"
-                                aria-pressed="@active"
-                                data-testid="@($"appmode-{mode.ToString().ToLower()}")"
-                                title="@($"Set App Mode to {mode}")"
-                                @onclick="() => SetAppMode(mode, url)">
+                        <button type="button" class="btn btn-sm me-1 @(active ? "btn-primary" : "btn-outline-secondary")"
+                            role="button" aria-pressed="@active" data-testid="@($"appmode-{mode.ToString().ToLower()}")"
+                            title="@($"Set App Mode to {mode}")" @onclick="() => SetAppMode(mode, url)">
                             @mode
                         </button>
                     }
@@ -53,13 +49,9 @@
                     {
                         var active = Flags.Auth == type;
                         var url = BuildUrl("auth", type == AuthType.Nonce ? "nonce" : "apppass");
-                        <button type="button"
-                                class="btn btn-sm me-1 @(active ? "btn-primary" : "btn-outline-secondary")"
-                                role="button"
-                                aria-pressed="@active"
-                                data-testid="@($"auth-{type.ToString().ToLower()}")"
-                                title="@($"Set Auth to {type}")"
-                                @onclick="() => SetAuth(type, url)">
+                        <button type="button" class="btn btn-sm me-1 @(active ? "btn-primary" : "btn-outline-secondary")"
+                            role="button" aria-pressed="@active" data-testid="@($"auth-{type.ToString().ToLower()}")"
+                            title="@($"Set Auth to {type}")" @onclick="() => SetAuth(type, url)">
                             @type
                         </button>
                     }
@@ -72,13 +64,9 @@
                     {
                         var active = Flags.Language == lang;
                         var url = BuildUrl("lang", lang == Language.Japanese ? "jp" : "en");
-                        <button type="button"
-                                class="btn btn-sm me-1 @(active ? "btn-primary" : "btn-outline-secondary")"
-                                role="button"
-                                aria-pressed="@active"
-                                data-testid="@($"lang-{lang.ToString().ToLower()}")"
-                                title="@($"Set Language to {lang}")"
-                                @onclick="() => SetLanguage(lang, url)">
+                        <button type="button" class="btn btn-sm me-1 @(active ? "btn-primary" : "btn-outline-secondary")"
+                            role="button" aria-pressed="@active" data-testid="@($"lang-{lang.ToString().ToLower()}")"
+                            title="@($"Set Language to {lang}")" @onclick="() => SetLanguage(lang, url)">
                             @lang
                         </button>
                     }
@@ -91,12 +79,8 @@
                 <td>
                     <form @onsubmit="OnWpUrlSubmit" data-testid="wpurl-form">
                         <div class="input-group">
-                            <input id="wpurl-input"
-                                   class="form-control"
-                                   placeholder="https://example.com"
-                                   @bind="wpUrl"
-                                   @bind:event="oninput"
-                                   data-testid="wpurl-input" />
+                            <input id="wpurl-input" class="form-control" placeholder="https://example.com" @bind="wpUrl"
+                                @bind:event="oninput" data-testid="wpurl-input" />
                             <button type="submit" class="btn btn-primary" data-testid="wpurl-save">Save</button>
                         </div>
                         <div class="form-text">
@@ -108,6 +92,7 @@
         </tbody>
     </table>
 
+    <!-- Quick Check -->
     <div class="card mt-4" data-testid="wpdi-card">
         <div class="card-body">
             <h5 class="card-title mb-3">WPDI Quick Check</h5>
@@ -135,59 +120,69 @@
                     <div class="text-muted small" data-testid="wpdi-last">last: @_lastChecked</div>
                 }
             </div>
-            <button class="btn btn-outline-primary btn-sm" data-testid="wpdi-run" disabled="@_checking" @onclick="RunQuickCheck">@(_checking ? "Checking…" : "Run check")</button>
+            <button class="btn btn-outline-primary btn-sm" data-testid="wpdi-run" disabled="@_checking"
+                @onclick="RunQuickCheck">
+                @(_checking ? "Checking…" : "Run check")
+            </button>
         </div>
     </div>
 </section>
 
+<!-- Auth Scenarios Lab -->
+<div class="card mt-4" data-testid="authlab-card">
+    <div class="card-body">
+        <h5 class="card-title mb-3">Auth Scenarios Lab</h5>
 
-    <!-- Auth Scenarios Lab: prepare tricky cases for E2E (nonce/app-pass readiness) -->
-    <div class="card mt-4" data-testid="authlab-card">
-        <div class="card-body">
-            <h5 class="card-title mb-3">Auth Scenarios Lab</h5>
+        <div class="mb-2 text-muted small">
+            Use these controls to simulate / prepare tricky states for tests: missing/invalid App Password,
+            or cookie/nonce not ready (use the WP login link + your test fixtures to control cookies).
+        </div>
 
-            <div class="mb-2 text-muted small">
-                Use these controls to simulate / prepare tricky states for tests: missing/invalid App Password,
-                or cookie/nonce not ready (use the WP login link + your test fixtures to control cookies).
+        <div class="row g-2 align-items-end mb-2">
+            <div class="col-sm-4">
+                <label for="authlab-user" class="form-label">AppPass Username</label>
+                <input id="authlab-user" class="form-control" @bind="_appUser" data-testid="authlab-user" />
             </div>
-
-            <div class="row g-2 align-items-end mb-2">
-                <div class="col-sm-4">
-                    <label for="authlab-user" class="form-label">AppPass Username</label>
-                    <input id="authlab-user" class="form-control" @bind="_appUser" data-testid="authlab-user" />
-                </div>
-                <div class="col-sm-4">
-                    <label for="authlab-pass" class="form-label">AppPass Password</label>
-                    <input id="authlab-pass" type="password" class="form-control" @bind="_appPass" data-testid="authlab-pass" />
-                </div>
-                <div class="col-sm-4 d-flex gap-2">
-                    <button class="btn btn-primary" data-testid="authlab-save-valid" @onclick="SaveValidAppPass" disabled="@(_saving)">Save AppPass</button>
-                    <button class="btn btn-outline-danger" data-testid="authlab-save-invalid" @onclick="SaveInvalidAppPass" disabled="@(_saving)">Save Invalid</button>
-                    <button class="btn btn-outline-secondary" data-testid="authlab-clear" @onclick="ClearAppPass" disabled="@(_saving)">Clear</button>
-                </div>
+            <div class="col-sm-4">
+                <label for="authlab-pass" class="form-label">AppPass Password</label>
+                <input id="authlab-pass" type="password" class="form-control" @bind="_appPass"
+                    data-testid="authlab-pass" />
             </div>
-
-            <div class="d-flex flex-wrap gap-2 mb-2">
-                <button class="btn btn-outline-primary btn-sm" data-testid="authlab-open-login" @onclick="OpenWpLogin">Open WP Login</button>
-                <button class="btn btn-outline-secondary btn-sm" data-testid="authlab-open-admin" @onclick="OpenWpAdmin">Open WP Admin</button>
-                <button class="btn btn-outline-dark btn-sm" data-testid="authlab-rebuild" @onclick="ForceRebuildClient">Force Rebuild Client</button>
-            </div>
-
-            <div class="small">
-                <div>Creds present: <strong data-testid="authlab-creds-present">@(_credsPresent ? "yes" : "no")</strong>
-                    @if (_credsPresent)
-                    {
-                        <span class="ms-2 text-muted" data-testid="authlab-creds-mask">(@_credsMask)</span>
-                    }
-                </div>
-                <div class="text-muted">Tip: For <em>nonce not ready</em> cases, clear cookies via your test fixture and reload this page, then run the WPDI Quick Check above in <strong>Nonce</strong> mode.</div>
-                @if (!string.IsNullOrEmpty(_authlabStatus))
-                {
-                    <div class="mt-2" data-testid="authlab-status">@_authlabStatus</div>
-                }
+            <div class="col-sm-4 d-flex gap-2">
+                <button class="btn btn-primary" data-testid="authlab-save-valid" @onclick="SaveValidAppPass"
+                    disabled="@(_saving)">Save AppPass</button>
+                <button class="btn btn-outline-danger" data-testid="authlab-save-invalid" @onclick="SaveInvalidAppPass"
+                    disabled="@(_saving)">Save Invalid</button>
+                <button class="btn btn-outline-secondary" data-testid="authlab-clear" @onclick="ClearAppPass"
+                    disabled="@(_saving)">Clear</button>
             </div>
         </div>
+
+        <div class="d-flex flex-wrap gap-2 mb-2">
+            <button class="btn btn-outline-primary btn-sm" data-testid="authlab-open-login" @onclick="OpenWpLogin">Open
+                WP Login</button>
+            <button class="btn btn-outline-secondary btn-sm" data-testid="authlab-open-admin"
+                @onclick="OpenWpAdmin">Open WP Admin</button>
+            <button class="btn btn-outline-dark btn-sm" data-testid="authlab-rebuild"
+                @onclick="ForceRebuildClient">Force Rebuild Client</button>
+        </div>
+
+        <div class="small">
+            <div>Creds present: <strong data-testid="authlab-creds-present">@(_credsPresent ? "yes" : "no")</strong>
+                @if (_credsPresent)
+                {
+                    <span class="ms-2 text-muted" data-testid="authlab-creds-mask">(@_credsMask)</span>
+                }
+            </div>
+            <div class="text-muted">Tip: For <em>nonce not ready</em> cases, clear cookies via your test fixture and
+                reload this page, then run the WPDI Quick Check above in <strong>Nonce</strong> mode.</div>
+            @if (!string.IsNullOrEmpty(_authlabStatus))
+            {
+                <div class="mt-2" data-testid="authlab-status">@_authlabStatus</div>
+            }
+        </div>
     </div>
+</div>
 
 @code {
     private string wpUrl = string.Empty;
@@ -212,8 +207,8 @@
     {
         wpUrl = Flags.WpUrl;
         Flags.OnChange += OnFlagsChanged;
-        // Kick an initial check on first render cycle
-        _ = InvokeAsync(async () => {
+        _ = InvokeAsync(async () =>
+        {
             await LoadCredsPreview();
             await RunQuickCheck();
         });
@@ -227,7 +222,8 @@
         {
             var (u, p) = (creds.Value.Username ?? "", creds.Value.AppPassword ?? "");
             _appUser = string.IsNullOrEmpty(_appUser) ? u : _appUser;
-            _credsMask = string.IsNullOrEmpty(p) ? "(empty)" : (p.Length <= 4 ? new string('*', p.Length) : new string('*', p.Length - 4) + p[^4..]);
+            _credsMask = string.IsNullOrEmpty(p) ? "(empty)" : (p.Length <= 4 ? new string('*', p.Length) : new string('*', p.Length
+            - 4) + p[^4..]);
         }
         else
         {
@@ -238,9 +234,7 @@
 
     private void OnFlagsChanged()
     {
-        _ = InvokeAsync(async () => {
-            await RunQuickCheck();
-        });
+        _ = InvokeAsync(async () => { await RunQuickCheck(); });
         StateHasChanged();
     }
 
@@ -277,7 +271,7 @@
         Navigation.NavigateTo(url, forceLoad: true);
     }
 
-    // Apply WP URL only when user commits (Enter/Save). No per-keystroke navigation.
+    // Apply WP URL only on Save/Enter.
     private async Task OnWpUrlSubmit()
     {
         var url = BuildUrl("wpurl", wpUrl);
@@ -289,9 +283,7 @@
     {
         _checking = true;
         _checkStatus = "Checking";
-        _error = null;
-        _userName = null;
-        _httpCode = null;
+        _error = null; _userName = null; _httpCode = null;
         StateHasChanged();
 
         try
@@ -299,24 +291,24 @@
             var client = Api.HttpClient;
             if (client is null)
             {
-                _checkStatus = "NotConfigured";
-                return;
+                await Api.GetClientAsync(); // will SetEndpoint internally using Flags.WpUrl
+                client = Api.HttpClient;
             }
 
-            using var resp = await client.GetAsync("wp-json/wp/v2/users/me");
+            if (client is null) { _checkStatus = "NotConfigured"; return; }
+
+            using var resp = await client.GetAsync("wp/v2/users/me");
             _httpCode = (int)resp.StatusCode;
 
             if (resp.IsSuccessStatusCode)
             {
                 _checkStatus = "OK";
-                using var stream = await resp.Content.ReadAsStreamAsync();
-                using var doc = await System.Text.Json.JsonDocument.ParseAsync(stream);
+                using var s = await resp.Content.ReadAsStreamAsync();
+                using var doc = await System.Text.Json.JsonDocument.ParseAsync(s);
                 if (doc.RootElement.TryGetProperty("name", out var nameEl))
-                {
                     _userName = nameEl.GetString();
-                }
             }
-            else if ((int)resp.StatusCode == 401 || (int)resp.StatusCode == 403)
+            else if (_httpCode is 401 or 403)
             {
                 _checkStatus = "Unauthorized";
             }
@@ -400,17 +392,12 @@
         if (!string.IsNullOrEmpty(target)) Navigation.NavigateTo(target, forceLoad: true);
     }
 
-    private void ForceRebuildClient()
+    private async Task ForceRebuildClient()
     {
-        if (!string.IsNullOrWhiteSpace(Flags.WpUrl))
-        {
-            Api.SetEndpoint(Flags.WpUrl);
-            _ = RunQuickCheck();
-        }
+        await Api.GetClientAsync(); // trigger lazy init without UI setting endpoint
+        await RunQuickCheck();
     }
 
-    public void Dispose()
-    {
-        Flags.OnChange -= OnFlagsChanged;
-    }
+
+    public void Dispose() => Flags.OnChange -= OnFlagsChanged;
 }
