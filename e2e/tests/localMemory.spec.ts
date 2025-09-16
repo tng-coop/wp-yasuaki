@@ -3,7 +3,6 @@ import { test, expect } from '../fixtures/test';
 test.describe('ILocalStore /test-memory page', () => {
   test('should add multiple items and list them', async ({ page, blazorURL }, testInfo) => {
 
-  console.log('Configured baseURL:', testInfo.project.use.baseURL);
     await page.goto(blazorURL+'test-memory');
 
     // Start clean
