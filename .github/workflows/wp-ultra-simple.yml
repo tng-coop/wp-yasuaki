@@ -282,23 +282,20 @@ jobs:
           set -euxo pipefail
           sudo apt-get update -y
           sudo apt-get install -y msmtp msmtp-mta
-
           sudo tee /etc/msmtprc >/dev/null <<'EOF'
           defaults
           tls off
           account default
           host 127.0.0.1
           port 1025
+          from wp-test@local.test       # <-- ensure envelope-from exists
+          # OR use these instead of 'from':
+          # auto_from on
+          # maildomain local.test
           EOF
-
-          # Make it readable by the runner user
           sudo chown root:root /etc/msmtprc
           sudo chmod 644 /etc/msmtprc
 
-          # sanity checks
-          ls -l /usr/sbin/sendmail || true
-          ls -l /etc/msmtprc || true
-          php -i | grep sendmail_path
 
       - name: WordPress → MailHog (WP-CLI + verify via API)
         env:
