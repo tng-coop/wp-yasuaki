@@ -1,5 +1,4 @@
-using System;
-using System.Net.Http;
+// WpDI/src/Editor.WordPress/WordPressEditingDI.cs
 using Editor.Abstractions;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -7,19 +6,18 @@ namespace Editor.WordPress
 {
     public static class WordPressEditingDI
     {
-        // WPDI does not configure HttpClient—host provides it (Basic or Nonce).
-        public static IServiceCollection AddWordPressEditingFromHttp(
-            this IServiceCollection services,
-            Func<IServiceProvider, HttpClient> httpProvider)
+        /// <summary>
+        /// Register IPostEditor backed by WordPressEditor, which uses IWordPressApiService.
+        /// Host must register IWordPressApiService separately.
+        /// </summary>
+        public static IServiceCollection AddWordPressEditing(this IServiceCollection services)
         {
             if (services == null) throw new ArgumentNullException(nameof(services));
-            if (httpProvider == null) throw new ArgumentNullException(nameof(httpProvider));
 
             services.AddScoped<IPostEditor>(sp =>
             {
-                var http = httpProvider(sp)
-                           ?? throw new InvalidOperationException("HttpClient provider returned null.");
-                return new WordPressEditor(http);
+                var api = sp.GetRequiredService<IWordPressApiService>();
+                return new WordPressEditor(api);
             });
 
             return services;

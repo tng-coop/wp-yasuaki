@@ -66,8 +66,8 @@ namespace BlazorWP
 
             // WPDI caching + services
             builder.Services.AddSingleton<IPostCache, MemoryPostCache>();
-            builder.Services.AddWordPressEditingFromHttp(sp =>
-                sp.GetRequiredService<IWordPressApiService>().HttpClient!);
+
+            builder.Services.AddWordPressEditing();
 
             // CHANGED: no HttpClient factory parameter; ContentStream will resolve IWordPressApiService.
             builder.Services.AddWpdiStreaming(

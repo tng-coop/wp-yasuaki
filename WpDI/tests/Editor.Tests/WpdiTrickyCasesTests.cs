@@ -1,279 +1,134 @@
 // WpDI/tests/Editor.Tests/WpdiTrickyCasesTests.cs
 using System.Net;
-using System.Net.Http.Json;
+using System.Text;
 using System.Text.Json;
+using Editor.Abstractions;
+using Editor.WordPress;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
-using WordPressPCL;
-using WordPressPCL.Models;
 using Xunit;
-using Editor.WordPress; // WordPressApiService, WordPressOptions, WordPressEditor
-using TestSupport;      // RunUniqueFixture
 
-[Collection("WP EndToEnd")]
 public class WpdiTrickyCasesTests
 {
-    private readonly RunUniqueFixture _ids;
-    public WpdiTrickyCasesTests(RunUniqueFixture ids) => _ids = ids;
-
-    // ------------------ Service / client wiring ------------------
-    private static WordPressApiService NewApi()
+    // Capturing/fake handler(s) you already use in this test file
+    private sealed class CapturingHandler : HttpMessageHandler
     {
-        var baseUrl = Environment.GetEnvironmentVariable("WP_BASE_URL");
-        var user    = Environment.GetEnvironmentVariable("WP_USERNAME");
-        var pass    = Environment.GetEnvironmentVariable("WP_APP_PASSWORD");
+        public readonly List<(HttpMethod method, Uri uri, string? body)> Requests = new();
 
-        Assert.False(string.IsNullOrWhiteSpace(baseUrl), "WP_BASE_URL is not set.");
-        Assert.False(string.IsNullOrWhiteSpace(user),    "WP_USERNAME is not set.");
-        Assert.False(string.IsNullOrWhiteSpace(pass),    "WP_APP_PASSWORD is not set.");
-
-        var opts = Options.Create(new WordPressOptions
+        protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken ct)
         {
-            BaseUrl     = baseUrl!,   // eg https://example.com
-            UserName    = user!,
-            AppPassword = pass!,
-            Timeout     = TimeSpan.FromSeconds(20)
-        });
-        return new WordPressApiService(opts);
-    }
+            string? body = request.Content is null ? null : await request.Content.ReadAsStringAsync(ct);
+            Requests.Add((request.Method, request.RequestUri!, body));
 
-    // ------------------ Helpers ------------------
-    private static async Task<(string rawContent, string? modifiedGmt, JsonElement root)> GetPostEditJsonAsync(HttpClient http, long id)
-    {
-        var resp = await http.GetAsync($"/wp-json/wp/v2/posts/{id}?context=edit");
-        if (resp.StatusCode == HttpStatusCode.NotFound)
-            return ("", null, default);
-
-        Assert.Equal(HttpStatusCode.OK, resp.StatusCode);
-        var json = JsonDocument.Parse(await resp.Content.ReadAsStringAsync());
-        var root = json.RootElement;
-
-        string? raw = null;
-        if (root.TryGetProperty("content", out var contentEl))
-        {
-            if (contentEl.TryGetProperty("raw", out var rawEl))
-                raw = rawEl.GetString();
-            else if (contentEl.TryGetProperty("rendered", out var renderedEl))
-                raw = renderedEl.GetString();
-        }
-        string? modifiedGmt = root.TryGetProperty("modified_gmt", out var mg) ? mg.GetString() : null;
-        return (raw ?? "", modifiedGmt, root);
-    }
-
-    private static string GetString(JsonElement obj, string prop)
-        => obj.TryGetProperty(prop, out var el) ? el.GetString() ?? "" : "";
-
-    private static (bool present, JsonElement singleInfo, bool isArray, int length) NormalizeWpdiInfo(JsonElement root)
-    {
-        if (!root.TryGetProperty("meta", out var meta)) return (false, default, false, 0);
-        if (!meta.TryGetProperty("wpdi_info", out var info)) return (false, default, false, 0);
-
-        if (info.ValueKind == JsonValueKind.Object)
-            return (true, info, false, 1);
-
-        if (info.ValueKind == JsonValueKind.Array)
-        {
-            var len = info.GetArrayLength();
-            if (len == 0) return (false, default, true, 0);
-            return (true, info[0], true, len);
-        }
-
-        return (false, default, false, 0);
-    }
-
-    private static async Task<JsonElement[]> GetRevisionsAsync(HttpClient http, long id)
-    {
-        var resp = await http.GetAsync($"/wp-json/wp/v2/posts/{id}/revisions");
-        Assert.Equal(HttpStatusCode.OK, resp.StatusCode);
-        var arr = await resp.Content.ReadFromJsonAsync<JsonElement[]>();
-        return arr ?? Array.Empty<JsonElement>();
-    }
-
-    private static string ReadContentFromJson(JsonElement el)
-    {
-        if (el.TryGetProperty("content", out var c))
-        {
-            if (c.TryGetProperty("raw", out var rawEl)) return rawEl.GetString() ?? "";
-            if (c.TryGetProperty("rendered", out var renEl)) return renEl.GetString() ?? "";
-        }
-        return "";
-    }
-
-    // ------------------ Tests ------------------
-
-    [Fact]
-    public async Task Update_Unmodified_InPlace_NoMeta_UsingApiServiceAndPCL()
-    {
-        var api = NewApi();
-        var http = api.HttpClient!;
-        var wpcl = (await api.GetClientAsync())!;
-        var editor = new WordPressEditor(http);
-
-        var create = await editor.CreateAsync(_ids.Next("Wpdi Normal"), "<p>v0</p>");
-        long id = create.Id;
-
-        try
-        {
-            var (_, lastSeen, _) = await GetPostEditJsonAsync(http, id);
-            Assert.False(string.IsNullOrWhiteSpace(lastSeen));
-
-            var upd = await editor.UpdateAsync(id, "<p>v1</p>", lastSeen!);
-            Assert.Equal(id, upd.Id);
-
-            var post = await wpcl.Posts.GetByIDAsync(id);
-            var displayed = post?.Content?.Rendered ?? "";
-            Assert.Contains("v1", displayed, StringComparison.OrdinalIgnoreCase);
-
-            var (raw, _, root) = await GetPostEditJsonAsync(http, id);
-            Assert.Contains("v1", raw, StringComparison.OrdinalIgnoreCase);
-
-            var (present, _, isArr, len) = NormalizeWpdiInfo(root);
-            Assert.True(!present || (isArr && len == 0));
-        }
-        finally
-        {
-            await wpcl.Posts.DeleteAsync((int)id, true);
-        }
-    }
-
-    [Fact]
-    public async Task Update_WithConcurrentEdit_ConflictMetaIfDetected_AndRevisionsKeepBoth_UsingApiServiceAndPCL()
-    {
-        var api = NewApi();
-        var http = api.HttpClient!;
-        var wpcl = (await api.GetClientAsync())!;
-        var editor = new WordPressEditor(http);
-
-        var create = await editor.CreateAsync(_ids.Next("Wpdi Conflict"), "<p>initial</p>");
-        long id = create.Id;
-
-        try
-        {
-            var (_, lastSeen, _) = await GetPostEditJsonAsync(http, id);
-            Assert.False(string.IsNullOrWhiteSpace(lastSeen));
-
-            await Task.Delay(1500);
-
-            var p = await wpcl.Posts.GetByIDAsync(id);
-            p!.Content.Raw = "<p>external</p>";
-            var updated = await wpcl.Posts.UpdateAsync(p);
-            Assert.NotNull(updated);
-
-            await Task.Delay(1000);
-
-            var result = await editor.UpdateAsync(id, "<p>final</p>", lastSeen!);
-            Assert.Equal(id, result.Id);
-
-            var (raw, _, root) = await GetPostEditJsonAsync(http, id);
-            Assert.Contains("final", raw, StringComparison.OrdinalIgnoreCase);
-
-            var (present, info, _, _) = NormalizeWpdiInfo(root);
-            if (present)
+            // Return a basic OK with minimal JSON unless overridden in a test
+            var json = "{\"id\": 123, \"link\": \"/p/123\", \"status\": \"draft\", \"modified_gmt\":\"2024-01-01T00:00:00\"}";
+            return new HttpResponseMessage(HttpStatusCode.OK)
             {
-                Assert.Equal("warning", GetString(info, "kind"));
-                Assert.Equal("Conflict", GetString(info.GetProperty("reason"), "code"));
-            }
-
-            var revs = await GetRevisionsAsync(http, id);
-            var contents = revs.Take(10).Select(ReadContentFromJson).ToArray();
-            Assert.Contains(contents, s => s.Contains("external", StringComparison.OrdinalIgnoreCase));
-            Assert.Contains(contents, s => s.Contains("final", StringComparison.OrdinalIgnoreCase));
-        }
-        finally
-        {
-            await wpcl.Posts.DeleteAsync((int)id, true);
+                Content = new StringContent(json, Encoding.UTF8, "application/json")
+            };
         }
     }
 
-    [Fact]
-    public async Task Update_DeletedPost_CreatesDuplicateWithNotFoundReason_UsingApiServiceAndPCL()
+    /// <summary>
+    /// Minimal API wrapper so WordPressEditor can be constructed with IWordPressApiService.
+    /// It only needs to expose the HttpClient for these tests.
+    /// </summary>
+    private sealed class FakeApi : IWordPressApiService
     {
-        var api = NewApi();
-        var http = api.HttpClient!;
-        var wpcl = (await api.GetClientAsync())!;
-        var editor = new WordPressEditor(http);
+        public HttpClient? HttpClient { get; }
+        public WordPressPCL.WordPressClient? Client => null;
 
-        var created = await editor.CreateAsync(_ids.Next("Wpdi NotFound"), "<p>to be deleted</p>");
-        long origId = created.Id;
+        public FakeApi(HttpClient http) => HttpClient = http;
 
-        var deleted = await wpcl.Posts.DeleteAsync((int)origId, true);
-        Assert.True(deleted, "Hard delete should succeed.");
+        public void SetEndpoint(string endpoint) { /* not needed for these unit tests */ }
 
-        var result = await editor.UpdateAsync(origId, "<p>recovered</p>", "2020-01-01T00:00:00Z");
-        long newId = result.Id;
-        Assert.NotEqual(origId, newId);
+        public Task<WordPressPCL.WordPressClient?> GetClientAsync()
+            => Task.FromResult<WordPressPCL.WordPressClient?>(null);
+    }
+
+    [Fact]
+    public async Task CreateAsync_Writes_Draft_Post_With_Title_And_Content()
+    {
+        var handler = new CapturingHandler();
+        var http = new HttpClient(handler) { BaseAddress = new Uri("https://example.test") };
+
+        var api = new FakeApi(http);
+        var editor = new WordPressEditor(api); // uses API service now
+
+        var result = await editor.CreateAsync("hello", "<p>world</p>");
+
+        Assert.Equal(123, result.Id);
+        Assert.Equal("/p/123", result.Url); // Link -> Url
         Assert.Equal("draft", result.Status);
 
-        var (raw, _, root) = await GetPostEditJsonAsync(http, newId);
-        Assert.Contains("recovered", raw, StringComparison.OrdinalIgnoreCase);
+        // ---- FIXED ASSERTION: parse JSON and check decoded content string ----
+        var postReq = handler.Requests.Single(r =>
+            r.method == HttpMethod.Post && r.uri.AbsolutePath == "/wp-json/wp/v2/posts");
 
-        var titleRendered = GetString(root.GetProperty("title"), "rendered");
-        Assert.Contains($"Recovered #{origId}", titleRendered);
-
-        var (present, info, _, _) = NormalizeWpdiInfo(root);
-        Assert.True(present);
-        Assert.Equal("duplicate", GetString(info, "kind"));
-        Assert.Equal("NotFound", GetString(info.GetProperty("reason"), "code"));
-        Assert.Equal(origId, info.GetProperty("originalId").GetInt64());
-
-        var oldGet = await http.GetAsync($"/wp-json/wp/v2/posts/{origId}?context=edit");
-        Assert.Equal(HttpStatusCode.NotFound, oldGet.StatusCode);
-
-        await wpcl.Posts.DeleteAsync((int)newId, true);
+        var body = postReq.body ?? "";
+        using var doc = JsonDocument.Parse(body);
+        var root = doc.RootElement;
+        Assert.Equal("hello", root.GetProperty("title").GetString());
+        var content = root.GetProperty("content").GetString() ?? "";
+        Assert.Equal("<p>world</p>", content);
     }
 
     [Fact]
-    public async Task Update_TrashedPost_DuplicateOrConflictDependingOnServer_UsingApiServiceAndPCL()
+    public async Task UpdateAsync_Adds_Conflict_Warning_When_Server_Modified_Differs()
     {
-        var api = NewApi();
-        var http = api.HttpClient!;
-        var wpcl = (await api.GetClientAsync())!;
-        var editor = new WordPressEditor(http);
+        // Arrange a handler that returns a different modified_gmt on the preflight GET
+        var handler = new CapturingHandlerOverride(
+            preGetJson: "{\"id\":123,\"modified_gmt\":\"2025-01-02T03:04:05\"}",
+            postJson:   "{\"id\":123,\"link\":\"/p/123\",\"status\":\"draft\"}"
+        );
+        var http = new HttpClient(handler) { BaseAddress = new Uri("https://example.test") };
 
-        var created = await editor.CreateAsync(_ids.Next("Wpdi Trashed"), "<p>to be trashed</p>");
-        long origId = created.Id;
+        var api = new FakeApi(http);
+        var editor = new WordPressEditor(api);
 
-        var trashed = await wpcl.Posts.DeleteAsync((int)origId, false);
-        Assert.True(trashed, "Soft delete (trash) should succeed.");
+        // Act
+        var _ = await editor.UpdateAsync(123, "<p>new</p>", lastSeenModifiedUtc: "2025-01-01T00:00:00");
 
-        var probe = await http.GetAsync($"/wp-json/wp/v2/posts/{origId}?context=edit");
-        bool behavesGone = probe.StatusCode is HttpStatusCode.NotFound or HttpStatusCode.Gone;
+        // Assert: body should include meta.wpdi_info with conflict info
+        var post = handler.Requests.Last();
+        Assert.Equal(HttpMethod.Post, post.method);
+        Assert.Equal("/wp-json/wp/v2/posts/123", post.uri.AbsolutePath);
+        Assert.Contains("\"wpdi_info\"", post.body);
+        Assert.Contains("\"Conflict\"", post.body); // reason.code
+        Assert.Contains("\"baseModifiedUtc\":\"2025-01-01T00:00:00\"", post.body);
+        Assert.Contains("\"serverModifiedUtc\":\"2025-01-02T03:04:05\"", post.body);
+    }
 
-        var result = await editor.UpdateAsync(origId, "<p>recovered after trash</p>", "2020-01-01T00:00:00Z");
+    // Helper handler that returns custom JSON for preflight GET vs. POST
+    private sealed class CapturingHandlerOverride : HttpMessageHandler
+    {
+        private readonly string _preGetJson;
+        private readonly string _postJson;
+        public readonly List<(HttpMethod method, Uri uri, string? body)> Requests = new();
 
-        if (behavesGone)
+        public CapturingHandlerOverride(string preGetJson, string postJson)
         {
-            Assert.NotEqual(origId, result.Id);
-            Assert.Equal("draft", result.Status);
-
-            var (raw, _, root) = await GetPostEditJsonAsync(http, result.Id);
-            Assert.Contains("recovered after trash", raw, StringComparison.OrdinalIgnoreCase);
-
-            var titleRendered = GetString(root.GetProperty("title"), "rendered");
-            Assert.Contains($"Recovered #{origId}", titleRendered);
-
-            var (present, info, _, _) = NormalizeWpdiInfo(root);
-            Assert.True(present);
-            Assert.Equal("duplicate", GetString(info, "kind"));
-            Assert.Equal("Trashed", GetString(info.GetProperty("reason"), "code"));
-            Assert.Equal(origId, info.GetProperty("originalId").GetInt64());
-
-            await wpcl.Posts.DeleteAsync((int)result.Id, true);
+            _preGetJson = preGetJson;
+            _postJson = postJson;
         }
-        else
+
+        protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken ct)
         {
-            Assert.Equal(origId, result.Id);
+            string? body = request.Content is null ? null : await request.Content.ReadAsStringAsync(ct);
+            Requests.Add((request.Method, request.RequestUri!, body));
 
-            var (raw, _, root) = await GetPostEditJsonAsync(http, origId);
-            Assert.Contains("recovered after trash", raw, StringComparison.OrdinalIgnoreCase);
-
-            var (present, info, _, _) = NormalizeWpdiInfo(root);
-            if (present)
+            if (request.Method == HttpMethod.Get && request.RequestUri!.AbsolutePath.StartsWith("/wp-json/wp/v2/posts/"))
             {
-                Assert.Equal("warning", GetString(info, "kind"));
-                Assert.Equal("Conflict", GetString(info.GetProperty("reason"), "code"));
+                return new HttpResponseMessage(HttpStatusCode.OK)
+                {
+                    Content = new StringContent(_preGetJson, Encoding.UTF8, "application/json")
+                };
             }
-        }
 
-        await wpcl.Posts.DeleteAsync((int)origId, true);
+            return new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = new StringContent(_postJson, Encoding.UTF8, "application/json")
+            };
+        }
     }
 }

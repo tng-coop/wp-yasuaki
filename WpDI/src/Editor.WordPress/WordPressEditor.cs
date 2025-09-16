@@ -8,80 +8,69 @@ namespace Editor.WordPress;
 
 public sealed class WordPressEditor : IPostEditor
 {
-    private readonly HttpClient _http;
+    private readonly IWordPressApiService _api;
     private static readonly JsonSerializerOptions Json = new() { PropertyNamingPolicy = JsonNamingPolicy.CamelCase };
 
-    public WordPressEditor(HttpClient http) => _http = http;
+    public WordPressEditor(IWordPressApiService api) => _api = api;
 
     public async Task<EditResult> CreateAsync(string title, string html, CancellationToken ct = default)
     {
+        // ensure API is initialized and get the HttpClient
+        _ = await _api.GetClientAsync().ConfigureAwait(false);
+        var http = _api.HttpClient ?? throw new InvalidOperationException("WordPress HttpClient is not initialized.");
+
         var payload = new { title, status = "draft", content = html };
-        using var res = await _http.PostAsync(
+        using var res = await http.PostAsync(
             "/wp-json/wp/v2/posts",
-            new StringContent(System.Text.Json.JsonSerializer.Serialize(payload, Json), Encoding.UTF8, "application/json"),
-            ct);
-        return await ParseOrThrow(res, ct);
+            new StringContent(JsonSerializer.Serialize(payload, Json), Encoding.UTF8, "application/json"),
+            ct).ConfigureAwait(false);
+        return await ParseOrThrow(res, ct).ConfigureAwait(false);
     }
 
     /// <summary>
-    /// Update a post with Last-Write-Wins semantics.
-    /// If the server's current modified timestamp differs from the caller's lastSeenModifiedUtc,
-    /// we still update in-place but attach a Conflict warning in meta.wpdi_info so the UI can notify the user.
-    /// If the target is missing (404) or trashed (410), we create a duplicate draft with typed reason meta.
+    /// Update a post with Last-Write-Wins semantics; emits conflict meta if server modified diverges.
     /// </summary>
     public async Task<EditResult> UpdateAsync(long id, string html, string lastSeenModifiedUtc, CancellationToken ct = default)
     {
         if (string.IsNullOrWhiteSpace(lastSeenModifiedUtc))
             throw new ArgumentException("lastSeenModifiedUtc is required (ISO-8601 or WP modified_gmt).", nameof(lastSeenModifiedUtc));
 
+        _ = await _api.GetClientAsync().ConfigureAwait(false);
+        var http = _api.HttpClient ?? throw new InvalidOperationException("WordPress HttpClient is not initialized.");
+
         // Preflight (bypass caches)
-        using var preReq = new HttpRequestMessage(
-            HttpMethod.Get,
-            $"/wp-json/wp/v2/posts/{id}?context=edit&_={DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()}"
-        );
+        using var preReq = new HttpRequestMessage(HttpMethod.Get, $"/wp-json/wp/v2/posts/{id}?context=edit&_={DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()}");
         preReq.Headers.CacheControl = new System.Net.Http.Headers.CacheControlHeaderValue { NoCache = true };
         preReq.Headers.Pragma.ParseAdd("no-cache");
 
-        using var pre = await _http.SendAsync(preReq, ct);
+        using var pre = await http.SendAsync(preReq, ct).ConfigureAwait(false);
 
         if (pre.StatusCode is HttpStatusCode.NotFound or HttpStatusCode.Gone)
         {
-            // Create a duplicate draft with *typed* meta (UI will localize)
+            // Create a duplicate draft with typed meta
             var reason = pre.StatusCode == HttpStatusCode.NotFound ? ReasonCode.NotFound : ReasonCode.Trashed;
-
             var meta = new
             {
                 kind = "duplicate",
-                reason = new
-                {
-                    code = reason.ToString(),      // "NotFound" | "Trashed"
-                    args = new { kind = "post", id }
-                },
+                reason = new { code = reason.ToString(), args = new { kind = "post", id } },
                 originalId = id,
                 timestampUtc = DateTime.UtcNow.ToString("o")
             };
-
             var duplicateTitle = $"Recovered #{id} {DateTime.UtcNow:yyyy-MM-dd HH:mm} UTC";
-            var payload = new
-            {
-                title = duplicateTitle,
-                status = "draft",
-                content = html,
-                meta = new { wpdi_info = meta }
-            };
+            var payload = new { title = duplicateTitle, status = "draft", content = html, meta = new { wpdi_info = meta } };
 
-            using var resDup = await _http.PostAsync(
+            using var resDup = await http.PostAsync(
                 "/wp-json/wp/v2/posts",
-                new StringContent(System.Text.Json.JsonSerializer.Serialize(payload, Json), Encoding.UTF8, "application/json"),
-                ct);
-            return await ParseOrThrow(resDup, ct);
+                new StringContent(JsonSerializer.Serialize(payload, Json), Encoding.UTF8, "application/json"),
+                ct).ConfigureAwait(false);
+            return await ParseOrThrow(resDup, ct).ConfigureAwait(false);
         }
 
         // Otherwise: attempt normal update in place (and detect divergence for LWW warning)
         string? serverModifiedUtc = null;
         if (pre.IsSuccessStatusCode)
         {
-            var preBody = await pre.Content.ReadAsStringAsync(ct);
+            var preBody = await pre.Content.ReadAsStringAsync(ct).ConfigureAwait(false);
             try
             {
                 using var doc = JsonDocument.Parse(preBody);
@@ -90,15 +79,13 @@ public sealed class WordPressEditor : IPostEditor
             }
             catch
             {
-                // If parsing fails, we won't emit conflict meta (still proceed with LWW)
+                // If parsing fails, we won't emit conflict meta (still proceed with LWW).
             }
         }
 
-        var conflict =
-            !string.IsNullOrWhiteSpace(serverModifiedUtc) &&
-            !string.Equals(serverModifiedUtc, lastSeenModifiedUtc, StringComparison.Ordinal);
+        var conflict = !string.IsNullOrWhiteSpace(serverModifiedUtc) &&
+                       !string.Equals(serverModifiedUtc, lastSeenModifiedUtc, StringComparison.Ordinal);
 
-        // Build update payload: always update content; attach conflict warning meta when divergent
         object updPayload = conflict
             ? new
             {
@@ -108,29 +95,25 @@ public sealed class WordPressEditor : IPostEditor
                     wpdi_info = new
                     {
                         kind = "warning",
-                        reason = new
-                        {
-                            code = ReasonCode.Conflict.ToString(), // "Conflict"
-                            args = new { kind = "post", id }
-                        },
+                        reason = new { code = ReasonCode.Conflict.ToString(), args = new { kind = "post", id } },
                         baseModifiedUtc = lastSeenModifiedUtc,
-                        serverModifiedUtc = serverModifiedUtc,
+                        serverModifiedUtc,
                         timestampUtc = DateTime.UtcNow.ToString("o")
                     }
                 }
             }
             : new { content = html };
 
-        using var res = await _http.PostAsync(
+        using var res = await http.PostAsync(
             $"/wp-json/wp/v2/posts/{id}",
-            new StringContent(System.Text.Json.JsonSerializer.Serialize(updPayload, Json), Encoding.UTF8, "application/json"),
-            ct);
-        return await ParseOrThrow(res, ct);
+            new StringContent(JsonSerializer.Serialize(updPayload, Json), Encoding.UTF8, "application/json"),
+            ct).ConfigureAwait(false);
+        return await ParseOrThrow(res, ct).ConfigureAwait(false);
     }
 
     private static async Task<EditResult> ParseOrThrow(HttpResponseMessage res, CancellationToken ct)
     {
-        var body = await res.Content.ReadAsStringAsync(ct);
+        var body = await res.Content.ReadAsStringAsync(ct).ConfigureAwait(false);
         if (!res.IsSuccessStatusCode) throw new WordPressApiException(res.StatusCode, body);
         using var doc = JsonDocument.Parse(body);
         var r = doc.RootElement;
