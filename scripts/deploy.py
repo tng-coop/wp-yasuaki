@@ -106,7 +106,7 @@ def main():
 
     # === Paths (script is in ./scripts; project root is one level up) ===
     PROJECT_DIR = Path(__file__).resolve().parent          # .../scripts
-    ROOT_DIR = PROJECT_DIR.parent                           # project root (has BlazorWP.csproj, libman.json)
+    ROOT_DIR = PROJECT_DIR.parent / "BlazorWP"                           # project root (has BlazorWP.csproj, libman.json)
     PROJECT_FILE = (ROOT_DIR / "BlazorWP.csproj").resolve()
 
     PUBLISH_DIR = (ROOT_DIR / "blazor-publish").resolve()

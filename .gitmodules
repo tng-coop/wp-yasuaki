@@ -5,4 +5,4 @@
 	update = rebase
 [submodule "bible"]
 	path = bible
-	url = git@github.com:yugawara/bible.git
+	url = git@github.com:tng-coop/bible.git
