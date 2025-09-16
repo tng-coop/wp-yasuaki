@@ -148,8 +148,8 @@ jobs:
           set -euxo pipefail
           chmod +x scripts/generate-ca-and-certs.sh
           bash scripts/generate-ca-and-certs.sh
-          echo "--- Generated cert artifacts (BlazorWP/cert) ---"
-          ls -la BlazorWP/cert || true
+          echo "--- Generated cert artifacts (cert) ---"
+          ls -la cert || true
           echo "--- Shared publish dir (/srv/shared/aspnet/cert) ---"
           sudo ls -la /srv/shared/aspnet/cert || true
 
@@ -160,7 +160,7 @@ jobs:
           DOMAIN_ALIASES: wp.lan
           PORT: '443'
           WP_DIR: ${{ github.workspace }}/wordpress
-          CERT_DIR: ${{ github.workspace }}/BlazorWP/cert
+          CERT_DIR: ${{ github.workspace }}/cert
         run: scripts/setup-apache-direct.sh
 
       - name: HTTPS smoke test (Apache TLS → WordPress)
@@ -192,7 +192,7 @@ jobs:
         with:
           name: aspnet-dev-certs
           path: |
-            BlazorWP/cert/**
+            cert/**
           if-no-files-found: warn
           retention-days: 7
 
