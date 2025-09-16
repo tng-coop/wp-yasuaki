@@ -8,7 +8,13 @@ on:
 jobs:
   wp:
     runs-on: ubuntu-latest
-
+    env:
+      WP_PATH: wordpress
+      WP_BASE_URL: https://wp.lan
+      ADMIN_USER: admin
+      ADMIN_PASS: a
+      ADMIN_EMAIL: admin@example.com
+      
     services:
       db:
         image: mariadb:11
@@ -88,23 +94,28 @@ jobs:
 
       - name: Reset + Install WordPress
         id: reset
-        env:
-          WP_PATH: wordpress
-          WP_URL: https://wp.lan
-          ADMIN_USER: admin
-          ADMIN_PASS: a
-          ADMIN_EMAIL: admin@example.com
         run: |
-          ADMIN_APP="$(bash scripts/reset-wp.sh)"
+          # Your script should echo to $GITHUB_OUTPUT, e.g.:
+          #   echo "wp_admin_app_password=$WP_APP_PASSWORD" >> "$GITHUB_OUTPUT"
+          bash scripts/reset-wp.sh
+
+      - name: Export WP vars to env (and validate)
+        run: |
+          ADMIN_APP='${{ steps.reset.outputs.wp_admin_app_password }}'
+
+          if [ -z "$ADMIN_APP" ]; then
+            echo "❌ ERROR: WP_APP_PASSWORD was empty"
+            exit 1
+          fi
+
           echo "::add-mask::$ADMIN_APP"
-          echo "wp_admin_app_password=$ADMIN_APP" >> "$GITHUB_OUTPUT"
+
           {
             echo "WP_APP_PASSWORD=$ADMIN_APP"
-            echo "WP_USER=admin"
-            echo "WP_USERNAME=admin"
-            echo "WP_BASE_URL=$WP_URL"   # just mirror WP_URL here
+            echo "WP_USER=$ADMIN_USER"
+            echo "WP_USERNAME=$ADMIN_USER"
+            echo "WP_BASE_URL=$WP_BASE_URL"
           } >> "$GITHUB_ENV"
-
 
       - name: Materialize plugins and mu-plugins (no symlinks)
         shell: bash
