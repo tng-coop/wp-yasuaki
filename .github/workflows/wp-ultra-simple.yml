@@ -356,6 +356,7 @@ jobs:
           WP_APP_PASSWORD: ${{ env.WP_APP_PASSWORD }}
           DOTNET_ENVIRONMENT: Development
           DOTNET_CLI_TELEMETRY_OPTOUT: 1
+          WP_PATH: ${{ github.workspace }}/wordpress 
         run: dotnet test Workspace.sln -c Release --no-build --no-restore -m:1
 
       - name: Run E2E/Integration tests (if any)
