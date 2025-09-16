@@ -19,6 +19,8 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "tests", "tests", "{995296D9
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Editor.Tests", "WpDI\tests\Editor.Tests\Editor.Tests.csproj", "{4E3066A1-98B5-4297-A1B7-697839C08E47}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TestSupport", "TestSupport\TestSupport.csproj", "{8C5CB8CA-E67A-4411-B35B-9027FDB4D84C}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -48,6 +50,10 @@ Global
 		{4E3066A1-98B5-4297-A1B7-697839C08E47}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{4E3066A1-98B5-4297-A1B7-697839C08E47}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{4E3066A1-98B5-4297-A1B7-697839C08E47}.Release|Any CPU.Build.0 = Release|Any CPU
+		{8C5CB8CA-E67A-4411-B35B-9027FDB4D84C}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{8C5CB8CA-E67A-4411-B35B-9027FDB4D84C}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{8C5CB8CA-E67A-4411-B35B-9027FDB4D84C}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{8C5CB8CA-E67A-4411-B35B-9027FDB4D84C}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(NestedProjects) = preSolution
 		{5A7C9ACF-A0A6-42F8-8B43-0BF4D4B4F718} = {47C129B3-C61F-4D63-9943-CED10BEB33BE}
