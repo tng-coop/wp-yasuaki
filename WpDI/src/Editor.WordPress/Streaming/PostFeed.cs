@@ -2,16 +2,30 @@ using System.Collections.Concurrent;
 using System.Collections.Immutable;
 using System.Threading.Channels;
 using Editor.Abstractions;
+using Microsoft.Extensions.Options;
 
 namespace Editor.WordPress;
 
 public sealed class PostFeed : IPostFeed
 {
     private readonly IContentStream _stream;
+    private readonly StreamOptions _options;
     private readonly ConcurrentDictionary<string, ImmutableDictionary<long, PostSummary>> _snapshots = new();
     private readonly ConcurrentDictionary<string, ConcurrentDictionary<Guid, Channel<IReadOnlyList<PostSummary>>>> _subs = new();
 
-    public PostFeed(IContentStream stream) => _stream = stream;
+    public PostFeed(IContentStream stream) : this(stream, new StreamOptions()) { }
+
+    public PostFeed(IContentStream stream, StreamOptions options)
+    {
+        _stream = stream;
+        _options = new StreamOptions(
+            WarmFirstCount: options.WarmFirstCount <= 0 ? 10 : options.WarmFirstCount,
+            MaxBatchSize:   options.MaxBatchSize   <= 0 ? 100 : options.MaxBatchSize
+        );
+    }
+
+    public PostFeed(IContentStream stream, IOptions<StreamOptions> options)
+        : this(stream, options?.Value ?? new StreamOptions()) { }
 
     public IReadOnlyList<PostSummary> Current(string restBase)
         => _snapshots.TryGetValue(restBase, out var snap) ? snap.Values.ToList() : new List<PostSummary>();
@@ -23,14 +37,12 @@ public sealed class PostFeed : IPostFeed
         var ch = Channel.CreateUnbounded<IReadOnlyList<PostSummary>>();
         group[id] = ch;
 
-        // Remove subscriber when cancelled
         ct.Register(() =>
         {
             ch.Writer.TryComplete();
             group.TryRemove(id, out _);
         });
 
-        // Immediately send current snapshot if available
         if (_snapshots.TryGetValue(restBase, out var snap) && snap.Count > 0)
         {
             ch.Writer.TryWrite(snap.Values.ToList());
@@ -41,14 +53,12 @@ public sealed class PostFeed : IPostFeed
 
     public async Task RefreshAsync(string restBase, CancellationToken ct = default)
     {
-        await foreach (var batch in _stream.StreamAllCachedThenFreshAsync(restBase, ct: ct))
+        await foreach (var batch in _stream.StreamAllCachedThenFreshAsync(restBase, options: _options, ct: ct))
         {
-            // merge into snapshot
             var snap = _snapshots.GetOrAdd(restBase, ImmutableDictionary<long, PostSummary>.Empty);
             foreach (var p in batch) snap = snap.SetItem(p.Id, p);
             _snapshots[restBase] = snap;
 
-            // broadcast full snapshot to all subscribers
             var full = snap.Values.ToList();
             if (_subs.TryGetValue(restBase, out var group))
             {
