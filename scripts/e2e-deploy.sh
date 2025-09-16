@@ -15,6 +15,12 @@ USE_MSBUILD_BASE="${USE_MSBUILD_BASE:-0}"
 WP_BASE_URL="${WP_BASE_URL:-http://localhost}"
 WRITE_APPSETTINGS="${WRITE_APPSETTINGS:-1}"
 
+# ===== SUDO (CI vs local) =====
+SUDO=""
+if [[ "${GITHUB_ACTIONS:-}" == "true" || "${CI:-}" == "true" ]]; then
+  SUDO="sudo"
+fi
+
 [[ "$BASE_HREF" == */ ]] || { echo "BASE_HREF must end with '/'."; exit 1; }
 
 echo "==> Publishing $APP_PROJECT ($CONFIG) → $OUT_DIR"
@@ -50,14 +56,14 @@ JSON
 fi
 
 echo "==> Ensuring target dir exists: $TARGET_DIR"
-mkdir -p "$TARGET_DIR"
+$SUDO mkdir -p "$TARGET_DIR"
 
 echo "==> Deploying to $TARGET_DIR"
-rsync -az --delete "$OUT_DIR/wwwroot/" "$TARGET_DIR/"
+$SUDO rsync -az --delete "$OUT_DIR/wwwroot/" "$TARGET_DIR/"
 
 if [[ "$PATCH_HTACCESS" == "1" ]]; then
   echo "==> Writing .htaccess (wasm MIME + SPA fallback @ $BASE_HREF)"
-  cat > "$TARGET_DIR/.htaccess" <<HT
+  $SUDO tee "$TARGET_DIR/.htaccess" >/dev/null <<HT
 AddType application/wasm .wasm
 
 RewriteEngine On
@@ -69,7 +75,7 @@ HT
 fi
 
 echo "==> Deployed files (head):"
-ls -la "$TARGET_DIR" | sed -n '1,80p'
+$SUDO ls -la "$TARGET_DIR" | sed -n '1,80p'
 
 APP_URL="${WP_BASE_URL%/}${BASE_HREF}"
 echo "==> Testing deployment with curl: $APP_URL"
