@@ -1,0 +1,183 @@
+@page "/wpdi-harness"
+@using System.Net.Http.Json
+@using Editor.Abstractions
+@using Editor.WordPress
+@inject IPostEditor Editor
+@inject IPostFeed Feed
+@inject IWordPressApiService Api
+
+<PageTitle>WPDI Harness</PageTitle>
+
+<!--
+  Minimal, deterministic harness around WPDI (Editor/Feed) to support e2e.
+  - Keeps surface tiny: create/list/update-content/status/delete
+  - Uses WPDI for create & update (LWW), IPostFeed for listing, raw REST for status/delete
+  - Stable data-testid hooks
+-->
+
+<section class="container py-3" data-testid="wpdi-harness">
+  <h3 class="mb-3">WPDI Test Harness</h3>
+
+  <div class="row g-2 align-items-end mb-2">
+    <div class="col-sm-6">
+      <label for="title" class="form-label">Title</label>
+      <input id="title" class="form-control" placeholder="Post title" @bind="Title" data-testid="title-input" />
+    </div>
+    <div class="col-sm-3">
+      <label for="postId" class="form-label">Id</label>
+      <input id="postId" class="form-control" placeholder="Id" @bind="IdText" data-testid="id-input" />
+    </div>
+    <div class="col-sm-3 d-flex gap-2 flex-wrap">
+      <button class="btn btn-primary" data-testid="btn-create" @onclick="CreateDraft">Create Draft</button>
+      <button class="btn btn-outline-secondary" data-testid="btn-update-content" @onclick="UpdateContent">Update Content</button>
+    </div>
+  </div>
+
+<div class="d-flex flex-wrap gap-2 mb-2">
+  <button class="btn btn-outline-primary" data-testid="btn-list" @onclick="List">List</button>
+  <button class="btn btn-outline-warning" data-testid="btn-submit" @onclick="Submit">Submit for Review</button>
+  <button class="btn btn-outline-dark" data-testid="btn-retract" @onclick="Retract">Retract to Draft</button>
+  <button class="btn btn-success" data-testid="btn-publish" @onclick="Publish">Publish</button>
+  <button class="btn btn-danger" data-testid="btn-delete" @onclick="Delete">Delete (force)</button>
+</div>
+
+
+
+
+  <div role="status" class="mb-2" data-testid="status">@Status</div>
+
+  <div class="table-responsive" style="max-height: 320px; overflow:auto;">
+    <table class="table table-sm align-middle">
+      <thead>
+        <tr>
+          <th>Id</th>
+          <th>Title</th>
+          <th>Status</th>
+          <th>Modified (GMT)</th>
+        </tr>
+      </thead>
+      <tbody data-testid="post-table">
+        @foreach (var p in Items)
+        {
+          <tr class="@(p.Id == CurrentId ? "table-primary" : null)" @onclick="() => Select(p)">
+            <td>@p.Id</td>
+            <td>@((MarkupString)p.Title)</td>
+            <td>@p.Status</td>
+            <td>@p.ModifiedGmt</td>
+          </tr>
+        }
+      </tbody>
+    </table>
+  </div>
+</section>
+
+@code {
+  private string Title = string.Empty;
+  private string IdText = string.Empty;
+  private string Status = "Ready.";
+  private long? CurrentId => long.TryParse(IdText, out var v) ? v : null;
+
+  private List<PostSummary> Items = new();
+  
+
+  private async Task CreateDraft()
+  {
+    try
+    {
+      var t = string.IsNullOrWhiteSpace(Title) ? $"Harness {DateTimeOffset.UtcNow:yyyyMMdd-HHmmss}" : Title;
+      var res = await Editor.CreateAsync(t, "<p>wpdi harness</p>");
+      IdText = res.Id.ToString();
+      Status = $"Draft created: {res.Id}";
+      await List();
+    }
+    catch (Exception ex)
+    {
+      Status = $"Create failed: {ex.Message}";
+    }
+  }
+
+  private async Task UpdateContent()
+  {
+    if (CurrentId is null) { Status = "Enter Id"; return; }
+    try
+    {
+      // Get current modified_gmt to honor LWW contract
+      var http = Api.HttpClient;
+      if (http is null) { Status = "API client unavailable"; return; }
+
+      var get = await http.GetFromJsonAsync<System.Text.Json.JsonElement>($"/wp-json/wp/v2/posts/{CurrentId}?context=edit");
+      var lastSeen = get.TryGetProperty("modified_gmt", out var mg) ? (mg.GetString() ?? "") : "";
+      if (string.IsNullOrWhiteSpace(lastSeen)) { Status = "Could not read modified_gmt"; return; }
+
+      var html = $"<p>updated @ {DateTime.UtcNow:O}</p>";
+      var result = await Editor.UpdateAsync(CurrentId.Value, html, lastSeen);
+      Status = $"Content updated (Id {result.Id})";
+      await List();
+    }
+    catch (Exception ex)
+    {
+      Status = $"Update failed: {ex.Message}";
+    }
+  }
+
+  private async Task ChangeStatus(string newStatus)
+  {
+    if (CurrentId is null) { Status = "Enter Id"; return; }
+    try
+    {
+      var http = Api.HttpClient;
+      if (http is null) { Status = "API client unavailable"; return; }
+      var resp = await http.PostAsJsonAsync($"/wp-json/wp/v2/posts/{CurrentId}", new { status = newStatus });
+      resp.EnsureSuccessStatusCode();
+      Status = $"Status → {newStatus}";
+      await List();
+    }
+    catch (Exception ex)
+    {
+      Status = $"Status change failed: {ex.Message}";
+    }
+  }
+
+  private async Task Delete()
+  {
+    if (CurrentId is null) { Status = "Enter Id"; return; }
+    try
+    {
+      var http = Api.HttpClient;
+      if (http is null) { Status = "API client unavailable"; return; }
+      var resp = await http.DeleteAsync($"/wp-json/wp/v2/posts/{CurrentId}?force=true");
+      if (!resp.IsSuccessStatusCode && (int)resp.StatusCode != 404) resp.EnsureSuccessStatusCode();
+      Status = "Deleted";
+      await List();
+    }
+    catch (Exception ex)
+    {
+      Status = $"Delete failed: {ex.Message}";
+    }
+  }
+
+  private async Task List()
+  {
+    try
+    {
+      await Feed.RefreshAsync("posts");
+      Items = Feed.Current("posts").OrderByDescending(p => p.ModifiedGmt).ToList();
+      Status = $"Listed {Items.Count} items";
+    }
+    catch (Exception ex)
+    {
+      Status = $"List failed: {ex.Message}";
+    }
+  }
+
+  private void Select(PostSummary p)
+  {
+    IdText = p.Id.ToString();
+    Title = p.Title;
+  }
+
+private Task Submit()  => ChangeStatus("pending");
+private Task Retract() => ChangeStatus("draft");
+private Task Publish() => ChangeStatus("publish");
+
+}
