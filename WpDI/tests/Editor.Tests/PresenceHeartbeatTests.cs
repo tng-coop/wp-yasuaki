@@ -3,10 +3,14 @@ using Microsoft.Extensions.Options;
 using Xunit;
 using System.Net.Http.Json;
 using Editor.WordPress;
+using TestSupport; // RunUniqueFixture
 
 [Collection("WP EndToEnd")]
 public class PresenceHeartbeatTests
 {
+    private readonly RunUniqueFixture _ids;
+    public PresenceHeartbeatTests(RunUniqueFixture ids) => _ids = ids;
+
     private static WordPressApiService NewApi()
     {
         var baseUrl = Environment.GetEnvironmentVariable("WP_BASE_URL")!;
@@ -31,8 +35,9 @@ public class PresenceHeartbeatTests
         var api = NewApi();
         var http = api.HttpClient!;
 
-        // Create post
-        var create = await http.PostAsJsonAsync("/wp-json/wp/v2/posts", new { title="HB quick", status="draft", content="<p>hi</p>" });
+        // Create draft post with a per-run unique title
+        var create = await http.PostAsJsonAsync("/wp-json/wp/v2/posts",
+            new { title = _ids.Next("HB quick"), status = "draft", content = "<p>hi</p>" });
         create.EnsureSuccessStatusCode();
         using var created = JsonDocument.Parse(await create.Content.ReadAsStringAsync());
         var id = created.RootElement.GetProperty("id").GetInt64();

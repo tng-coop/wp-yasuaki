@@ -5,10 +5,14 @@ using System.Text.Json;
 using Microsoft.Extensions.Options;
 using Xunit;
 using Editor.WordPress; // WordPressApiService, WordPressOptions
+using TestSupport;      // RunUniqueFixture
 
 [Collection("WP EndToEnd")]
 public class OfficeCptTests
 {
+    private readonly RunUniqueFixture _ids;
+    public OfficeCptTests(RunUniqueFixture ids) => _ids = ids;
+
     // ---------- Service wiring ----------
     private static WordPressApiService NewApi()
     {
@@ -47,12 +51,12 @@ public class OfficeCptTests
         var restBase = OfficeRestBase();
         var collectionPath = $"/wp-json/wp/v2/{restBase}";
 
-        // 1) CREATE
+        // 1) CREATE (unique, readable title per run)
         var createPayload = new
         {
-            title = "Tokyo HQ",
+            title = _ids.Next("Tokyo HQ"),
             status = "publish",
-            data = new { address = "1-1 Chiyoda, Tokyo", floors = 12, tags = new[] { "apac", "r&d" } }
+            data = new { address = $"1-1 Chiyoda, Tokyo ({_ids.RunId})", floors = 12, tags = new[] { "apac", "r&d" } }
         };
 
         var createResp = await http.PostAsJsonAsync(collectionPath, createPayload, JsonOpts);
@@ -71,8 +75,9 @@ public class OfficeCptTests
 
             var rendered = getDoc.RootElement.GetProperty("title").GetProperty("rendered").GetString();
             Assert.Contains("Tokyo HQ", rendered);
+
             var dataObj = getDoc.RootElement.GetProperty("data");
-            Assert.Equal("1-1 Chiyoda, Tokyo", dataObj.GetProperty("address").GetString());
+            Assert.Contains("1-1 Chiyoda, Tokyo", dataObj.GetProperty("address").GetString() ?? "");
             Assert.Equal(12, dataObj.GetProperty("floors").GetInt32());
 
             // 3) UPDATE
@@ -86,7 +91,7 @@ public class OfficeCptTests
         }
         finally
         {
-            // 4) DELETE
+            // 4) DELETE (force to avoid Trash)
             var delResp = await http.DeleteAsync($"{collectionPath}/{officeId}?force=true");
             Assert.Contains(delResp.StatusCode, new[] { HttpStatusCode.OK, HttpStatusCode.NoContent, HttpStatusCode.NotFound });
         }
