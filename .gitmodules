@@ -6,3 +6,4 @@
 [submodule "bible"]
 	path = bible
 	url = git@github.com:tng-coop/bible.git
+	branch = main
