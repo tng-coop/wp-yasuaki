@@ -68,4 +68,23 @@ public class StreamOptionsDiTests
         Assert.Contains(handler.Requests, u => u.Query.Contains("per_page=10"));
         Assert.Contains(handler.Requests, u => u.Query.Contains("per_page=100"));
     }
+
+    [Fact]
+    public async Task PostFeed_Uses_Defaults_When_DI_Not_Configured()
+    {
+        var services = new ServiceCollection();
+        services.AddSingleton<IPostCache, MemoryPostCache>();
+
+        var handler = new CapturingHandler();
+        var http = new HttpClient(handler) { BaseAddress = new Uri("https://example.test") };
+        services.AddWpdiStreaming(_ => http); // no options supplied
+
+        var sp = services.BuildServiceProvider();
+        var feed = sp.GetRequiredService<IPostFeed>();
+
+        await feed.RefreshAsync("posts");
+
+        Assert.Contains(handler.Requests, u => u.Query.Contains("per_page=10"));
+        Assert.Contains(handler.Requests, u => u.Query.Contains("per_page=100"));
+    }
 }
