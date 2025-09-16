@@ -78,7 +78,7 @@ jobs:
         id: reset
         env:
           WP_PATH: wordpress
-          WP_URL: https://aspnet.lan
+          WP_URL: https://wp.lan
           ADMIN_USER: admin
           ADMIN_PASS: a
           ADMIN_EMAIL: admin@example.com
