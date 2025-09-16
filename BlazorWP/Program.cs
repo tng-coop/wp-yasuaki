@@ -87,8 +87,137 @@ namespace BlazorWP
             var uri = new Uri(navigationManager.Uri);
             var queryParams = Microsoft.AspNetCore.WebUtilities.QueryHelpers.ParseQuery(uri.Query);
 
-            // (rest of your Program.cs remains unchanged)
-            // ...
+           // ---------- App Mode ----------
+            var appMode = AppMode.Full;
+            if (queryParams.TryGetValue("appmode", out var modeValues))
+            {
+                var val = modeValues.ToString();
+                if (val.Equals("basic", StringComparison.OrdinalIgnoreCase))
+                    appMode = AppMode.Basic;
+            }
+            else
+            {
+                var storedMode = await storage.GetItemAsync("appmode");
+                if (storedMode?.Equals("basic", StringComparison.OrdinalIgnoreCase) == true)
+                    appMode = AppMode.Basic;
+            }
+            await flags.SetAppMode(appMode);
+
+            // ---------- Auth Mode ----------
+            var authMode = AuthType.AppPass;
+            if (queryParams.TryGetValue("auth", out var authValues))
+            {
+                if (authValues.ToString().Equals("nonce", StringComparison.OrdinalIgnoreCase))
+                    authMode = AuthType.Nonce;
+            }
+            else
+            {
+                var storedAuth = await storage.GetItemAsync("auth");
+                if (storedAuth?.Equals("nonce", StringComparison.OrdinalIgnoreCase) == true)
+                    authMode = AuthType.Nonce;
+            }
+            await flags.SetAuthMode(authMode);
+
+            // ---------- Language ----------
+            var lang = "en";
+            if (queryParams.TryGetValue("lang", out var langValues))
+            {
+                if (langValues.ToString().Equals("jp", StringComparison.OrdinalIgnoreCase))
+                    lang = "jp";
+            }
+            else
+            {
+                var storedLang = await storage.GetItemAsync("lang");
+                if (storedLang?.Equals("jp", StringComparison.OrdinalIgnoreCase) == true)
+                    lang = "jp";
+            }
+            var culture = lang == "jp" ? "ja-JP" : "en-US";
+            languageService.SetCulture(culture);
+            await flags.SetLanguage(lang == "jp" ? Language.Japanese : Language.English);
+
+            // ---------- WordPress URL ----------
+            // 0) HARD GATE: config must specify WordPress:Url (even if query/localStorage supply a value)
+            var configWp = (config["WordPress:Url"] ?? string.Empty).Trim();
+            if (string.IsNullOrEmpty(configWp))
+            {
+                throw new InvalidOperationException(
+                    "❌ WordPress:Url is not configured in appsettings/environment. " +
+                    "This build must not run without a configured WordPress endpoint.");
+            }
+
+            // Effective runtime wpurl still respects precedence: Query → LocalStorage → Config
+            var wpurl = configWp;
+
+            if (queryParams.TryGetValue("wpurl", out var wpurlValues))
+            {
+                var val = (wpurlValues.ToString() ?? "").Trim();
+                if (!string.IsNullOrEmpty(val))
+                    wpurl = val;
+            }
+            else
+            {
+                var storedWp = (await storage.GetItemAsync("wpEndpoint"))?.Trim();
+                if (!string.IsNullOrEmpty(storedWp))
+                    wpurl = storedWp!;
+            }
+
+            // Basic sanity (absolute http/https)
+            if (!Uri.TryCreate(wpurl, UriKind.Absolute, out var wpUri) ||
+                (wpUri.Scheme != Uri.UriSchemeHttp && wpUri.Scheme != Uri.UriSchemeHttps))
+            {
+                throw new InvalidOperationException($"❌ Invalid WordPress:Url '{wpurl}'. Must be an absolute http(s) URL.");
+            }
+
+            await flags.SetWpUrl(wpurl);
+
+            // ---------- Normalize URL query (write current flags + wpurl) ----------
+            var needsNormalization =
+                !queryParams.TryGetValue("lang", out var existingLang) ||
+                !existingLang.ToString().Equals(lang, StringComparison.OrdinalIgnoreCase) ||
+                !queryParams.TryGetValue("appmode", out var existingMode) ||
+                !existingMode.ToString().Equals(appMode == AppMode.Basic ? "basic" : "full", StringComparison.OrdinalIgnoreCase) ||
+                !queryParams.TryGetValue("auth", out var existingAuth) ||
+                !existingAuth.ToString().Equals(authMode == AuthType.Nonce ? "nonce" : "apppass", StringComparison.OrdinalIgnoreCase) ||
+                !queryParams.TryGetValue("wpurl", out var existingWpUrl) ||
+                !existingWpUrl.ToString().Equals(wpurl, StringComparison.Ordinal);
+
+            if (needsNormalization)
+            {
+                var segments = new List<string>();
+                foreach (var kvp in queryParams)
+                {
+                    if (kvp.Key.Equals("lang", StringComparison.OrdinalIgnoreCase) ||
+                        kvp.Key.Equals("appmode", StringComparison.OrdinalIgnoreCase) ||
+                        kvp.Key.Equals("auth", StringComparison.OrdinalIgnoreCase) ||
+                        kvp.Key.Equals("wpurl", StringComparison.OrdinalIgnoreCase))
+                    {
+                        continue;
+                    }
+
+                    if (StringValues.IsNullOrEmpty(kvp.Value))
+                    {
+                        segments.Add(Uri.EscapeDataString(kvp.Key));
+                    }
+                    else
+                    {
+                        foreach (var v in kvp.Value)
+                        {
+                            segments.Add($"{Uri.EscapeDataString(kvp.Key)}={Uri.EscapeDataString(v ?? string.Empty)}");
+                        }
+                    }
+                }
+
+                segments.Add($"appmode={(appMode == AppMode.Basic ? "basic" : "full")}");
+                segments.Add($"lang={lang}");
+                segments.Add($"auth={(authMode == AuthType.Nonce ? "nonce" : "apppass")}");
+                segments.Add($"wpurl={Uri.EscapeDataString(wpurl)}");
+
+                var newQuery = string.Join("&", segments);
+                var normalizedUri = uri.GetLeftPart(UriPartial.Path) + (newQuery.Length > 0 ? "?" + newQuery : string.Empty);
+                navigationManager.NavigateTo(normalizedUri, replace: true);
+            }
+
+            // 7) Run app
             await host.RunAsync();
         }
     }
