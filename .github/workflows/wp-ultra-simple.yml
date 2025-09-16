@@ -26,6 +26,18 @@ jobs:
           --health-retries=60
           --health-start-period=40s
 
+      mailhog:
+        image: mailhog/mailhog:v1.0.1
+        ports:
+          - 1025:1025   # SMTP
+          - 8025:8025   # Web/API
+        options: >-
+          --health-cmd="wget -qO- http://127.0.0.1:8025/api/v2/messages >/dev/null || exit 1"
+          --health-interval=5s
+          --health-timeout=5s
+          --health-retries=60
+          --health-start-period=5s
+
     steps:
       - uses: actions/checkout@v4
 
@@ -41,11 +53,11 @@ jobs:
           sudo chmod +x /usr/local/bin/wp
           wp --info
 
-      # prerequisites for generate-ca-and-certs (certutil, CA tools)
-      - name: Install NSS tools (certutil) + CA utilities
+      - name: Install tools (jq, pip, NSS/CA utils)
         run: |
           sudo apt-get update -y
-          sudo apt-get install -y libnss3-tools ca-certificates
+          sudo apt-get install -y jq libnss3-tools ca-certificates python3-pip
+          pip3 install --user requests
 
       - name: Create workspace
         run: mkdir -p wordpress
@@ -216,8 +228,54 @@ jobs:
           WP_APP_PASSWORD: ${{ env.WP_APP_PASSWORD }}
         run: scripts/check-wp-rest.sh
 
-      # ----- .NET: plain runner, user-local install (no sudo in action) -----
+      # ---------------- MailHog tests: call your scripts from ./scripts ----------------
+      - name: Export MailHog env for scripts
+        run: |
+          {
+            echo "MH_HOST=127.0.0.1"
+            echo "MH_SMTP_PORT=1025"
+            echo "MH_HTTP_PORT=8025"
+            echo "MAIL_TO=inbox@example.test"
+            echo "MAIL_FROM=wp-test@local.test"
+            echo "WAIT_SECS=25"
+          } >> "$GITHUB_ENV"
 
+      - name: Ensure script perms + WP path symlink for scripts
+        run: |
+          chmod +x scripts/test_mailhog.py || true
+          chmod +x scripts/test_wp_mail.py || true
+          chmod +x scripts/mailhog-test.php || true
+          sudo mkdir -p /var/www/html
+          # many of your scripts expect /var/www/html/wordpress
+          sudo ln -s "${GITHUB_WORKSPACE}/wordpress" /var/www/html/wordpress
+
+      - name: SMTP smoke test → MailHog (Python)
+        env:
+          MH_HOST: 127.0.0.1
+          MH_SMTP_PORT: 1025
+          MH_HTTP_PORT: 8025
+          MAIL_FROM: wp-test@local.test
+          MAIL_TO: inbox@example.test
+          WAIT_SECS: 25
+          CLEAR_FIRST: "true"
+        run: scripts/test_mailhog.py
+
+      - name: WordPress → MailHog (PHP wp_mail test + verify)
+        env:
+          MH_HOST: 127.0.0.1
+          MH_SMTP_PORT: 1025
+          MH_HTTP_PORT: 8025
+          MAIL_FROM: wp-test@local.test
+          MAIL_TO: inbox@example.test
+          WAIT_SECS: 25
+        run: scripts/mailhog-test.php
+
+      - name: WordPress → MailHog (WP-CLI + verify via API)
+        env:
+          MH_HTTP_PORT: 8025
+        run: scripts/test_wp_mail.py
+
+      # ---------------- .NET & Playwright (unchanged) ----------------
       - name: Prepare dotnet install dir (user-local)
         run: |
           echo "DOTNET_INSTALL_DIR=$HOME/.dotnet" >> "$GITHUB_ENV"
