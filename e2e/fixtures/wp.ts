@@ -1,5 +1,5 @@
 // e2e/fixtures/wp.ts
-import { test as base, expect, request } from '@playwright/test';
+import { test as base, expect, type APIRequestContext } from '@playwright/test';
 
 type WPAdmin = {
   id: number;
@@ -12,43 +12,25 @@ export const test = base.extend<
   {
     uniq: (pfx?: string) => string;
     wpAdmin: WPAdmin;
+    wpApi: APIRequestContext; // <-- provided by fixtures/common.ts
   }
 >({
   // ---- Unique ID helper (worker-scoped) ----
-  // ✅ worker fixture signature: ({}, use, workerInfo)
   uniq: [async ({}, use, workerInfo) => {
-    const runId = String(Date.now()); // or whatever you prefer
+    const runId = String(Date.now());
     const wid = workerInfo.parallelIndex;
     let seq = 0;
     await use((pfx = 'e2e') => `${pfx}-${runId}-${wid}-${++seq}`);
   }, { scope: 'worker' }],
 
-  // ---- Temp admin (worker-scoped, lazy) ----
-  // ✅ worker fixture signature: ({ fixtures }, use, workerInfo)
-  wpAdmin: [async ({ uniq }, use, workerInfo) => {
-    const { wpBaseUrl, wpUser, wpAppPwd } = workerInfo.project.use as {
-      wpBaseUrl: string;
-      wpUser: string;
-      wpAppPwd: string;
-    };
-
-    if (!wpBaseUrl || !wpUser || !wpAppPwd) {
-      throw new Error('wpBaseUrl / wpUser / wpAppPwd must be set in project.use');
-    }
-
-    const baseUrl = wpBaseUrl.replace(/\/+$/, '');
-    const token = Buffer.from(`${wpUser}:${wpAppPwd}`).toString('base64');
-
-    const api = await request.newContext({
-      baseURL: baseUrl,
-      extraHTTPHeaders: { Authorization: `Basic ${token}` },
-    });
-
+  // ---- Temp admin (worker-scoped) ----
+  // Uses wpApi (pre-auth’d with Basic auth) — no project.use reads here.
+  wpAdmin: [async ({ uniq, wpApi }, use) => {
     const username = uniq('admin');
-    const password = 'a'; // always "a"
+    const password = 'a'; // deterministic test password
     const email = `${username}@e2e.local`;
 
-    const res = await api.post('/wp-json/wp/v2/users', {
+    const res = await wpApi.post('/wp-json/wp/v2/users', {
       data: { username, password, email, roles: ['administrator'] },
     });
     if (res.status() !== 201) {
@@ -59,7 +41,8 @@ export const test = base.extend<
     await use({ id: created.id, login: { username, password } });
 
     // Cleanup when worker finishes
-    await api.delete(`/wp-json/wp/v2/users/${created.id}?force=true&reassign=false`);
+    const del = await wpApi.delete(`/wp-json/wp/v2/users/${created.id}?force=true&reassign=false`);
+    expect(del.ok(), `Failed to delete temp admin: ${del.status()} ${await del.text()}`).toBeTruthy();
   }, { scope: 'worker' }],
 });
 

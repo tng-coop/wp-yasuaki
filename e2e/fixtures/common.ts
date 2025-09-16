@@ -1,28 +1,24 @@
 // e2e/fixtures/common.ts
-import { test as base, expect } from '@playwright/test';
+import { test as base, expect, request, type APIRequestContext } from '@playwright/test';
 
 type TestScoped = {
-  /** Fully-qualified origin for the Blazor app, e.g. "http://localhost:5173/" */
   blazorURL: string;
 };
 
 type WorkerScoped = {
-  /** WordPress username from project.use (NOT read in tests from process.env) */
   wpUser: string;
-  /** WordPress App Password from project.use */
   wpAppPwd: string;
+  // ✅ This is an APIRequestContext, not APIRequest
+  wpApi: APIRequestContext;
 };
 
 export const test = base.extend<TestScoped, WorkerScoped>({
-  // ---------- test-scoped fixtures ----------
   blazorURL: [async ({}, use, testInfo) => {
     const { blazorURL } = testInfo.project.use as { blazorURL?: string };
     if (!blazorURL) throw new Error('blazorURL must be set in project.use');
-    // normalize with exactly one trailing slash
     await use(blazorURL.replace(/\/+$/, '') + '/');
   }, { scope: 'test' }],
 
-  // ---------- worker-scoped fixtures ----------
   wpUser: [async ({}, use, workerInfo) => {
     const { wpUser } = workerInfo.project.use as { wpUser?: string };
     if (!wpUser) throw new Error('wpUser must be set in project.use');
@@ -33,6 +29,20 @@ export const test = base.extend<TestScoped, WorkerScoped>({
     const { wpAppPwd } = workerInfo.project.use as { wpAppPwd?: string };
     if (!wpAppPwd) throw new Error('wpAppPwd must be set in project.use');
     await use(wpAppPwd);
+  }, { scope: 'worker' }],
+
+  wpApi: [async ({ wpUser, wpAppPwd }, use, workerInfo) => {
+    const { baseURL } = workerInfo.project.use as { baseURL?: string };
+    if (!baseURL) throw new Error('baseURL must be set in project.use');
+
+    const token = Buffer.from(`${wpUser}:${wpAppPwd}`).toString('base64');
+    const api = await request.newContext({
+      baseURL,
+      extraHTTPHeaders: { Authorization: `Basic ${token}` },
+    });
+
+    await use(api);       // <- api is APIRequestContext
+    await api.dispose();
   }, { scope: 'worker' }],
 });
 
