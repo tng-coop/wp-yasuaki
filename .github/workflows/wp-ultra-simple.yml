@@ -283,22 +283,22 @@ jobs:
           sudo apt-get update -y
           sudo apt-get install -y msmtp msmtp-mta
 
-          # Configure msmtp to relay to MailHog (no TLS, local SMTP)
           sudo tee /etc/msmtprc >/dev/null <<'EOF'
           defaults
           tls off
           account default
           host 127.0.0.1
           port 1025
-          # optional niceties:
-          # auto_from on
-          # maildomain local.test
           EOF
-          sudo chmod 600 /etc/msmtprc
 
-          # Sanity checks (should match your local box)
+          # Make it readable by the runner user
+          sudo chown root:root /etc/msmtprc
+          sudo chmod 644 /etc/msmtprc
+
+          # sanity checks
           ls -l /usr/sbin/sendmail || true
-          php -i | grep -E '^sendmail_path|^SMTP '
+          ls -l /etc/msmtprc || true
+          php -i | grep sendmail_path
 
       - name: WordPress → MailHog (WP-CLI + verify via API)
         env:
