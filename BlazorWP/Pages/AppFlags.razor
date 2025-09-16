@@ -6,63 +6,105 @@
 
 <PageTitle>App Flags</PageTitle>
 
-<h3>Application Flags</h3>
+<section aria-labelledby="appflags-heading" class="container py-3" data-testid="appflags-page">
+    <h3 id="appflags-heading" class="mb-3">Application Flags</h3>
 
-<table class="table table-striped">
-    <thead>
-        <tr>
-            <th>Feature</th>
-            <th>Options</th>
-        </tr>
-    </thead>
-    <tbody>
-        <tr>
-            <td>App Mode</td>
-            <td>
-                @foreach (AppMode mode in Enum.GetValues<AppMode>())
-                {
-                    var active = Flags.Mode == mode;
-                    var url = BuildUrl("appmode", mode == AppMode.Basic ? "basic" : "full");
-                    <a href="@url" class="text-decoration-none" @onclick="() => SetAppMode(mode, url)" @onclick:preventDefault>
-                        <span class="badge @(active ? "bg-primary" : "bg-secondary") me-1">@mode</span>
-                    </a>
-                }
-            </td>
-        </tr>
-        <tr>
-            <td>Auth Type</td>
-            <td>
-                @foreach (AuthType type in Enum.GetValues<AuthType>())
-                {
-                    var active = Flags.Auth == type;
-                    var url = BuildUrl("auth", type == AuthType.Nonce ? "nonce" : "apppass");
-                    <a href="@url" class="text-decoration-none" @onclick="() => SetAuth(type, url)" @onclick:preventDefault>
-                        <span class="badge @(active ? "bg-primary" : "bg-secondary") me-1">@type</span>
-                    </a>
-                }
-            </td>
-        </tr>
-        <tr>
-            <td>Language</td>
-            <td>
-                @foreach (Language lang in Enum.GetValues<Language>())
-                {
-                    var active = Flags.Language == lang;
-                    var url = BuildUrl("lang", lang == Language.Japanese ? "jp" : "en");
-                    <a href="@url" class="text-decoration-none" @onclick="() => SetLanguage(lang, url)" @onclick:preventDefault>
-                        <span class="badge @(active ? "bg-primary" : "bg-secondary") me-1">@lang</span>
-                    </a>
-                }
-            </td>
-        </tr>
-        <tr>
-            <td>WordPress URL</td>
-            <td>
-                <input class="form-control" @bind="wpUrl" @bind:after="UpdateWpUrl" />
-            </td>
-        </tr>
-    </tbody>
-</table>
+    <div class="alert alert-light border" role="status" aria-live="polite" data-testid="state-panel">
+        <div>Mode: <span data-testid="state-mode">@Flags.Mode</span></div>
+        <div>Auth: <span data-testid="state-auth">@Flags.Auth</span></div>
+        <div>Language: <span data-testid="state-lang">@Flags.Language</span></div>
+        <div>WP URL: <span data-testid="state-wpurl">@Flags.WpUrl</span></div>
+    </div>
+
+    <table class="table table-striped" data-testid="flags-table">
+        <thead>
+            <tr>
+                <th scope="col">Feature</th>
+                <th scope="col">Options</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr data-testid="row-appmode">
+                <td><label id="appmode-label">App Mode</label></td>
+                <td aria-labelledby="appmode-label">
+                    @foreach (AppMode mode in Enum.GetValues<AppMode>())
+                    {
+                        var active = Flags.Mode == mode;
+                        var url = BuildUrl("appmode", mode == AppMode.Basic ? "basic" : "full");
+                        <button type="button"
+                                class="btn btn-sm me-1 @(active ? "btn-primary" : "btn-outline-secondary")"
+                                role="button"
+                                aria-pressed="@active"
+                                data-testid="@($"appmode-{mode.ToString().ToLower()}")"
+                                title="@($"Set App Mode to {mode}")"
+                                @onclick="() => SetAppMode(mode, url)">
+                            @mode
+                        </button>
+                    }
+                </td>
+            </tr>
+            <tr data-testid="row-authtype">
+                <td><label id="authtype-label">Auth Type</label></td>
+                <td aria-labelledby="authtype-label">
+                    @foreach (AuthType type in Enum.GetValues<AuthType>())
+                    {
+                        var active = Flags.Auth == type;
+                        var url = BuildUrl("auth", type == AuthType.Nonce ? "nonce" : "apppass");
+                        <button type="button"
+                                class="btn btn-sm me-1 @(active ? "btn-primary" : "btn-outline-secondary")"
+                                role="button"
+                                aria-pressed="@active"
+                                data-testid="@($"auth-{type.ToString().ToLower()}")"
+                                title="@($"Set Auth to {type}")"
+                                @onclick="() => SetAuth(type, url)">
+                            @type
+                        </button>
+                    }
+                </td>
+            </tr>
+            <tr data-testid="row-language">
+                <td><label id="language-label">Language</label></td>
+                <td aria-labelledby="language-label">
+                    @foreach (Language lang in Enum.GetValues<Language>())
+                    {
+                        var active = Flags.Language == lang;
+                        var url = BuildUrl("lang", lang == Language.Japanese ? "jp" : "en");
+                        <button type="button"
+                                class="btn btn-sm me-1 @(active ? "btn-primary" : "btn-outline-secondary")"
+                                role="button"
+                                aria-pressed="@active"
+                                data-testid="@($"lang-{lang.ToString().ToLower()}")"
+                                title="@($"Set Language to {lang}")"
+                                @onclick="() => SetLanguage(lang, url)">
+                            @lang
+                        </button>
+                    }
+                </td>
+            </tr>
+            <tr data-testid="row-wpurl">
+                <td>
+                    <label for="wpurl-input">WordPress URL</label>
+                </td>
+                <td>
+                    <form @onsubmit="OnWpUrlSubmit" data-testid="wpurl-form">
+                        <div class="input-group">
+                            <input id="wpurl-input"
+                                   class="form-control"
+                                   placeholder="https://example.com"
+                                   @bind="wpUrl"
+                                   @bind:event="oninput"
+                                   data-testid="wpurl-input" />
+                            <button type="submit" class="btn btn-primary" data-testid="wpurl-save">Save</button>
+                        </div>
+                        <div class="form-text">
+                            Value is applied only on <strong>Save</strong> (or pressing <kbd>Enter</kbd>).
+                        </div>
+                    </form>
+                </td>
+            </tr>
+        </tbody>
+    </table>
+</section>
 
 @code {
     private string wpUrl = string.Empty;
@@ -78,20 +120,19 @@
         var query = QueryHelpers.ParseQuery(uri.Query);
         var dict = new Dictionary<string, string?>(StringComparer.OrdinalIgnoreCase);
 
+        // Preserve existing params
         foreach (var kvp in query)
         {
-            // Preserve any existing query parameters
             dict[kvp.Key] = kvp.Value.ToString();
         }
 
-        // Always include the current flags so that navigating to the new URL
-        // retains the full set of features regardless of the starting query.
+        // Always include current flags to keep the URL fully descriptive
         dict["appmode"] = Flags.Mode == AppMode.Basic ? "basic" : "full";
         dict["auth"] = Flags.Auth == AuthType.Nonce ? "nonce" : "apppass";
         dict["lang"] = Flags.Language == Language.Japanese ? "jp" : "en";
         dict["wpurl"] = Flags.WpUrl;
 
-        // Override the flag being changed with the new value.
+        // Override the one being changed
         dict[key] = value;
 
         return QueryHelpers.AddQueryString(uri.GetLeftPart(UriPartial.Path), dict);
@@ -112,14 +153,15 @@
     private async Task SetLanguage(Language lang, string url)
     {
         await Flags.SetLanguage(lang);
+        // forceLoad ensures fresh render for e2e determinism
         Navigation.NavigateTo(url, forceLoad: true);
     }
 
-    private async Task UpdateWpUrl()
+    // Apply WP URL only when user commits (Enter/Save). No per-keystroke navigation.
+    private async Task OnWpUrlSubmit()
     {
         var url = BuildUrl("wpurl", wpUrl);
         await Flags.SetWpUrl(wpUrl);
         Navigation.NavigateTo(url);
     }
 }
-

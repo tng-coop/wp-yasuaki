@@ -1,7 +1,7 @@
 // e2e/fixtures/wp.ts
 import { test as base, expect, type APIRequestContext } from '@playwright/test';
 
-type WPAdmin = {
+export type WPAdmin = {
   id: number;
   login: { username: string; password: string };
 };
