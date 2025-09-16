@@ -7,6 +7,9 @@ using Microsoft.Extensions.Primitives;
 using TG.Blazor.IndexedDB;
 using Microsoft.AspNetCore.WebUtilities;
 
+// ADD: WPDI abstractions (IPostEditor, IPostFeed, IPostCache, StreamOptions)
+using Editor.Abstractions;
+
 namespace BlazorWP
 {
     public class Program
@@ -62,6 +65,20 @@ namespace BlazorWP
             });
 
             builder.Services.AddScoped<ILocalStore, IndexedDbLocalStore>();
+
+            // ADD: WPDI caching (for streaming snapshots/index)
+            builder.Services.AddSingleton<IPostCache, MemoryPostCache>();
+
+            // ADD: WPDI editor (IPostEditor) — uses HttpClient from your WordPressApiService
+            builder.Services.AddWordPressEditingFromHttp(sp =>
+                sp.GetRequiredService<IWordPressApiService>().HttpClient!);
+
+            // ADD: WPDI streaming (IContentStream + IPostFeed)
+            //      Keep defaults (WarmFirstCount=10, MaxBatchSize=100) or tweak here.
+            builder.Services.AddWpdiStreaming(
+                sp => sp.GetRequiredService<IWordPressApiService>().HttpClient!,
+                configure: () => new StreamOptions(WarmFirstCount: 10, MaxBatchSize: 100)
+            );
 
             // 5) Build the host (this hooks up the logging provider)
             var host = builder.Build();
