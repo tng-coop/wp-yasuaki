@@ -7,30 +7,38 @@ Here are two focused diagrams showing the DI wiring for **Editing** and **Stream
 ## Editing Services
 ```mermaid
 graph TD
+  %% Styles
   classDef scoped fill:#e3f2fd,stroke:#1e88e5,color:#0d47a1;
   classDef singleton fill:#e8f5e9,stroke:#43a047,color:#1b5e20;
   classDef component fill:#f3e5f5,stroke:#8e24aa,color:#4a148c;
 
   C["Blazor Components"]:::component
 
-  IApi["IWordPressApiService"]:::scoped
-  Api["WordPressApiService"]:::scoped
-  HCWP["HttpClient (WP BaseAddress)"]:::scoped
-  AMH["AuthMessageHandler"]:::scoped
   Flags["AppFlags"]:::singleton
+  AMH["AuthMessageHandler"]:::scoped
+  HCWP["HttpClient (WP BaseAddress)"]:::scoped
+
+  IApi["IWordPressApiService"]:::scoped
+  %% app-provided implementation used in Blazor app
+  Api["BlazorWP.WordPressApiService"]:::scoped
 
   IEditor["IPostEditor"]:::scoped
   Editor["WordPressEditor"]:::scoped
 
+  %% Consumers
   C --> IApi
+  C --> IEditor
+
+  %% API chain
   IApi --> Api
   Api --> HCWP
-  Api --> Flags
   HCWP --> AMH
+  Api --> Flags
 
-  C --> IEditor
+  %% Editor depends on IWordPressApiService
   IEditor --> Editor
-  Editor --> HCWP
+  Editor --> IApi
+
 ```
 
 ---
@@ -46,28 +54,31 @@ graph TD
   C["Blazor Components"]:::component
 
   IApi["IWordPressApiService"]:::scoped
-  Api["WordPressApiService"]:::scoped
+  Api["BlazorWP.WordPressApiService"]:::scoped
   HCWP["HttpClient (WP BaseAddress)"]:::scoped
 
   IFeed["IPostFeed"]:::singleton
   Feed["PostFeed"]:::singleton
   IStream["IContentStream"]:::scoped
   Stream["ContentStream"]:::scoped
-  Cache["IPostCache -> MemoryPostCache"]:::singleton
+  Cache["IPostCache → MemoryPostCache"]:::singleton
   SOpts["IOptions<StreamOptions>"]:::options
 
+  %% Consumers
   C --> IFeed
+  C --> IApi
+
+  %% Feed wiring
   IFeed --> Feed
   Feed --> IStream
   Feed --> SOpts
 
   IStream --> Stream
-  Stream --> HCWP
+  Stream --> IApi
   Stream --> Cache
 
-  Api --> HCWP
-  C --> IApi
   IApi --> Api
+  Api --> HCWP
 ```
 
 ---
