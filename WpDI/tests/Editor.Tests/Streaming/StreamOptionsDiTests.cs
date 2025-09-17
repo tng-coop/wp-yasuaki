@@ -35,10 +35,12 @@ public class StreamOptionsDiTests
     {
         public HttpClient? HttpClient { get; }
         public WordPressPCL.WordPressClient? Client => null;
+        public WordPressAuthPreference AuthPreference => WordPressAuthPreference.None;
 
         public FakeApi(HttpClient http) { HttpClient = http; }
 
         public void SetEndpoint(string endpoint) { /* not needed */ }
+        public void SetAuthPreference(WordPressAuthPreference preference) { }
 
         public Task<WordPressPCL.WordPressClient?> GetClientAsync()
         {

@@ -14,13 +14,11 @@ graph TD
 
   C["Blazor Components"]:::component
 
-  Flags["AppFlags"]:::singleton
-  AMH["AuthMessageHandler"]:::scoped
   HCWP["HttpClient (WP BaseAddress)"]:::scoped
 
-  IApi["IWordPressApiService"]:::scoped
-  %% app-provided implementation used in Blazor app
-  Api["BlazorWP.WordPressApiService"]:::scoped
+  IApi["IWordPressApiService"]:::singleton
+  %% unified implementation from WPDI
+  Api["Editor.WordPress.WordPressApiService"]:::singleton
 
   IEditor["IPostEditor"]:::scoped
   Editor["WordPressEditor"]:::scoped
@@ -32,8 +30,6 @@ graph TD
   %% API chain
   IApi --> Api
   Api --> HCWP
-  HCWP --> AMH
-  Api --> Flags
 
   %% Editor depends on IWordPressApiService
   IEditor --> Editor
@@ -53,8 +49,8 @@ graph TD
 
   C["Blazor Components"]:::component
 
-  IApi["IWordPressApiService"]:::scoped
-  Api["BlazorWP.WordPressApiService"]:::scoped
+  IApi["IWordPressApiService"]:::singleton
+  Api["Editor.WordPress.WordPressApiService"]:::singleton
   HCWP["HttpClient (WP BaseAddress)"]:::scoped
 
   IFeed["IPostFeed"]:::singleton

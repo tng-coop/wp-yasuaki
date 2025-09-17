@@ -23,11 +23,13 @@ namespace BlazorWP
             builder.RootComponents.Add<HeadOutlet>("head::after");
 
             // 3) Services
-            builder.Services.AddScoped<AuthMessageHandler>();
-            builder.Services.AddScoped(sp =>
+            builder.Services.AddScoped(_ => new HttpClient { BaseAddress = new Uri(builder.HostEnvironment.BaseAddress) });
+            builder.Services.Configure<WordPressOptions>(options =>
             {
-                var handler = sp.GetRequiredService<AuthMessageHandler>();
-                return new HttpClient(handler) { BaseAddress = new Uri(builder.HostEnvironment.BaseAddress) };
+                options.BaseUrl = string.Empty;
+                options.UserName = string.Empty;
+                options.AppPassword = string.Empty;
+                options.Timeout = TimeSpan.FromSeconds(30);
             });
 
             builder.Services.AddScoped<AppPasswordService>();
@@ -39,7 +41,7 @@ namespace BlazorWP
             builder.Services.AddScoped<ClipboardJsInterop>();
             builder.Services.AddScoped<WpMediaJsInterop>();
 
-            builder.Services.AddScoped<IWordPressApiService, WordPressApiService>();
+            builder.Services.AddSingleton<IWordPressApiService, WordPressApiService>();
             builder.Services.AddLocalization(options => options.ResourcesPath = "Resources");
             builder.Services.AddSingleton<LanguageService>();
             builder.Services.AddSingleton<AppFlags>();
@@ -83,6 +85,8 @@ namespace BlazorWP
             var storage = host.Services.GetRequiredService<LocalStorageJsInterop>();
             var languageService = host.Services.GetRequiredService<LanguageService>();
             var navigationManager = host.Services.GetRequiredService<NavigationManager>();
+            var api = host.Services.GetRequiredService<IWordPressApiService>();
+            var appPasswordService = host.Services.GetRequiredService<AppPasswordService>();
 
             var uri = new Uri(navigationManager.Uri);
             var queryParams = Microsoft.AspNetCore.WebUtilities.QueryHelpers.ParseQuery(uri.Query);
@@ -169,6 +173,22 @@ namespace BlazorWP
             }
 
             await flags.SetWpUrl(wpurl);
+            api.SetEndpoint(wpurl);
+
+            WordPressAuthPreference authPreference;
+            if (authMode == AuthType.Nonce)
+            {
+                var nonceJs = host.Services.GetRequiredService<WpNonceJsInterop>();
+                authPreference = WordPressAuthPreference.Nonce(() => nonceJs.GetNonceAsync());
+            }
+            else
+            {
+                var creds = await appPasswordService.GetAsync();
+                authPreference = creds is { Username: var u, AppPassword: var p }
+                    ? WordPressAuthPreference.AppPassword(u, p)
+                    : WordPressAuthPreference.None;
+            }
+            api.SetAuthPreference(authPreference);
 
             // ---------- Normalize URL query (write current flags + wpurl) ----------
             var needsNormalization =
