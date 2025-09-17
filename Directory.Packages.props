@@ -27,5 +27,6 @@
     <PackageVersion Include="TG.Blazor.IndexedDB" Version="1.5.0-preview" />
     <PackageVersion Include="TinyMCE.Blazor" Version="2.2.1" />
     <PackageVersion Include="WordPressPCL" Version="2.1.0" />
+
   </ItemGroup>
 </Project>

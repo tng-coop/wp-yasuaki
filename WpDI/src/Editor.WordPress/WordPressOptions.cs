@@ -2,8 +2,8 @@ namespace Editor.WordPress;
 
 public sealed class WordPressOptions
 {
-    public string BaseUrl { get; init; } = string.Empty;
-    public string UserName { get; init; } = string.Empty;
-    public string AppPassword { get; init; } = string.Empty;
-    public TimeSpan Timeout { get; init; } = TimeSpan.FromSeconds(10);
+    public string BaseUrl { get; set; } = string.Empty;
+    public string UserName { get; set; } = string.Empty;
+    public string AppPassword { get; set; } = string.Empty;
+    public TimeSpan Timeout { get; set; } = TimeSpan.FromSeconds(10);
 }
