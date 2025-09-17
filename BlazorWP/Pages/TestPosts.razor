@@ -2,6 +2,7 @@
 
 @using Editor.Abstractions
 @using Editor.WordPress
+@using Microsoft.AspNetCore.WebUtilities
 @inject IPostEditor Editor
 @inject IPostFeed Feed
 @inject IWordPressApiService Api
@@ -19,8 +20,8 @@
     protected override void OnInitialized()
     {
         var uri = Nav.ToAbsoluteUri(Nav.Uri);
-        var qs = System.Web.HttpUtility.ParseQueryString(uri.Query);
-        Q = qs.Get("q");
+        var qs = QueryHelpers.ParseQuery(uri.Query);
+        Q = qs.TryGetValue("q", out var values) ? values.ToString() : null;
     }
 
     private async Task AddAsync()
