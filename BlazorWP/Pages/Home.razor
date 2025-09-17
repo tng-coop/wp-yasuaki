@@ -410,6 +410,7 @@
     {
         await AppPasswordService.SetAsync(appModel.Username, appModel.AppPassword);
         await CredentialJs.StoreAsync(appModel.Username, appModel.AppPassword);
+        Api.SetAuthPreference(WordPressAuthPreference.AppPassword(appModel.Username, appModel.AppPassword));
         status = "Credentials stored.";
         StateHasChanged();
     }

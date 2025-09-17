@@ -37,10 +37,12 @@ public class WpdiTrickyCasesTests
     {
         public HttpClient? HttpClient { get; }
         public WordPressPCL.WordPressClient? Client => null;
+        public WordPressAuthPreference AuthPreference => WordPressAuthPreference.None;
 
         public FakeApi(HttpClient http) => HttpClient = http;
 
         public void SetEndpoint(string endpoint) { /* not needed for these unit tests */ }
+        public void SetAuthPreference(WordPressAuthPreference preference) { }
 
         public Task<WordPressPCL.WordPressClient?> GetClientAsync()
             => Task.FromResult<WordPressPCL.WordPressClient?>(null);

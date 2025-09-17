@@ -5,6 +5,7 @@
 @inject NavigationManager Navigation
 @inject IWordPressApiService Api
 @inject AppPasswordService AppPassService
+@inject WpNonceJsInterop NonceJs
 @implements IDisposable
 
 <PageTitle>App Flags</PageTitle>
@@ -262,6 +263,22 @@
     private async Task SetAuth(AuthType type, string url)
     {
         await Flags.SetAuthMode(type);
+        if (type == AuthType.Nonce)
+        {
+            Api.SetAuthPreference(WordPressAuthPreference.Nonce(() => NonceJs.GetNonceAsync()));
+        }
+        else
+        {
+            var creds = await AppPassService.GetAsync();
+            if (creds is { Username: var user, AppPassword: var pass })
+            {
+                Api.SetAuthPreference(WordPressAuthPreference.AppPassword(user, pass));
+            }
+            else
+            {
+                Api.SetAuthPreference(WordPressAuthPreference.None);
+            }
+        }
         Navigation.NavigateTo(url);
     }
 
@@ -276,6 +293,10 @@
     {
         var url = BuildUrl("wpurl", wpUrl);
         await Flags.SetWpUrl(wpUrl);
+        if (!string.IsNullOrWhiteSpace(wpUrl))
+        {
+            Api.SetEndpoint(wpUrl);
+        }
         Navigation.NavigateTo(url);
     }
 
@@ -342,6 +363,7 @@
             }
             await AppPassService.SetAsync(_appUser, _appPass);
             _authlabStatus = "Saved App Password.";
+            Api.SetAuthPreference(WordPressAuthPreference.AppPassword(_appUser, _appPass));
             await LoadCredsPreview();
             await RunQuickCheck();
         }
@@ -361,6 +383,7 @@
             var wrong = _appPass + "-wrong";
             await AppPassService.SetAsync(_appUser, wrong);
             _authlabStatus = "Saved intentionally invalid App Password.";
+            Api.SetAuthPreference(WordPressAuthPreference.AppPassword(_appUser, wrong));
             await LoadCredsPreview();
             await RunQuickCheck();
         }
@@ -374,6 +397,7 @@
         {
             await AppPassService.ClearAsync();
             _authlabStatus = "Cleared stored App Password.";
+            Api.SetAuthPreference(WordPressAuthPreference.None);
             await LoadCredsPreview();
             await RunQuickCheck();
         }
