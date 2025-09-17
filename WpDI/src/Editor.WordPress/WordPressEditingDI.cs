@@ -1,4 +1,3 @@
-// WpDI/src/Editor.WordPress/WordPressEditingDI.cs
 using Editor.Abstractions;
 using Microsoft.Extensions.DependencyInjection;
 

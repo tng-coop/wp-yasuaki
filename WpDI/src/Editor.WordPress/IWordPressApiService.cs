@@ -1,6 +1,4 @@
 using WordPressPCL;
-using System.Net.Http;
-using System.Threading.Tasks;
 
 namespace Editor.WordPress;
 
