@@ -3,6 +3,7 @@ using System.Text.Json;
 using Editor.Abstractions;
 using Editor.WordPress;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Options;
 using Xunit;
 
 public class StreamOptionsDiTests
@@ -31,22 +32,17 @@ public class StreamOptionsDiTests
         }
     }
 
-    private sealed class FakeApi : IWordPressApiService
+    private static IWordPressApiService NewApi(HttpMessageHandler handler)
     {
-        public HttpClient? HttpClient { get; }
-        public WordPressPCL.WordPressClient? Client => null;
-        public WordPressAuthPreference AuthPreference => WordPressAuthPreference.None;
-
-        public FakeApi(HttpClient http) { HttpClient = http; }
-
-        public void SetEndpoint(string endpoint) { /* not needed */ }
-        public void SetAuthPreference(WordPressAuthPreference preference) { }
-
-        public Task<WordPressPCL.WordPressClient?> GetClientAsync()
+        var opts = Options.Create(new WordPressOptions
         {
-            // Just return a dummy; tests only care about HttpClient
-            return Task.FromResult<WordPressPCL.WordPressClient?>(null);
-        }
+            BaseUrl = "https://example.test",
+            Timeout = TimeSpan.FromSeconds(10)
+        });
+
+        var api = new WordPressApiService(opts, () => handler);
+        api.SetEndpoint("https://example.test");
+        return api;
     }
 
     [Fact]
@@ -56,8 +52,7 @@ public class StreamOptionsDiTests
         services.AddSingleton<IPostCache, MemoryPostCache>();
 
         var handler = new CapturingHandler();
-        var http = new HttpClient(handler) { BaseAddress = new Uri("https://example.test") };
-        services.AddSingleton<IWordPressApiService>(sp => new FakeApi(http));
+        services.AddSingleton<IWordPressApiService>(_ => NewApi(handler));
         services.AddWpdiStreaming(configure: () => new StreamOptions(WarmFirstCount: 5, MaxBatchSize: 50));
 
         var sp = services.BuildServiceProvider();
@@ -76,8 +71,7 @@ public class StreamOptionsDiTests
         services.AddSingleton<IPostCache, MemoryPostCache>();
 
         var handler = new CapturingHandler();
-        var http = new HttpClient(handler) { BaseAddress = new Uri("https://example.test") };
-        services.AddSingleton<IWordPressApiService>(sp => new FakeApi(http));
+        services.AddSingleton<IWordPressApiService>(_ => NewApi(handler));
         services.AddWpdiStreaming(configure: () => new StreamOptions(WarmFirstCount: 0, MaxBatchSize: -1));
 
         var sp = services.BuildServiceProvider();
@@ -96,8 +90,7 @@ public class StreamOptionsDiTests
         services.AddSingleton<IPostCache, MemoryPostCache>();
 
         var handler = new CapturingHandler();
-        var http = new HttpClient(handler) { BaseAddress = new Uri("https://example.test") };
-        services.AddSingleton<IWordPressApiService>(sp => new FakeApi(http));
+        services.AddSingleton<IWordPressApiService>(_ => NewApi(handler));
         services.AddWpdiStreaming(); // no options supplied
 
         var sp = services.BuildServiceProvider();
