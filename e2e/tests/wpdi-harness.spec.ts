@@ -1,48 +1,86 @@
-// import { test, expect } from '../fixtures/test';
+// e2e/tests/wpdi-harness.spec.ts
+import { test, expect } from '../fixtures/test';
 
-// test.describe('WPDI Harness page', () => {
-//   test.beforeEach(async ({ page, blazorURL }) => {
-//     await page.goto(new URL('wpdi-harness', blazorURL).toString());
-//     await expect(page.getByTestId('wpdi-harness')).toBeVisible();
-//   });
+test.describe('WPDI Harness page (nonce path, real BlazorWASM)', () => {
+  test.skip(true)
+  test.setTimeout(180_000);
 
-//   test('create, update, change status, delete', async ({ page }) => {
-//     // 1. Create draft
-//     await page.getByTestId('title-input').fill('Harness Post');
-//     await page.getByTestId('btn-create').click();
-//     await expect(page.getByTestId('status')).toHaveText(/Draft created/);
+  test('create → list → submit → retract → publish → delete (UI-only)', async ({
+    page,
+    blazorURL,
+    baseURL,
+    loginAsAdmin,
+  }) => {
+    // 1) login (fixture)
+    await loginAsAdmin();
 
-//     // 2. List
-//     await page.getByTestId('btn-list').click();
-//     await expect(page.getByTestId('post-table')).toContainText('Harness Post');
+    // 2) open harness in nonce mode; pass wpurl like your other specs
+    const url = new URL('wpdi-harness?auth=nonce', blazorURL);
+    if (baseURL) url.searchParams.set('wpurl', baseURL);
+    await page.goto(url.toString(), { waitUntil: 'domcontentloaded' });
 
-//     // Capture Id for further actions
-//     const idCell = page.locator('[data-testid="post-table"] tr').first().locator('td').first();
-//     const createdId = parseInt(await idCell.innerText(), 10);
-//     expect(createdId).toBeGreaterThan(0);
+    // harness ready
+    await expect(page.getByTestId('wpdi-harness')).toBeVisible();
+    const table = page.getByTestId('post-table');
 
-//     // 3. Update content
-//     await page.getByTestId('btn-update-content').click();
-//     await expect(page.getByTestId('status')).toHaveText(/Content updated/);
+    // 3) create a draft via UI
+    const title = uniq('HarnessPost');
+    await page.getByTestId('title-input').fill(title);
+    await page.getByTestId('btn-create').click();
 
-//     // 4. Submit for review
-//     await page.getByTestId('btn-submit').click();
-//     await expect(page.getByTestId('status')).toHaveText(/Status → pending/);
+    // 4) list & confirm row exists
+    await page.getByTestId('btn-list').click();
+    await expect(table).toBeVisible();
+    await expect
+      .poll(async () => Number(await rowExists(table, title)), { timeout: 30_000 })
+      .toBe(1);
 
-//     // 5. Retract back to draft
-//     await page.getByTestId('btn-retract').click();
-//     await expect(page.getByTestId('status')).toHaveText(/Status → draft/);
+    // helper to reselect status cell (fresh each time)
+    const statusCell = () =>
+      table.locator('tr', { hasText: title }).first().locator('[data-testid="cell-status"]');
 
-//     // 6. Publish
-//     await page.getByTestId('btn-publish').click();
-//     await expect(page.getByTestId('status')).toHaveText(/Status → publish/);
+    // 5) status transitions (assert on the dedicated status cell)
 
-//     // 7. Delete
-//     await page.getByTestId('btn-delete').click();
-//     await expect(page.getByTestId('status')).toHaveText(/Deleted/);
+    // Submit → pending
+    await page.getByTestId('btn-submit').click();
+    await page.getByTestId('btn-list').click();
+    await expect
+      .poll(async () => (await statusCell().innerText()).trim().toLowerCase(), { timeout: 30_000 })
+      .toBe('pending');
 
-//     // Confirm deletion (list should not include original title anymore)
-//     await page.getByTestId('btn-list').click();
-//     await expect(page.getByTestId('post-table')).not.toContainText('Harness Post');
-//   });
-// });
+    // Retract → draft
+    await page.getByTestId('btn-retract').click();
+    await page.getByTestId('btn-list').click();
+    await expect
+      .poll(async () => (await statusCell().innerText()).trim().toLowerCase(), { timeout: 30_000 })
+      .toBe('draft');
+
+    // Publish → publish
+    await page.getByTestId('btn-publish').click();
+    await page.getByTestId('btn-list').click();
+    await expect
+      .poll(async () => (await statusCell().innerText()).trim().toLowerCase(), { timeout: 30_000 })
+      .toBe('publish');
+
+    // 6) delete & confirm gone
+    await page.getByTestId('btn-delete').click();
+    await page.getByTestId('btn-list').click();
+    await expect
+      .poll(async () => Number(!(await table.innerText()).includes(title)), { timeout: 30_000 })
+      .toBe(1);
+  });
+});
+
+/* ------------------------------- helpers -------------------------------- */
+
+function uniq(prefix = 'e2e'): string {
+  return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+}
+
+function rowByTitle(table: import('@playwright/test').Locator, title: string) {
+  return table.locator('tr', { hasText: title }).first();
+}
+
+async function rowExists(table: import('@playwright/test').Locator, title: string) {
+  return (await table.locator('tr', { hasText: title }).count()) > 0;
+}

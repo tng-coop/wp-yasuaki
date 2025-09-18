@@ -81,7 +81,7 @@ public class WpdiTrickyCasesTests
         var result = await editor.CreateAsync("hello", "<p>world</p>");
 
         Assert.Equal(123, result.Id);
-        Assert.Equal("/p/123", result.Url);
+        Assert.Equal("/p/123", result.Link);
         Assert.Equal("draft", result.Status);
 
         var postReq = handler.Requests.Single(r =>

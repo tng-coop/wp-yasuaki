@@ -10,9 +10,9 @@
 
 <!--
   Minimal, deterministic harness around WPDI (Editor/Feed) to support e2e.
-  - Keeps surface tiny: create/list/update-content/status/delete
-  - Uses WPDI for create & update (LWW), IPostFeed for listing, raw REST for status/delete
-  - Stable data-testid hooks
+  - Surface: create / list / update-content (LWW) / status / delete
+  - WPDI for create/update; IPostFeed for listing; raw REST for status/delete
+  - Stable data-testid hooks + data-post-id rows + per-cell testids
 -->
 
 <section class="container py-3" data-testid="wpdi-harness">
@@ -33,16 +33,13 @@
     </div>
   </div>
 
-<div class="d-flex flex-wrap gap-2 mb-2">
-  <button class="btn btn-outline-primary" data-testid="btn-list" @onclick="List">List</button>
-  <button class="btn btn-outline-warning" data-testid="btn-submit" @onclick="Submit">Submit for Review</button>
-  <button class="btn btn-outline-dark" data-testid="btn-retract" @onclick="Retract">Retract to Draft</button>
-  <button class="btn btn-success" data-testid="btn-publish" @onclick="Publish">Publish</button>
-  <button class="btn btn-danger" data-testid="btn-delete" @onclick="Delete">Delete (force)</button>
-</div>
-
-
-
+  <div class="d-flex flex-wrap gap-2 mb-2">
+    <button class="btn btn-outline-primary" data-testid="btn-list" @onclick="List">List</button>
+    <button class="btn btn-outline-warning" data-testid="btn-submit" @onclick="Submit">Submit for Review</button>
+    <button class="btn btn-outline-dark" data-testid="btn-retract" @onclick="Retract">Retract to Draft</button>
+    <button class="btn btn-success" data-testid="btn-publish" @onclick="Publish">Publish</button>
+    <button class="btn btn-danger" data-testid="btn-delete" @onclick="Delete">Delete (force)</button>
+  </div>
 
   <div role="status" class="mb-2" data-testid="status">@Status</div>
 
@@ -59,11 +56,13 @@
       <tbody data-testid="post-table">
         @foreach (var p in Items)
         {
-          <tr class="@(p.Id == CurrentId ? "table-primary" : null)" @onclick="() => Select(p)">
-            <td>@p.Id</td>
-            <td>@((MarkupString)p.Title)</td>
-            <td>@p.Status</td>
-            <td>@p.ModifiedGmt</td>
+          <tr class="@(p.Id == CurrentId ? "table-primary" : null)"
+              @onclick="() => Select(p)"
+              data-post-id="@p.Id">
+            <td data-testid="cell-id">@p.Id</td>
+            <td data-testid="cell-title">@p.Title</td>
+            <td data-testid="cell-status">@p.Status</td>
+            <td data-testid="cell-modified">@p.ModifiedGmt</td>
           </tr>
         }
       </tbody>
@@ -78,7 +77,6 @@
   private long? CurrentId => long.TryParse(IdText, out var v) ? v : null;
 
   private List<PostSummary> Items = new();
-  
 
   private async Task CreateDraft()
   {
@@ -101,7 +99,7 @@
     if (CurrentId is null) { Status = "Enter Id"; return; }
     try
     {
-      // Get current modified_gmt to honor LWW contract
+      // Honor LWW: fetch current modified_gmt before update
       var http = Api.HttpClient;
       if (http is null) { Status = "API client unavailable"; return; }
 
@@ -176,8 +174,7 @@
     Title = p.Title;
   }
 
-private Task Submit()  => ChangeStatus("pending");
-private Task Retract() => ChangeStatus("draft");
-private Task Publish() => ChangeStatus("publish");
-
+  private Task Submit()  => ChangeStatus("pending");
+  private Task Retract() => ChangeStatus("draft");
+  private Task Publish() => ChangeStatus("publish");
 }
