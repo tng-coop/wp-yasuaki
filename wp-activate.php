@@ -1,1 +1,0 @@
-wp/wp-activate.php
