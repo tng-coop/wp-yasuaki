@@ -34,3 +34,10 @@ _audit/
 **/obj/
 
 s.sh
+
+# Ignore WordPress core mirror files (symlinks we recreate)
+#/ at repo root only
+/wp-*.php# Ignore WordPress core mirror files (symlinks we recreate)
+#/ at repo root only
+/wp-*.php
+
