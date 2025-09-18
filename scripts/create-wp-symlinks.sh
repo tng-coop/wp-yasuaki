@@ -44,7 +44,6 @@ files=(
   wp-activate.php
   wp-blog-header.php
   wp-comments-post.php
-  wp-config.php
   wp-config-sample.php
   wp-cron.php
   wp-links-opml.php
