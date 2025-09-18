@@ -96,7 +96,7 @@ def parse_csproj(path: Path) -> Dict[str,Any]:
         data["packageReferences"]=pkgs; data["projectReferences"]=projs
         test_pkgs={"xunit","nunit","mstest.testframework","mstest","microsoft.net.test.sdk"}
         name=path.name.lower()
-        data["isTestProject"]= name.endswith(".tests.csproj") or any((p["id"] or "").lower() in test_pkgs for p in pkgs)
+        data["isTestProject"]= name.endswith(".Tests.csproj") or any((p["id"] or "").lower() in test_pkgs for p in pkgs)
         if data["isTestProject"]:
             data["testCounts"]=count_cs_tests(path.parent)
     except Exception as ex:
