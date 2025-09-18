@@ -84,7 +84,9 @@
   {
     try
     {
-      var t = string.IsNullOrWhiteSpace(Title) ? $"Harness {DateTimeOffset.UtcNow:yyyyMMdd-HHmmss}" : Title;
+      var t = string.IsNullOrWhiteSpace(Title)
+        ? $"Harness {DateTimeOffset.UtcNow:yyyyMMdd-HHmmss}"
+        : Title;
       var res = await Editor.CreateAsync(t, "<p>wpdi harness</p>");
       IdText = res.Id.ToString();
       Status = $"Draft created: {res.Id}";
@@ -105,7 +107,8 @@
       var http = Api.HttpClient;
       if (http is null) { Status = "API client unavailable"; return; }
 
-      var get = await http.GetFromJsonAsync<System.Text.Json.JsonElement>($"/wp-json/wp/v2/posts/{CurrentId}?context=edit");
+      var get = await http.GetFromJsonAsync<System.Text.Json.JsonElement>(
+        $"/wp-json/wp/v2/posts/{CurrentId}?context=edit");
       var lastSeen = get.TryGetProperty("modified_gmt", out var mg) ? (mg.GetString() ?? "") : "";
       if (string.IsNullOrWhiteSpace(lastSeen)) { Status = "Could not read modified_gmt"; return; }
 
@@ -128,7 +131,9 @@
       // Status transitions still use REST for now
       var http = Api.HttpClient;
       if (http is null) { Status = "API client unavailable"; return; }
-      var resp = await http.PostAsJsonAsync($"/wp-json/wp/v2/posts/{CurrentId}", new { status = newStatus });
+      var resp = await http.PostAsJsonAsync(
+        $"/wp-json/wp/v2/posts/{CurrentId}",
+        new { status = newStatus });
       resp.EnsureSuccessStatusCode();
       Status = $"Status → {newStatus}";
       await List();
@@ -145,20 +150,18 @@
     if (CurrentId is null) { Status = "Enter Id"; return; }
 
     var id = CurrentId.Value;
-
     try
     {
-      // 1) Server delete via WPDI (idempotent: 200/404/410 => success)
       await Editor.DeleteAsync(id, force: true);
       Status = "Deleted";
 
-      // 2) Optimistic local eviction: remove from in-memory snapshot and notify subscribers immediately
+      // Optimistic eviction → update snapshot & notify subscribers
       Feed.Evict(RestBase, id);
 
-      // 3) Kick off standard refresh to reconcile with server
+      // Kick off background refresh
       _ = Feed.RefreshAsync(RestBase);
 
-      // 4) Update UI list from current snapshot (instant)
+      // Update UI list immediately
       Items = Feed.Current(RestBase).OrderByDescending(p => p.ModifiedGmt).ToList();
     }
     catch (Exception ex)
@@ -187,7 +190,7 @@
     Title = p.Title;
   }
 
-  // simple wrappers (avoid Razor inline string lambdas)
+  // simple wrappers to avoid inline Razor string lambdas
   private Task Submit()  => ChangeStatus("pending");
   private Task Retract() => ChangeStatus("draft");
   private Task Publish() => ChangeStatus("publish");
