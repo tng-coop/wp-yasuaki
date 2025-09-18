@@ -41,4 +41,4 @@ s.sh
 #/ at repo root only
 /wp-*.php
 /xmlrpc.php
-
+.htaccess
