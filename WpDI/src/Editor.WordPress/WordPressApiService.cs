@@ -1,6 +1,10 @@
 using Microsoft.AspNetCore.Components.WebAssembly.Http;
 using Microsoft.Extensions.Options;
+using System.Net;
+using System.Net.Http.Json;
+using System.Text.Json;
 using WordPressPCL;
+using Editor.Abstractions;
 
 namespace Editor.WordPress;
 
@@ -190,5 +194,28 @@ public sealed class WordPressApiService : IWordPressApiService
 
             return await base.SendAsync(request, cancellationToken).ConfigureAwait(false);
         }
+    }
+
+    // -----------------------------
+    // NEW: Typed call for /users/me
+    // -----------------------------
+    public async Task<WpMe> GetCurrentUserAsync(CancellationToken ct = default)
+    {
+        // Ensure HttpClient exists and base address is set
+        _ = await GetClientAsync().ConfigureAwait(false);
+        var http = HttpClient ?? throw new InvalidOperationException("WordPress HttpClient is not initialized.");
+
+        using var res = await http.GetAsync("wp/v2/users/me", ct).ConfigureAwait(false);
+
+        if (res.IsSuccessStatusCode)
+        {
+            var me = await res.Content.ReadFromJsonAsync<WpMe>(new JsonSerializerOptions(JsonSerializerDefaults.Web), ct)
+                     ?? throw new ParseError(bodySnippet: null, message: "Invalid JSON from /users/me");
+            return me;
+        }
+
+        // PolicyHandler already throws for 401/403 (AuthError), 429 (RateLimited), timeout (TimeoutError),
+        // and 5xx (HttpRequestException). If we’re here, it’s a pass-through 4xx like 404/400 → map to domain.
+        throw new UnexpectedHttpError(res.StatusCode);
     }
 }

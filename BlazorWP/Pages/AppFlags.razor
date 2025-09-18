@@ -1,6 +1,8 @@
 @page "/appflags"
 @using Editor.WordPress
 @using Microsoft.AspNetCore.WebUtilities
+@using System.Net
+@using Editor.Abstractions
 @inject BlazorWP.Data.AppFlags Flags
 @inject NavigationManager Navigation
 @inject IWordPressApiService Api
@@ -223,8 +225,7 @@
         {
             var (u, p) = (creds.Value.Username ?? "", creds.Value.AppPassword ?? "");
             _appUser = string.IsNullOrEmpty(_appUser) ? u : _appUser;
-            _credsMask = string.IsNullOrEmpty(p) ? "(empty)" : (p.Length <= 4 ? new string('*', p.Length) : new string('*', p.Length
-            - 4) + p[^4..]);
+            _credsMask = string.IsNullOrEmpty(p) ? "(empty)" : (p.Length <= 4 ? new string('*', p.Length) : new string('*', p.Length - 4) + p[^4..]);
         }
         else
         {
@@ -309,37 +310,57 @@
 
         try
         {
-            var client = Api.HttpClient;
-            if (client is null)
+            // Deterministic pre-check for AppPass mode: no creds → Unauthorized without network
+            if (Flags.Auth == AuthType.AppPass)
             {
-                await Api.GetClientAsync(); // will SetEndpoint internally using Flags.WpUrl
-                client = Api.HttpClient;
+                var creds = await AppPassService.GetAsync();
+                if (!creds.HasValue
+                    || string.IsNullOrWhiteSpace(creds.Value.Username)
+                    || string.IsNullOrWhiteSpace(creds.Value.AppPassword))
+                {
+                    _checkStatus = "Unauthorized";
+                    _httpCode = (int)HttpStatusCode.Unauthorized;
+                    return;
+                }
             }
 
-            if (client is null) { _checkStatus = "NotConfigured"; return; }
-
-            using var resp = await client.GetAsync("wp/v2/users/me");
-            _httpCode = (int)resp.StatusCode;
-
-            if (resp.IsSuccessStatusCode)
-            {
-                _checkStatus = "OK";
-                using var s = await resp.Content.ReadAsStreamAsync();
-                using var doc = await System.Text.Json.JsonDocument.ParseAsync(s);
-                if (doc.RootElement.TryGetProperty("name", out var nameEl))
-                    _userName = nameEl.GetString();
-            }
-            else if (_httpCode is 401 or 403)
-            {
-                _checkStatus = "Unauthorized";
-            }
-            else
-            {
-                _checkStatus = $"HTTP {_httpCode}";
-            }
+            // Call the domain service (Option A). It uses our managed HttpClient + handlers.
+            var me = await Api.GetCurrentUserAsync();
+            _checkStatus = "OK";
+            _userName = me?.Name ?? me?.Username;
+        }
+        catch (AuthError ae)
+        {
+            _httpCode = (int)ae.StatusCode;
+            _checkStatus = "Unauthorized";
+            _error = ae.Message;
+        }
+        catch (RateLimited rl)
+        {
+            _httpCode = 429;
+            _checkStatus = "HTTP 429";
+            _error = rl.RetryAfter is { } ra ? $"Too many requests. Retry after {ra}." : "Too many requests.";
+        }
+        catch (TimeoutError te)
+        {
+            _checkStatus = "Error";
+            _error = te.Message;
+        }
+        catch (TransientHttpError th)
+        {
+            _httpCode = th.StatusCode is { } sc ? (int)sc : null;
+            _checkStatus = th.StatusCode is { } sc2 ? $"HTTP {(int)sc2}" : "Error";
+            _error = th.Message;
+        }
+        catch (UnexpectedHttpError uh)
+        {
+            _httpCode = (int)uh.StatusCode;
+            _checkStatus = $"HTTP {_httpCode}";
+            _error = uh.Message;
         }
         catch (Exception ex)
         {
+            // 5xx and raw transport may still bubble HttpRequestException from PolicyHandler tests → show generic Error
             _checkStatus = "Error";
             _error = ex.Message;
         }
@@ -421,7 +442,6 @@
         await Api.GetClientAsync(); // trigger lazy init without UI setting endpoint
         await RunQuickCheck();
     }
-
 
     public void Dispose() => Flags.OnChange -= OnFlagsChanged;
 }
