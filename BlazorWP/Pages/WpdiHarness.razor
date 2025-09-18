@@ -35,9 +35,9 @@
 
   <div class="d-flex flex-wrap gap-2 mb-2">
     <button class="btn btn-outline-primary" data-testid="btn-list" @onclick="List">List</button>
-    <button class="btn btn-outline-warning" data-testid="btn-submit" @onclick="Submit">Submit for Review</button>
-    <button class="btn btn-outline-dark" data-testid="btn-retract" @onclick="Retract">Retract to Draft</button>
-    <button class="btn btn-success" data-testid="btn-publish" @onclick="Publish">Publish</button>
+    <button class="btn btn-outline-warning" data-testid="btn-submit" @onclick="() => ChangeStatus(\"pending\")">Submit for Review</button>
+    <button class="btn btn-outline-dark" data-testid="btn-retract" @onclick="() => ChangeStatus(\"draft\")">Retract to Draft</button>
+    <button class="btn btn-success" data-testid="btn-publish" @onclick="() => ChangeStatus(\"publish\")">Publish</button>
     <button class="btn btn-danger" data-testid="btn-delete" @onclick="Delete">Delete (force)</button>
   </div>
 
@@ -71,6 +71,8 @@
 </section>
 
 @code {
+  private const string RestBase = "posts";
+
   private string Title = string.Empty;
   private string IdText = string.Empty;
   private string Status = "Ready.";
@@ -137,15 +139,27 @@
     }
   }
 
-  // ✅ Delete now goes through WPDI (idempotent; tolerates 404/410)
+  // ✅ Delete: WPDI + optimistic eviction + background refresh
   private async Task Delete()
   {
     if (CurrentId is null) { Status = "Enter Id"; return; }
+
+    var id = CurrentId.Value;
+
     try
     {
-      await Editor.DeleteAsync(CurrentId.Value, force: true);
-      Status = "Deleted";
-      await List();
+      // 1) Server delete via WPDI (idempotent: 200/404/410 => success)
+      await Editor.DeleteAsync(id, force: true);
+      Status = "Deleted (server acknowledged)";
+
+      // 2) Optimistic local eviction: remove from in-memory snapshot and notify subscribers immediately
+      Feed.Evict(RestBase, id);
+
+      // 3) Kick off standard refresh to reconcile with server (first N, then page M-by-M)
+      _ = Feed.RefreshAsync(RestBase);
+
+      // 4) Update UI list from current snapshot (instant)
+      Items = Feed.Current(RestBase).OrderByDescending(p => p.ModifiedGmt).ToList();
     }
     catch (Exception ex)
     {
@@ -157,8 +171,8 @@
   {
     try
     {
-      await Feed.RefreshAsync("posts");
-      Items = Feed.Current("posts").OrderByDescending(p => p.ModifiedGmt).ToList();
+      await Feed.RefreshAsync(RestBase);
+      Items = Feed.Current(RestBase).OrderByDescending(p => p.ModifiedGmt).ToList();
       Status = $"Listed {Items.Count} items";
     }
     catch (Exception ex)
@@ -172,8 +186,4 @@
     IdText = p.Id.ToString();
     Title = p.Title;
   }
-
-  private Task Submit()  => ChangeStatus("pending");
-  private Task Retract() => ChangeStatus("draft");
-  private Task Publish() => ChangeStatus("publish");
 }
