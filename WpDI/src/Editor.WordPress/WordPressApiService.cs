@@ -99,13 +99,27 @@ public sealed class WordPressApiService : IWordPressApiService
 
     private HttpClient CreateHttpClient()
     {
+        // Primary (swap in tests)
+        var primary = _primaryHandlerFactory?.Invoke() ?? new HttpClientHandler();
+
+        // Policy handler (timeouts, retries, error mapping)
+        var policy = new Http.PolicyHandler(
+            new Editor.Abstractions.ProdRetryPolicy(maxAttempts: 3, baseDelay: TimeSpan.FromMilliseconds(250)),
+            perRequestTimeout: _timeout // per-request timeout via linked CTS
+        )
+        {
+            InnerHandler = primary
+        };
+
+        // Auth handler outermost so it can set headers before policy runs
         var handler = new AuthDispatchingHandler(GetAuthPreference)
         {
-            InnerHandler = _primaryHandlerFactory?.Invoke() ?? new HttpClientHandler()
+            InnerHandler = policy
         };
 
         var http = new HttpClient(handler)
         {
+            // Keep HttpClient.Timeout for non-WASM; PolicyHandler enforces per-request in all cases
             Timeout = _timeout
         };
         http.DefaultRequestHeaders.Accept.ParseAdd("application/json");
