@@ -8,8 +8,8 @@ BLAZORWP_DIR="${REPO_ROOT}/src/BlazorWP"
 
 APP_PROJECT="${APP_PROJECT:-${BLAZORWP_DIR}/BlazorWP.csproj}"
 CONFIG="${CONFIG:-Release}"
-# Keep old name; your symlink 'blazor-publish' points to artifacts/blazor
-OUT_DIR="${OUT_DIR:-${REPO_ROOT}/blazor-publish}"
+# NEW DEFAULT: publish to artifacts/blazor (2025 layout)
+OUT_DIR="${OUT_DIR:-${REPO_ROOT}/artifacts/blazor}"
 BASE_HREF="${BASE_HREF:-/blazorapp/}"
 TARGET_DIR="${TARGET_DIR:-/var/www/html/wordpress/blazorapp}"
 PATCH_HTACCESS="${PATCH_HTACCESS:-1}"
@@ -65,7 +65,7 @@ echo "==> Deployed files (head):"
 $SUDO ls -la "$TARGET_DIR" | sed -n '1,80p'
 
 APP_URL="${BASE_HREF}"
-# If you want to curl via a full origin, prepend it, e.g. WP_BASE_URL="https://wp.lan"
+# Optional: if you have a full origin, set WP_BASE_URL=https://wp.lan
 if [[ -n "${WP_BASE_URL:-}" ]]; then
   APP_URL="${WP_BASE_URL%/}${BASE_HREF}"
 fi
