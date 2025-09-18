@@ -35,9 +35,9 @@
 
   <div class="d-flex flex-wrap gap-2 mb-2">
     <button class="btn btn-outline-primary" data-testid="btn-list" @onclick="List">List</button>
-    <button class="btn btn-outline-warning" data-testid="btn-submit" @onclick="() => ChangeStatus(\"pending\")">Submit for Review</button>
-    <button class="btn btn-outline-dark" data-testid="btn-retract" @onclick="() => ChangeStatus(\"draft\")">Retract to Draft</button>
-    <button class="btn btn-success" data-testid="btn-publish" @onclick="() => ChangeStatus(\"publish\")">Publish</button>
+    <button class="btn btn-outline-warning" data-testid="btn-submit" @onclick="Submit">Submit for Review</button>
+    <button class="btn btn-outline-dark" data-testid="btn-retract" @onclick="Retract">Retract to Draft</button>
+    <button class="btn btn-success" data-testid="btn-publish" @onclick="Publish">Publish</button>
     <button class="btn btn-danger" data-testid="btn-delete" @onclick="Delete">Delete (force)</button>
   </div>
 
@@ -150,12 +150,12 @@
     {
       // 1) Server delete via WPDI (idempotent: 200/404/410 => success)
       await Editor.DeleteAsync(id, force: true);
-      Status = "Deleted (server acknowledged)";
+      Status = "Deleted";
 
       // 2) Optimistic local eviction: remove from in-memory snapshot and notify subscribers immediately
       Feed.Evict(RestBase, id);
 
-      // 3) Kick off standard refresh to reconcile with server (first N, then page M-by-M)
+      // 3) Kick off standard refresh to reconcile with server
       _ = Feed.RefreshAsync(RestBase);
 
       // 4) Update UI list from current snapshot (instant)
@@ -186,4 +186,9 @@
     IdText = p.Id.ToString();
     Title = p.Title;
   }
+
+  // simple wrappers (avoid Razor inline string lambdas)
+  private Task Submit()  => ChangeStatus("pending");
+  private Task Retract() => ChangeStatus("draft");
+  private Task Publish() => ChangeStatus("publish");
 }
