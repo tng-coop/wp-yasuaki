@@ -2,7 +2,6 @@
 import { test, expect } from '../fixtures/test';
 
 test.describe('WPDI Harness page (nonce path, real BlazorWASM)', () => {
-  test.skip(true)
   test.setTimeout(180_000);
 
   test('create → list → submit → retract → publish → delete (UI-only)', async ({
@@ -11,17 +10,21 @@ test.describe('WPDI Harness page (nonce path, real BlazorWASM)', () => {
     baseURL,
     loginAsAdmin,
   }) => {
+    if (!baseURL) throw new Error('baseURL required');
+
     // 1) login (fixture)
     await loginAsAdmin();
 
     // 2) open harness in nonce mode; pass wpurl like your other specs
     const url = new URL('wpdi-harness?auth=nonce', blazorURL);
-    if (baseURL) url.searchParams.set('wpurl', baseURL);
+    url.searchParams.set('wpurl', baseURL);
     await page.goto(url.toString(), { waitUntil: 'domcontentloaded' });
 
     // harness ready
-    await expect(page.getByTestId('wpdi-harness')).toBeVisible();
+    const harness = page.getByTestId('wpdi-harness');
     const table = page.getByTestId('post-table');
+    await expect(harness).toBeVisible();
+    await expect(table).toBeAttached(); // tbody may be hidden before listing
 
     // 3) create a draft via UI
     const title = uniq('HarnessPost');
@@ -30,44 +33,42 @@ test.describe('WPDI Harness page (nonce path, real BlazorWASM)', () => {
 
     // 4) list & confirm row exists
     await page.getByTestId('btn-list').click();
-    await expect(table).toBeVisible();
-    await expect
-      .poll(async () => Number(await rowExists(table, title)), { timeout: 30_000 })
-      .toBe(1);
+    await expect(table).toBeVisible({ timeout: 30_000 });
 
-    // helper to reselect status cell (fresh each time)
-    const statusCell = () =>
-      table.locator('tr', { hasText: title }).first().locator('[data-testid="cell-status"]');
+    const row = () => table.locator('tr', { hasText: title }).first();
+    const statusCell = () => row().locator('[data-testid="cell-status"]');
+
+    await expect(row()).toHaveCount(1, { timeout: 30_000 });
+    await expect(statusCell()).toHaveText(/draft/i, { timeout: 30_000 });
 
     // 5) status transitions (assert on the dedicated status cell)
-
     // Submit → pending
     await page.getByTestId('btn-submit').click();
     await page.getByTestId('btn-list').click();
-    await expect
-      .poll(async () => (await statusCell().innerText()).trim().toLowerCase(), { timeout: 30_000 })
-      .toBe('pending');
+    await expect(statusCell()).toHaveText(/pending/i, { timeout: 30_000 });
 
     // Retract → draft
     await page.getByTestId('btn-retract').click();
     await page.getByTestId('btn-list').click();
-    await expect
-      .poll(async () => (await statusCell().innerText()).trim().toLowerCase(), { timeout: 30_000 })
-      .toBe('draft');
+    await expect(statusCell()).toHaveText(/draft/i, { timeout: 30_000 });
 
-    // Publish → publish
+    // Publish → publish/published
     await page.getByTestId('btn-publish').click();
     await page.getByTestId('btn-list').click();
-    await expect
-      .poll(async () => (await statusCell().innerText()).trim().toLowerCase(), { timeout: 30_000 })
-      .toBe('publish');
+    await expect(statusCell()).toHaveText(/publish|published/i, { timeout: 30_000 });
 
-    // 6) delete & confirm gone
+    // 6) delete & confirm gone (optimistic eviction happens in harness Delete())
     await page.getByTestId('btn-delete').click();
+
+    // Status banner flips to Deleted
+    await expect(page.getByTestId('status')).toHaveText(/deleted/i, { timeout: 30_000 });
+
+    // Row should already be gone without re-listing thanks to Feed.Evict(...)
+    await expect(row()).toHaveCount(0, { timeout: 30_000 });
+
+    // Optional: force re-list and assert again (server reconciliation)
     await page.getByTestId('btn-list').click();
-    await expect
-      .poll(async () => Number(!(await table.innerText()).includes(title)), { timeout: 30_000 })
-      .toBe(1);
+    await expect(row()).toHaveCount(0, { timeout: 30_000 });
   });
 });
 
