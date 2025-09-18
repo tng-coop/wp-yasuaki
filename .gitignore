@@ -1,44 +1,81 @@
-# Site/server stuff
+# ─────────────────────────────────────────────────────────────────────────────
+# Site / server bits
+# ─────────────────────────────────────────────────────────────────────────────
 .maintenance
 .user.ini
 .well-known/
 
-# Project dependencies
+# ─────────────────────────────────────────────────────────────────────────────
+# Dependencies
+# ─────────────────────────────────────────────────────────────────────────────
 /node_modules/
 /vendor/
 
-# Environment & config
+# ─────────────────────────────────────────────────────────────────────────────
+# Environment & local config
+# ─────────────────────────────────────────────────────────────────────────────
 .env
+.env.*
+!.env.example
 
-# Build artifacts
+# ─────────────────────────────────────────────────────────────────────────────
+# Build artifacts (repo-wide)
+# ─────────────────────────────────────────────────────────────────────────────
 dist/
 build/
 bin/
 obj/
+**/bin/
+**/obj/
+TestResults/
+**/TestResults/
+coverage/
+*.coverage
+*.coveragexml
+coverage*.xml
 
-# IDE / OS artifacts
+# .NET multi-solution tooling caches
+# (keep .config/ because dotnet-tools.json belongs in VCS)
+.vs/
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Editors / OS
+# ─────────────────────────────────────────────────────────────────────────────
 .DS_Store
 Thumbs.db
 *.swp
 *.log
+.idea/
+.vscode/
 
-# Project-specific folders outside wp
+# ─────────────────────────────────────────────────────────────────────────────
+# Playwright (e2e) artifacts
+# ─────────────────────────────────────────────────────────────────────────────
+e2e/playwright/playwright-report/
+e2e/playwright/test-results/
+
+# ─────────────────────────────────────────────────────────────────────────────
+# New 2025 layout artifacts
+# ─────────────────────────────────────────────────────────────────────────────
+/artifacts/
+# Legacy publish dir (ignore only if it's a real dir; a symlink named
+# 'blazor-publish' will still be tracked because of the trailing slash)
+blazor-publish/
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Project-specific odds & ends
+# ─────────────────────────────────────────────────────────────────────────────
 OldBlazorReference/
 blazorapp/
-blazor-publish/
+_/backup
 /backup
-
-# local audit + build
 _audit/
-**/bin/
-**/obj/
-
 s.sh
+/cert/
 
-# Ignore WordPress core mirror files (symlinks we recreate)
-#/ at repo root only
-/wp-*.php# Ignore WordPress core mirror files (symlinks we recreate)
-#/ at repo root only
+# ─────────────────────────────────────────────────────────────────────────────
+# WordPress core mirror files at repo root (we recreate symlinks)
+# ─────────────────────────────────────────────────────────────────────────────
 /wp-*.php
 /xmlrpc.php
-.htaccess
+/.htaccess
