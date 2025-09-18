@@ -10,7 +10,11 @@ public sealed class PostFeed : IPostFeed
 {
     private readonly IContentStream _stream;
     private readonly StreamOptions _options;
+
+    // restBase -> (id -> post)
     private readonly ConcurrentDictionary<string, ImmutableDictionary<long, PostSummary>> _snapshots = new();
+
+    // restBase -> subscriberId -> channel
     private readonly ConcurrentDictionary<string, ConcurrentDictionary<Guid, Channel<IReadOnlyList<PostSummary>>>> _subs = new();
 
     public PostFeed(IContentStream stream) : this(stream, new StreamOptions()) { }
@@ -59,17 +63,43 @@ public sealed class PostFeed : IPostFeed
             foreach (var p in batch) snap = snap.SetItem(p.Id, p);
             _snapshots[restBase] = snap;
 
-            var full = snap.Values.ToList();
-            if (_subs.TryGetValue(restBase, out var group))
+            Broadcast(restBase, snap.Values.ToList());
+        }
+    }
+
+    // -------- NEW: optimistic local updates --------
+
+    public void Evict(string restBase, long id)
+    {
+        var snap = _snapshots.GetOrAdd(restBase, ImmutableDictionary<long, PostSummary>.Empty);
+        if (snap.ContainsKey(id))
+        {
+            snap = snap.Remove(id);
+            _snapshots[restBase] = snap;
+            Broadcast(restBase, snap.Values.ToList());
+        }
+        // if the id isn't present, no-op (still idempotent)
+    }
+
+    public void Invalidate(string restBase)
+    {
+        // For now, just no-op. Left here to mirror the API and for future strategies
+        // like marking a "stale" flag. Callers should invoke RefreshAsync next.
+    }
+
+    // -------- helpers --------
+
+    private void Broadcast(string restBase, IReadOnlyList<PostSummary> full)
+    {
+        if (_subs.TryGetValue(restBase, out var group))
+        {
+            foreach (var kv in group.ToArray())
             {
-                foreach (var kv in group.ToArray())
+                var writer = kv.Value.Writer;
+                if (!writer.TryWrite(full))
                 {
-                    var writer = kv.Value.Writer;
-                    if (!writer.TryWrite(full))
-                    {
-                        writer.TryComplete();
-                        group.TryRemove(kv.Key, out _);
-                    }
+                    writer.TryComplete();
+                    group.TryRemove(kv.Key, out _);
                 }
             }
         }

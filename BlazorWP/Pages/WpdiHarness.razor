@@ -11,7 +11,7 @@
 <!--
   Minimal, deterministic harness around WPDI (Editor/Feed) to support e2e.
   - Surface: create / list / update-content (LWW) / status / delete
-  - WPDI for create/update; IPostFeed for listing; raw REST for status/delete
+  - WPDI for create/update/delete; IPostFeed for listing; raw REST for status
   - Stable data-testid hooks + data-post-id rows + per-cell testids
 -->
 
@@ -74,7 +74,7 @@
   private string Title = string.Empty;
   private string IdText = string.Empty;
   private string Status = "Ready.";
-  private long? CurrentId => long.TryParse(IdText, out var v) ? v : null;
+  private long? CurrentId => long.TryParse(IdText, out var v) ? v : (long?)null;
 
   private List<PostSummary> Items = new();
 
@@ -123,6 +123,7 @@
     if (CurrentId is null) { Status = "Enter Id"; return; }
     try
     {
+      // Status transitions still use REST for now
       var http = Api.HttpClient;
       if (http is null) { Status = "API client unavailable"; return; }
       var resp = await http.PostAsJsonAsync($"/wp-json/wp/v2/posts/{CurrentId}", new { status = newStatus });
@@ -136,15 +137,13 @@
     }
   }
 
+  // ✅ Delete now goes through WPDI (idempotent; tolerates 404/410)
   private async Task Delete()
   {
     if (CurrentId is null) { Status = "Enter Id"; return; }
     try
     {
-      var http = Api.HttpClient;
-      if (http is null) { Status = "API client unavailable"; return; }
-      var resp = await http.DeleteAsync($"/wp-json/wp/v2/posts/{CurrentId}?force=true");
-      if (!resp.IsSuccessStatusCode && (int)resp.StatusCode != 404) resp.EnsureSuccessStatusCode();
+      await Editor.DeleteAsync(CurrentId.Value, force: true);
       Status = "Deleted";
       await List();
     }

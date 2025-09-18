@@ -36,7 +36,15 @@ public interface IContentStream
 
 public interface IPostFeed
 {
+    // existing
     IAsyncEnumerable<IReadOnlyList<PostSummary>> Subscribe(string restBase, CancellationToken ct = default);
     Task RefreshAsync(string restBase, CancellationToken ct = default);
     IReadOnlyList<PostSummary> Current(string restBase);
+
+    // NEW: optimistic local updates + notification
+    /// <summary>Remove a post id from the in-memory snapshot for the given restBase and notify subscribers immediately.</summary>
+    void Evict(string restBase, long id);
+
+    /// <summary>Mark in-memory state as stale for the given restBase (no immediate change to items). Next Refresh will recompute.</summary>
+    void Invalidate(string restBase);
 }
