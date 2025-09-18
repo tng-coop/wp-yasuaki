@@ -40,4 +40,5 @@ s.sh
 /wp-*.php# Ignore WordPress core mirror files (symlinks we recreate)
 #/ at repo root only
 /wp-*.php
+/xmlrpc.php
 
