@@ -6,7 +6,6 @@ using Microsoft.AspNetCore.Components.WebAssembly.Hosting;
 using Microsoft.Extensions.Primitives;
 using TG.Blazor.IndexedDB;
 
-
 // ADD: WPDI abstractions (IPostEditor, IPostFeed, IPostCache, StreamOptions)
 using Editor.Abstractions;
 
@@ -80,8 +79,7 @@ namespace BlazorWP
             // 5) Build the host
             var host = builder.Build();
 
-            // 6) Configuration + flags + storage
-            var config = host.Services.GetRequiredService<IConfiguration>();
+            // 6) Flags + storage (config not required anymore)
             var flags = host.Services.GetRequiredService<AppFlags>();
             var storage = host.Services.GetRequiredService<LocalStorageJsInterop>();
             var languageService = host.Services.GetRequiredService<LanguageService>();
@@ -92,7 +90,7 @@ namespace BlazorWP
             var uri = new Uri(navigationManager.Uri);
             var queryParams = Microsoft.AspNetCore.WebUtilities.QueryHelpers.ParseQuery(uri.Query);
 
-           // ---------- App Mode ----------
+            // ---------- App Mode ----------
             var appMode = AppMode.Full;
             if (queryParams.TryGetValue("appmode", out var modeValues))
             {
@@ -141,36 +139,32 @@ namespace BlazorWP
             await flags.SetLanguage(lang == "jp" ? Language.Japanese : Language.English);
 
             // ---------- WordPress URL ----------
-            // 0) HARD GATE: config must specify WordPress:Url (even if query/localStorage supply a value)
-            var configWp = (config["WordPress:Url"] ?? string.Empty).Trim();
-            if (string.IsNullOrEmpty(configWp))
-            {
-                throw new InvalidOperationException(
-                    "❌ WordPress:Url is not configured in appsettings/environment. " +
-                    "This build must not run without a configured WordPress endpoint.");
-            }
+            // Precedence: Query (?wpurl=) → LocalStorage ("wpEndpoint") → Launch origin (lowest)
+            var launchOrigin = $"{uri.Scheme}://{uri.Authority}";
+            var wpurl = launchOrigin;
 
-            // Effective runtime wpurl still respects precedence: Query → LocalStorage → Config
-            var wpurl = configWp;
-
+            // 1) Query override
             if (queryParams.TryGetValue("wpurl", out var wpurlValues))
             {
                 var val = (wpurlValues.ToString() ?? "").Trim();
                 if (!string.IsNullOrEmpty(val))
                     wpurl = val;
             }
+            // 2) LocalStorage override
             else
             {
                 var storedWp = (await storage.GetItemAsync("wpEndpoint"))?.Trim();
                 if (!string.IsNullOrEmpty(storedWp))
                     wpurl = storedWp!;
+                // 3) Otherwise keep launchOrigin (lowest)
             }
 
             // Basic sanity (absolute http/https)
             if (!Uri.TryCreate(wpurl, UriKind.Absolute, out var wpUri) ||
                 (wpUri.Scheme != Uri.UriSchemeHttp && wpUri.Scheme != Uri.UriSchemeHttps))
             {
-                throw new InvalidOperationException($"❌ Invalid WordPress:Url '{wpurl}'. Must be an absolute http(s) URL.");
+                throw new InvalidOperationException(
+                    $"❌ Invalid WordPress endpoint '{wpurl}'. Must be an absolute http(s) URL.");
             }
 
             await flags.SetWpUrl(wpurl);

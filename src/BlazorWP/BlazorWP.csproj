@@ -23,8 +23,9 @@
     <PackageReference Include="WordPressPCL" />
   </ItemGroup>
 
+
   <ItemGroup>
-    <ProjectReference Include="..\WpDI\src\Editor.WordPress\Editor.WordPress.csproj" />
+    <ProjectReference Include="..\Editor.WordPress\Editor.WordPress.csproj" />
   </ItemGroup>
 
 </Project>

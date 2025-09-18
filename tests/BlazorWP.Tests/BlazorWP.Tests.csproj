@@ -11,6 +11,6 @@
     </PackageReference>
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="../BlazorWP/BlazorWP.csproj" />
+    <ProjectReference Include="..\..\src\BlazorWP\BlazorWP.csproj" />
   </ItemGroup>
 </Project>

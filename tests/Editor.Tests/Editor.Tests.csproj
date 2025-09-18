@@ -40,7 +40,7 @@
   <ItemGroup>
     <ProjectReference Include="..\..\src\Editor.Abstractions\Editor.Abstractions.csproj" />
     <ProjectReference Include="..\..\src\Editor.WordPress\Editor.WordPress.csproj" />
-    <ProjectReference Include="..\..\..\TestSupport\TestSupport.csproj" />
+    <ProjectReference Include="..\TestSupport\TestSupport.csproj" />
   </ItemGroup>
 
 </Project>
