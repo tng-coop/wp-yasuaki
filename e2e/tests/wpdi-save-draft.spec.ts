@@ -8,6 +8,7 @@ test.describe('WPDI Harness — save draft only (UI)', () => {
     page,
     blazorURL,
     baseURL,
+    uniq,
     loginAsAdmin,
   }) => {
     // 1) login using existing fixture (cookie auth for the app)
@@ -57,10 +58,6 @@ test.describe('WPDI Harness — save draft only (UI)', () => {
 });
 
 /* ------------------------------- helpers -------------------------------- */
-
-function uniq(prefix = 'e2e'): string {
-  return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-}
 
 async function rowExists(table: import('@playwright/test').Locator, title: string) {
   return (await table.locator('tr', { hasText: title }).count()) > 0;
