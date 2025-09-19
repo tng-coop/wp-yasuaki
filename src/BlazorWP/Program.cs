@@ -71,11 +71,6 @@ namespace BlazorWP
 
             builder.Services.AddWordPressEditing();
 
-            // CHANGED: no HttpClient factory parameter; ContentStream will resolve IWordPressApiService.
-            builder.Services.AddWpdiStreaming(
-                configure: () => new StreamOptions(WarmFirstCount: 10, MaxBatchSize: 100)
-            );
-
             // 5) Build the host
             var host = builder.Build();
 
