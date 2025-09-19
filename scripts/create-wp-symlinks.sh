@@ -54,6 +54,9 @@ files=(
   wp-signup.php
   wp-trackback.php
   xmlrpc.php
+  wp-admin
+  wp-includes
+  wp-content
 )
 
 changed=0
