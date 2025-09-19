@@ -43,6 +43,16 @@ test.describe('WPDI Harness — save draft only (UI)', () => {
     await expect
       .poll(async () => (await statusCell().innerText()).trim().toLowerCase(), { timeout: 30_000 })
       .toBe('draft');
+    // 6) delete via UI and confirm the row is gone
+    await page.getByTestId('btn-delete').click(); // uses Id set by CreateDraft in harness
+    await expect(page.getByTestId('status')).toHaveText(/Deleted/i, { timeout: 30_000 });
+
+    // With optimistic eviction, the row should already be gone; double-check after a re-list
+    const row = () => table.locator('tr', { hasText: title }).first();
+    await expect(row()).toHaveCount(0, { timeout: 30_000 });
+
+    await page.getByTestId('btn-list').click();
+    await expect(row()).toHaveCount(0, { timeout: 30_000 });
   });
 });
 
