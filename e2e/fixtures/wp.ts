@@ -1,49 +1,97 @@
 // e2e/fixtures/wp.ts
-import { test as base, expect, type APIRequestContext } from '@playwright/test';
+import { test as base } from '@playwright/test';
+import type { WPApi } from './common';
 
-export type WPAdmin = {
+export type WPTempUser = {
   id: number;
   login: { username: string; password: string };
 };
 
-// Important: worker-scoped fixtures go in the second generic
-export const test = base.extend<
-  {}, // no test-scoped fixtures here
-  {
-    uniq: (pfx?: string) => string;
-    wpAdmin: WPAdmin;
-    wpApi: APIRequestContext; // <-- provided by fixtures/common.ts
-  }
->({
-  // ---- Unique ID helper (worker-scoped) ----
-  uniq: [async ({}, use, workerInfo) => {
-    const runId = String(Date.now());
-    const wid = workerInfo.parallelIndex;
-    let seq = 0;
-    await use((pfx = 'e2e') => `${pfx}-${runId}-${wid}-${++seq}`);
-  }, { scope: 'worker' }],
+export type WPAdmin = WPTempUser;
 
-  // ---- Temp admin (worker-scoped) ----
-  // Uses wpApi (pre-auth’d with Basic auth) — no project.use reads here.
-  wpAdmin: [async ({ uniq, wpApi }, use) => {
-    const username = uniq('admin');
-    const password = 'a'; // deterministic test password
-    const email = `${username}@e2e.local`;
+// What this file NEEDS from others (worker fixtures)
+type Needs = { wpApi: WPApi };
 
-    const res = await wpApi.post('/wp-json/wp/v2/users', {
-      data: { username, password, email, roles: ['administrator'] },
-    });
-    if (res.status() !== 201) {
-      throw new Error(`Failed to create admin: ${res.status()} ${await res.text()}`);
-    }
-    const created = await res.json();
+// What this file PROVIDES (all worker-scoped)
+type WorkerProvides = {
+  uniq: (prefix?: string) => string;
+  wpAdmin: WPAdmin;
+  wpEditor: WPTempUser;
+  wpAuthor: WPTempUser;
+};
 
-    await use({ id: created.id, login: { username, password } });
+// ⬇️ Put worker fixtures in the SECOND generic parameter
+export const test = base.extend<{}, WorkerProvides & Needs>({
+  // --- uniq (worker)
+  uniq: [
+    async ({}, use) => {
+      const seed = Math.random().toString(36).slice(2, 8);
+      const fn = (prefix = '') => `${prefix}${Date.now().toString(36)}_${seed}`;
+      await use(fn);
+    },
+    { scope: 'worker' },
+  ],
 
-    // Cleanup when worker finishes
-    const del = await wpApi.delete(`/wp-json/wp/v2/users/${created.id}?force=true&reassign=false`);
-    expect(del.ok(), `Failed to delete temp admin: ${del.status()} ${await del.text()}`).toBeTruthy();
-  }, { scope: 'worker' }],
+  // --- admin temp user (worker)
+  wpAdmin: [
+    async ({ wpApi, uniq }, use) => {
+      const username = uniq('e2e_admin_');
+      const password = uniq('pw_');
+      const email = `${username}@example.test`;
+
+      const created = await wpApi.post('/wp/v2/users', {
+        data: { username, email, password, name: username, role: 'administrator' },
+      });
+
+      const user: WPAdmin = { id: created.id, login: { username, password } };
+      await use(user);
+
+      try {
+        await wpApi.delete(`/wp/v2/users/${created.id}`, { params: { reassign: 1, force: true } });
+      } catch {}
+    },
+    { scope: 'worker' },
+  ],
+
+  // --- editor temp user (worker)
+  wpEditor: [
+    async ({ wpApi, uniq }, use) => {
+      const username = uniq('e2e_editor_');
+      const password = uniq('pw_');
+      const email = `${username}@example.test`;
+
+      const created = await wpApi.post('/wp/v2/users', {
+        data: { username, email, password, name: username, role: 'editor' },
+      });
+
+      const user: WPTempUser = { id: created.id, login: { username, password } };
+      await use(user);
+
+      try {
+        await wpApi.delete(`/wp/v2/users/${created.id}`, { params: { reassign: 1, force: true } });
+      } catch {}
+    },
+    { scope: 'worker' },
+  ],
+
+  // --- author temp user (worker)
+  wpAuthor: [
+    async ({ wpApi, uniq }, use) => {
+      const username = uniq('e2e_author_');
+      const password = uniq('pw_');
+      const email = `${username}@example.test`;
+
+      const created = await wpApi.post('/wp/v2/users', {
+        data: { username, email, password, name: username, role: 'author' },
+      });
+
+      const user: WPTempUser = { id: created.id, login: { username, password } };
+      await use(user);
+
+      try {
+        await wpApi.delete(`/wp/v2/users/${created.id}`, { params: { reassign: 1, force: true } });
+      } catch {}
+    },
+    { scope: 'worker' },
+  ],
 });
-
-export { expect };

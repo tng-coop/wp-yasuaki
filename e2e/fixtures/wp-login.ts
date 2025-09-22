@@ -1,17 +1,23 @@
-// e2e/fixtures/wp-login.ts
 import { test as base } from '@playwright/test';
-import type { WPAdmin } from './wp';
+import type { WPAdmin, WPTempUser } from './wp';
 
 type LoginCreds = { username: string; password: string };
 
-export const test = base.extend<
-  {
-    loginViaPost: (creds: LoginCreds) => Promise<void>;
-    loginAsAdmin: () => Promise<void>;
-    wpLogout: () => Promise<void>;
-  },
-  { wpAdmin: WPAdmin }
->({
+type Provides = {
+  loginViaPost: (creds: LoginCreds) => Promise<void>;
+  loginAsAdmin: () => Promise<void>;
+  loginAsEditor: () => Promise<void>;
+  loginAsAuthor: () => Promise<void>;
+  wpLogout: () => Promise<void>;
+};
+
+type Needs = {
+  wpAdmin: WPAdmin;
+  wpEditor: WPTempUser;
+  wpAuthor: WPTempUser;
+};
+
+export const test = base.extend<Provides, Needs>({
   loginViaPost: async ({ page, baseURL }, use) => {
     const fn = async ({ username, password }: LoginCreds) => {
       const resp = await page.request.post(`${baseURL}/wp-login.php`, {
@@ -31,10 +37,19 @@ export const test = base.extend<
 
   loginAsAdmin: async ({ loginViaPost, wpAdmin }, use) => {
     await use(async () => {
-      await loginViaPost({
-        username: wpAdmin.login.username,
-        password: wpAdmin.login.password,
-      });
+      await loginViaPost({ username: wpAdmin.login.username, password: wpAdmin.login.password });
+    });
+  },
+
+  loginAsEditor: async ({ loginViaPost, wpEditor }, use) => {
+    await use(async () => {
+      await loginViaPost({ username: wpEditor.login.username, password: wpEditor.login.password });
+    });
+  },
+
+  loginAsAuthor: async ({ loginViaPost, wpAuthor }, use) => {
+    await use(async () => {
+      await loginViaPost({ username: wpAuthor.login.username, password: wpAuthor.login.password });
     });
   },
 
