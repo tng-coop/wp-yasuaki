@@ -95,24 +95,5 @@ public class WpdiTrickyCasesTests
         Assert.Equal("<p>world</p>", content);
     }
 
-    [Fact]
-    public async Task UpdateAsync_Adds_Conflict_Warning_When_Server_Modified_Differs()
-    {
-        var handler = new CapturingHandlerOverride(
-            preGetJson: "{\"id\":123,\"modified_gmt\":\"2025-01-02T03:04:05\"}",
-            postJson:   "{\"id\":123,\"link\":\"/p/123\",\"status\":\"draft\"}"
-        );
-        var api = NewApi(handler);
-        var editor = new WordPressEditor(api);
 
-        var _ = await editor.UpdateAsync(123, "<p>new</p>", lastSeenModifiedUtc: "2025-01-01T00:00:00");
-
-        var post = handler.Requests.Last();
-        Assert.Equal(HttpMethod.Post, post.method);
-        Assert.Equal("/wp-json/wp/v2/posts/123", post.uri.AbsolutePath);
-        Assert.Contains("\"wpdi_info\"", post.body);
-        Assert.Contains("\"Conflict\"", post.body);
-        Assert.Contains("\"baseModifiedUtc\":\"2025-01-01T00:00:00\"", post.body);
-        Assert.Contains("\"serverModifiedUtc\":\"2025-01-02T03:04:05\"", post.body);
-    }
 }

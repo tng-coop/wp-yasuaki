@@ -47,7 +47,6 @@ public sealed class WordPressEditor : IPostEditor
 
         using var pre = await http.SendAsync(preReq, ct).ConfigureAwait(false);
 
-        // If missing/trashed → create a duplicate draft with wpdi_info meta
         if (pre.StatusCode is HttpStatusCode.NotFound or HttpStatusCode.Gone)
         {
             var reason = pre.StatusCode == HttpStatusCode.NotFound ? ReasonCode.NotFound : ReasonCode.Trashed;
@@ -59,7 +58,7 @@ public sealed class WordPressEditor : IPostEditor
                 timestampUtc = DateTime.UtcNow.ToString("o")
             };
             var duplicateTitle = $"Recovered #{id} {DateTime.UtcNow:yyyy-MM-dd HH:mm} UTC";
-            var payload = new { title = duplicateTitle, status = "draft", content = html, meta = new { wpdi_info = meta } };
+            var payload = new { title = duplicateTitle, status = "draft", content = html};
 
             using var resDup = await http.PostAsync(
                 "/wp-json/wp/v2/posts",
@@ -90,23 +89,7 @@ public sealed class WordPressEditor : IPostEditor
             !string.IsNullOrWhiteSpace(serverModifiedUtc) &&
             !string.Equals(serverModifiedUtc, lastSeenModifiedUtc, StringComparison.Ordinal);
 
-        object updPayload = conflict
-            ? new
-            {
-                content = html,
-                meta = new
-                {
-                    wpdi_info = new
-                    {
-                        kind = "warning",
-                        reason = new { code = ReasonCode.Conflict.ToString(), args = new { kind = "post", id } },
-                        baseModifiedUtc = lastSeenModifiedUtc,
-                        serverModifiedUtc,
-                        timestampUtc = DateTime.UtcNow.ToString("o")
-                    }
-                }
-            }
-            : new { content = html };
+        object updPayload = new { content = html };
 
         using var res = await http.PostAsync(
             $"/wp-json/wp/v2/posts/{id}",
