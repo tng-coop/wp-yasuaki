@@ -1,29 +1,19 @@
-// WordPressEditingService.cs
+// src/Editor.WordPress/WordPressEditingService.cs
 #nullable enable
 using System.Net.Http.Json;
 using System.Text;
 using System.Text.Json;
+using Editor.Abstractions;           // <- Use the existing PostSummary, CachePage, IPostCache types
+using WordPressPCL;
 
-using Editor.Abstractions;   // IPostEditor etc. live here in your repo
-using WordPressPCL;          // you already reference this
-using Editor.WordPress;      // IWordPressApiService, IEditLockService live here
-
-// -------------------------------
-// 1) DTOs + Interface (minimal)
-// -------------------------------
-namespace Editor.Abstractions
+namespace Editor.WordPress
 {
-    public record Paged<T>(IReadOnlyList<T> Items, int Page, int PerPage, int? Total, int? TotalPages);
+    // -------------------------------
+    // 1) Intent-level UI façade types
+    //    (No PostSummary here; we reuse Editor.Abstractions.PostSummary)
+    // -------------------------------
 
-    // Keep ModifiedUtc as the WP "modified_gmt" string so we can pass it back verbatim for conflict detection
-    public record PostSummary(
-        long Id,
-        string Title,
-        string Status,
-        string? ModifiedUtc,
-        string? Author,
-        DateTimeOffset? Date,
-        IReadOnlyList<int> CategoryIds);
+    public record Paged<T>(IReadOnlyList<T> Items, int Page, int PerPage, int? Total, int? TotalPages);
 
     public record PostDetail(
         long Id,
@@ -32,7 +22,8 @@ namespace Editor.Abstractions
         string Status,
         IReadOnlyList<int> CategoryIds,
         string? ModifiedUtc,
-        string? Link);
+        string? Link
+    );
 
     public enum SaveOutcome { Created, Updated, Submitted, Published, Recovered, Conflict, AuthRequired, RateLimited, Error }
 
@@ -41,7 +32,8 @@ namespace Editor.Abstractions
         long PostId,
         string Status,
         DateTimeOffset? ServerModifiedUtc,
-        string? Message = null);
+        string? Message = null
+    );
 
     public enum LockState { Acquired, AlreadyLocked, Released, NotHeld, Failed }
 
@@ -49,20 +41,21 @@ namespace Editor.Abstractions
 
     public record CategoryInfo(int Id, string Name, int? ParentId);
 
-    /// <summary>Thin, intent-level façade the UI calls. One class implements this whole surface.</summary>
     public interface IEditingService
     {
+        // List (paged, header-driven)
         Task<Paged<PostSummary>> ListPostsAsync(
             int page = 1, int perPage = 20,
             string? search = null, string? statusCsv = "draft,pending,publish,private",
             int? categoryId = null, CancellationToken ct = default);
 
+        // Read (edit context)
         Task<PostDetail?> GetPostAsync(long id, CancellationToken ct = default);
 
-        // Server autosave: creates a non-public revision; live post stays the same
+        // Server autosave (live stays unchanged)
         Task<SaveResult> AutosaveAsync(PostDetail post, CancellationToken ct = default);
 
-        // Save/submit/publish (standard WP statuses). Uses ModifiedUtc to detect conflicts.
+        // Save/submit/publish (WordPress-native statuses, with conflict checks)
         Task<SaveResult> SaveDraftAsync(PostDetail post, CancellationToken ct = default);
         Task<SaveResult> SubmitForReviewAsync(PostDetail post, CancellationToken ct = default);
         Task<SaveResult> PublishAsync(PostDetail post, CancellationToken ct = default);
@@ -74,19 +67,14 @@ namespace Editor.Abstractions
         Task<LockResult> AcquireLockAsync(long postId, CancellationToken ct = default);
         Task<LockResult> ReleaseLockAsync(CancellationToken ct = default);
 
-        // Categories (search/paging for large taxonomies)
+        // Categories
         Task<IReadOnlyList<CategoryInfo>> ListCategoriesAsync(
             string? search = null, int page = 1, int perPage = 100, int? parentId = null, CancellationToken ct = default);
     }
-}
 
-// --------------------------------------
-// 2) Implementation over your WP stack
-// --------------------------------------
-namespace Editor.WordPress
-{
-    using static System.StringComparison;
-
+    // --------------------------------------
+    // 2) Implementation over your WP stack
+    // --------------------------------------
     public sealed class WordPressEditingService : IEditingService
     {
         private readonly IWordPressApiService _api;
@@ -100,15 +88,15 @@ namespace Editor.WordPress
 
         public WordPressEditingService(IWordPressApiService api, IPostEditor postEditor, IEditLockService locks)
         {
-            _api = api ?? throw new ArgumentNullException(nameof(api));
+            _api        = api  ?? throw new ArgumentNullException(nameof(api));
             _postEditor = postEditor ?? throw new ArgumentNullException(nameof(postEditor));
-            _locks = locks ?? throw new ArgumentNullException(nameof(locks));
+            _locks      = locks ?? throw new ArgumentNullException(nameof(locks));
         }
 
         // -------------------
         // Listing / Reading
         // -------------------
-        public async Task<Paged<Editor.Abstractions.PostSummary>> ListPostsAsync(
+        public async Task<Paged<PostSummary>> ListPostsAsync(
             int page = 1, int perPage = 20,
             string? search = null, string? statusCsv = "draft,pending,publish,private",
             int? categoryId = null, CancellationToken ct = default)
@@ -116,95 +104,74 @@ namespace Editor.WordPress
             _ = await _api.GetClientAsync().ConfigureAwait(false);
             var http = _api.HttpClient ?? throw new InvalidOperationException("WordPress HttpClient not initialized.");
 
+            // BaseAddress is expected to be .../wp-json/
             var qs = new StringBuilder($"wp/v2/posts?context=edit&_embed=1&per_page={perPage}&page={page}");
-            if (!string.IsNullOrWhiteSpace(search)) qs.Append("&search=").Append(Uri.EscapeDataString(search));
+            if (!string.IsNullOrWhiteSpace(search))    qs.Append("&search=").Append(Uri.EscapeDataString(search));
             if (!string.IsNullOrWhiteSpace(statusCsv)) qs.Append("&status=").Append(Uri.EscapeDataString(statusCsv));
-            if (categoryId is not null) qs.Append("&categories=").Append(categoryId.Value);
+            if (categoryId is not null)                qs.Append("&categories=").Append(categoryId.Value);
 
             using var res = await http.GetAsync(qs.ToString(), ct).ConfigureAwait(false);
             var body = await res.Content.ReadAsStringAsync(ct).ConfigureAwait(false);
             res.EnsureSuccessStatusCode();
 
-            var items = new List<Editor.Abstractions.PostSummary>();
+            var items = new List<PostSummary>();
             using (var doc = JsonDocument.Parse(body))
             {
                 foreach (var el in doc.RootElement.EnumerateArray())
                 {
-                    var id = el.TryGetProperty("id", out var idEl) ? idEl.GetInt64() : 0;
-                    var status = el.TryGetProperty("status", out var sEl) ? sEl.GetString() ?? "" : "";
-                    var link = el.TryGetProperty("link", out var lEl) ? lEl.GetString() : null;
+                    var id       = el.TryGetProperty("id", out var idEl) ? idEl.GetInt64() : 0;
+                    var status   = el.TryGetProperty("status", out var sEl) ? sEl.GetString() ?? "" : "";
+                    var link     = el.TryGetProperty("link", out var lEl) ? lEl.GetString() ?? "" : "";
+                    var title    = el.TryGetProperty("title", out var tEl) && tEl.TryGetProperty("rendered", out var tr)
+                                    ? (tr.GetString() ?? "")
+                                    : "";
+                    var modified = el.TryGetProperty("modified_gmt", out var mg) ? (mg.GetString() ?? "") : "";
 
-                    string title = el.TryGetProperty("title", out var tEl) && tEl.TryGetProperty("rendered", out var tr)
-                        ? (tr.GetString() ?? "")
-                        : "";
-
-                    string? modifiedUtc = el.TryGetProperty("modified_gmt", out var mg) ? mg.GetString() : null;
-                    DateTimeOffset? date = null;
-                    if (el.TryGetProperty("date_gmt", out var dg) && DateTimeOffset.TryParse(dg.GetString(), out var dto))
-                        date = dto;
-
-                    List<int> cats = new();
-                    if (el.TryGetProperty("categories", out var ce) && ce.ValueKind == JsonValueKind.Array)
-                        foreach (var cid in ce.EnumerateArray())
-                            cats.Add(cid.GetInt32());
-
-                    string? author = null;
-                    if (el.TryGetProperty("_embedded", out var emb) &&
-                        emb.TryGetProperty("author", out var authArr) &&
-                        authArr.ValueKind == JsonValueKind.Array &&
-                        authArr.GetArrayLength() > 0)
-                    {
-                        var a0 = authArr[0];
-                        if (a0.TryGetProperty("name", out var nameEl)) author = nameEl.GetString();
-                    }
-
-                    items.Add(new Editor.Abstractions.PostSummary(id, title, status, modifiedUtc, author, date, cats));
+                    // Editor.Abstractions.PostSummary shape: (Id, Title, Status, Link, ModifiedGmt)
+                    items.Add(new PostSummary(id, title, status, link, modified));
                 }
             }
 
             int? total = TryGetIntHeader(res, "X-WP-Total");
             int? totalPages = TryGetIntHeader(res, "X-WP-TotalPages");
 
-            return new Editor.Abstractions.Paged<Editor.Abstractions.PostSummary>(items, page, perPage, total, totalPages);
+            return new Paged<PostSummary>(items, page, perPage, total, totalPages);
         }
 
-        public async Task<Editor.Abstractions.PostDetail?> GetPostAsync(long id, CancellationToken ct = default)
+        public async Task<PostDetail?> GetPostAsync(long id, CancellationToken ct = default)
         {
             var client = await _api.GetClientAsync().ConfigureAwait(false);
             if (client is null) throw new InvalidOperationException("WordPress client not initialized.");
 
-            // Ask for edit context so we can get raw fields where possible.
             var post = await client.Posts.GetByIDAsync((int)id, embed: true, useAuth: true).ConfigureAwait(false);
             if (post is null) return null;
 
-            // Prefer raw content if present, fallback to rendered
-            var raw = post.Content?.Raw ?? post.Content?.Rendered ?? "";
+            // Use rendered HTML; (older PCLs may not expose Raw)
+            var html = post.Content?.Rendered ?? string.Empty;
             var cats = post.Categories ?? new List<int>();
-            var authorName = post.Embedded?.Author?.FirstOrDefault()?.Name;
 
-            // FIX: ModifiedGmt is non-nullable DateTime in your PCL
+            // FIX: ModifiedGmt is a non-nullable DateTime in your PCL
             string? modifiedUtc = post.ModifiedGmt == default
                 ? null
                 : DateTime.SpecifyKind(post.ModifiedGmt, DateTimeKind.Utc).ToString("o");
 
-            return new Editor.Abstractions.PostDetail(
-                Id: post.Id,
-                Title: post.Title?.Rendered ?? post.Title?.Raw ?? "",
-                Html: raw,
-                Status: post.Status.ToString().ToLowerInvariant(),
+            return new PostDetail(
+                Id:         post.Id,
+                Title:      post.Title?.Rendered ?? string.Empty,
+                Html:       html,
+                Status:     post.Status.ToString().ToLowerInvariant(),
                 CategoryIds: cats,
                 ModifiedUtc: modifiedUtc,
-                Link: post.Link
+                Link:       post.Link
             );
-
         }
 
         // --------------
         // Autosave (server-side revision)
         // --------------
-        public async Task<Editor.Abstractions.SaveResult> AutosaveAsync(Editor.Abstractions.PostDetail post, CancellationToken ct = default)
+        public async Task<SaveResult> AutosaveAsync(PostDetail post, CancellationToken ct = default)
         {
-            if (post.Id <= 0) return await SaveDraftAsync(post, ct); // if new, create draft first
+            if (post.Id <= 0) return await SaveDraftAsync(post, ct); // new → create draft once
 
             _ = await _api.GetClientAsync().ConfigureAwait(false);
             var http = _api.HttpClient ?? throw new InvalidOperationException("WordPress HttpClient not initialized.");
@@ -216,91 +183,89 @@ namespace Editor.WordPress
                 categories = post.CategoryIds
             };
 
-            using var res = await http.PostAsJsonAsync($"/wp-json/wp/v2/posts/{post.Id}/autosaves", payload, ct).ConfigureAwait(false);
+            using var res = await http.PostAsJsonAsync($"wp/v2/posts/{post.Id}/autosaves", payload, ct).ConfigureAwait(false);
             var body = await res.Content.ReadAsStringAsync(ct).ConfigureAwait(false);
             res.EnsureSuccessStatusCode();
 
-            DateTimeOffset? serverMod = TryReadDate(body, "modified_gmt");
-            return new Editor.Abstractions.SaveResult(Editor.Abstractions.SaveOutcome.Updated, post.Id, post.Status, serverMod, "Autosaved");
+            var serverMod = TryReadDate(body, "modified_gmt");
+            return new SaveResult(SaveOutcome.Updated, post.Id, post.Status, serverMod, "Autosaved");
         }
 
         // ------------------
         // Save / Submit / Publish (with conflict checks)
         // ------------------
-        public async Task<Editor.Abstractions.SaveResult> SaveDraftAsync(Editor.Abstractions.PostDetail post, CancellationToken ct = default)
-            => await SaveWithStatusAsync(post, targetStatus: "draft", ct);
+        public Task<SaveResult> SaveDraftAsync(PostDetail post, CancellationToken ct = default)
+            => SaveWithStatusAsync(post, targetStatus: "draft", ct);
 
-        public async Task<Editor.Abstractions.SaveResult> SubmitForReviewAsync(Editor.Abstractions.PostDetail post, CancellationToken ct = default)
-            => await SaveWithStatusAsync(post, targetStatus: "pending", ct);
+        public Task<SaveResult> SubmitForReviewAsync(PostDetail post, CancellationToken ct = default)
+            => SaveWithStatusAsync(post, targetStatus: "pending", ct);
 
-        public async Task<Editor.Abstractions.SaveResult> PublishAsync(Editor.Abstractions.PostDetail post, CancellationToken ct = default)
-            => await SaveWithStatusAsync(post, targetStatus: "publish", ct);
+        public Task<SaveResult> PublishAsync(PostDetail post, CancellationToken ct = default)
+            => SaveWithStatusAsync(post, targetStatus: "publish", ct);
 
-        public async Task<Editor.Abstractions.SaveResult> SwitchToDraftAsync(long id, CancellationToken ct = default)
+        public async Task<SaveResult> SwitchToDraftAsync(long id, CancellationToken ct = default)
         {
             var r = await _postEditor.SetStatusAsync(id, "draft", ct).ConfigureAwait(false);
-            return new Editor.Abstractions.SaveResult(Editor.Abstractions.SaveOutcome.Updated, id, r.Status, DateTimeOffset.UtcNow, "Switched to draft");
+            return new SaveResult(SaveOutcome.Updated, id, r.Status, DateTimeOffset.UtcNow, "Switched to draft");
         }
 
         // -----------
         // Locking
         // -----------
-        public async Task<Editor.Abstractions.LockResult> AcquireLockAsync(long postId, CancellationToken ct = default)
+        public async Task<LockResult> AcquireLockAsync(long postId, CancellationToken ct = default)
         {
             try
             {
                 _ = await _api.GetClientAsync().ConfigureAwait(false);
                 var http = _api.HttpClient ?? throw new InvalidOperationException("WordPress HttpClient not initialized.");
 
-                // Read any existing lock first
-                var check = await http.GetAsync($"/wp-json/wp/v2/posts/{postId}?context=edit&_fields=meta._edit_lock", ct).ConfigureAwait(false);
+                // Read any existing lock
+                var check = await http.GetAsync($"wp/v2/posts/{postId}?context=edit&_fields=meta._edit_lock", ct).ConfigureAwait(false);
                 if (check.IsSuccessStatusCode)
                 {
                     var rawJson = await check.Content.ReadAsStringAsync(ct).ConfigureAwait(false);
                     var (lockedBy, _) = ParseLock(rawJson);
                     if (lockedBy is not null)
                     {
-                        // See who we are
                         var me = await _api.GetCurrentUserAsync(ct).ConfigureAwait(false);
                         if (lockedBy != me.Id)
-                            return new Editor.Abstractions.LockResult(Editor.Abstractions.LockState.AlreadyLocked, lockedBy, $"Locked by {lockedBy}");
+                            return new LockResult(LockState.AlreadyLocked, lockedBy, $"Locked by {lockedBy}");
                     }
                 }
 
-                // Claim: start heartbeat (default interval from options)
                 var me2 = await _api.GetCurrentUserAsync(ct).ConfigureAwait(false);
                 _lockSession = await _locks.OpenAsync("posts", postId, me2.Id, options: null, ct).ConfigureAwait(false);
                 _lockedPostId = postId;
-                return new Editor.Abstractions.LockResult(Editor.Abstractions.LockState.Acquired, null, "Lock acquired");
+                return new LockResult(LockState.Acquired, null, "Lock acquired");
             }
             catch (Exception ex)
             {
-                return new Editor.Abstractions.LockResult(Editor.Abstractions.LockState.Failed, null, ex.Message);
+                return new LockResult(LockState.Failed, null, ex.Message);
             }
         }
 
-        public async Task<Editor.Abstractions.LockResult> ReleaseLockAsync(CancellationToken ct = default)
+        public async Task<LockResult> ReleaseLockAsync(CancellationToken ct = default)
         {
             try
             {
                 if (_lockSession is null)
-                    return new Editor.Abstractions.LockResult(Editor.Abstractions.LockState.NotHeld);
+                    return new LockResult(LockState.NotHeld);
 
                 await _lockSession.ReleaseNowAsync(ct).ConfigureAwait(false);
                 await _lockSession.DisposeAsync().ConfigureAwait(false);
                 _lockSession = null; _lockedPostId = null;
-                return new Editor.Abstractions.LockResult(Editor.Abstractions.LockState.Released);
+                return new LockResult(LockState.Released);
             }
             catch (Exception ex)
             {
-                return new Editor.Abstractions.LockResult(Editor.Abstractions.LockState.Failed, null, ex.Message);
+                return new LockResult(LockState.Failed, null, ex.Message);
             }
         }
 
         // ---------------
         // Categories
         // ---------------
-        public async Task<IReadOnlyList<Editor.Abstractions.CategoryInfo>> ListCategoriesAsync(
+        public async Task<IReadOnlyList<CategoryInfo>> ListCategoriesAsync(
             string? search = null, int page = 1, int perPage = 100, int? parentId = null, CancellationToken ct = default)
         {
             _ = await _api.GetClientAsync().ConfigureAwait(false);
@@ -308,21 +273,21 @@ namespace Editor.WordPress
 
             var qs = new StringBuilder($"wp/v2/categories?per_page={perPage}&page={page}&orderby=name&order=asc&_fields=id,name,parent");
             if (!string.IsNullOrWhiteSpace(search)) qs.Append("&search=").Append(Uri.EscapeDataString(search));
-            if (parentId is not null) qs.Append("&parent=").Append(parentId.Value);
+            if (parentId is not null)              qs.Append("&parent=").Append(parentId.Value);
 
             using var res = await http.GetAsync(qs.ToString(), ct).ConfigureAwait(false);
             var body = await res.Content.ReadAsStringAsync(ct).ConfigureAwait(false);
             res.EnsureSuccessStatusCode();
 
-            var list = new List<Editor.Abstractions.CategoryInfo>();
+            var list = new List<CategoryInfo>();
             using var doc = JsonDocument.Parse(body);
             foreach (var el in doc.RootElement.EnumerateArray())
             {
-                var id = el.TryGetProperty("id", out var idEl) ? idEl.GetInt32() : 0;
+                var id   = el.TryGetProperty("id", out var idEl) ? idEl.GetInt32() : 0;
                 var name = el.TryGetProperty("name", out var nEl) ? (nEl.GetString() ?? "") : "";
                 int? par = el.TryGetProperty("parent", out var pEl) ? pEl.GetInt32() : 0;
                 if (par == 0) par = null;
-                list.Add(new Editor.Abstractions.CategoryInfo(id, name, par));
+                list.Add(new CategoryInfo(id, name, par));
             }
             return list;
         }
@@ -330,13 +295,13 @@ namespace Editor.WordPress
         // -----------------------
         // Internal save pipeline
         // -----------------------
-        private async Task<Editor.Abstractions.SaveResult> SaveWithStatusAsync(Editor.Abstractions.PostDetail post, string targetStatus, CancellationToken ct)
+        private async Task<SaveResult> SaveWithStatusAsync(PostDetail post, string targetStatus, CancellationToken ct)
         {
             try
             {
                 if (post.Id <= 0)
                 {
-                    // Create new draft in one go (title/content/categories)
+                    // Create new draft in one go
                     _ = await _api.GetClientAsync().ConfigureAwait(false);
                     var http = _api.HttpClient ?? throw new InvalidOperationException("WordPress HttpClient not initialized.");
 
@@ -347,71 +312,68 @@ namespace Editor.WordPress
                         status = "draft",
                         categories = post.CategoryIds
                     };
-                    using var res = await http.PostAsJsonAsync("/wp-json/wp/v2/posts", payload, ct).ConfigureAwait(false);
+                    using var res = await http.PostAsJsonAsync("wp/v2/posts", payload, ct).ConfigureAwait(false);
                     var body = await res.Content.ReadAsStringAsync(ct).ConfigureAwait(false);
                     res.EnsureSuccessStatusCode();
 
                     var newId = TryReadId(body) ?? 0;
-                    // Update status if needed
-                    if (!EqualsIgnoreCase(targetStatus, "draft"))
+
+                    if (!targetStatus.Equals("draft", StringComparison.OrdinalIgnoreCase))
                         _ = await _postEditor.SetStatusAsync(newId, targetStatus, ct).ConfigureAwait(false);
 
-                    var outcome = targetStatus switch
+                    var outcome = targetStatus.ToLowerInvariant() switch
                     {
-                        "publish" => Editor.Abstractions.SaveOutcome.Published,
-                        "pending" => Editor.Abstractions.SaveOutcome.Submitted,
-                        _ => Editor.Abstractions.SaveOutcome.Created
+                        "publish" => SaveOutcome.Published,
+                        "pending" => SaveOutcome.Submitted,
+                        _ => SaveOutcome.Created
                     };
                     var serverMod = TryReadDate(body, "modified_gmt");
-                    return new Editor.Abstractions.SaveResult(outcome, newId, targetStatus, serverMod, "Created");
+                    return new SaveResult(outcome, newId, targetStatus, serverMod, "Created");
                 }
                 else
                 {
-                    // Preflight conflict check against last-seen modified
+                    // Conflict check
                     var lastSeen = post.ModifiedUtc ?? await _postEditor.GetLastModifiedUtcAsync(post.Id, ct).ConfigureAwait(false) ?? "";
                     var currentServer = await _postEditor.GetLastModifiedUtcAsync(post.Id, ct).ConfigureAwait(false);
                     var conflict = !string.IsNullOrWhiteSpace(currentServer) &&
-                                   !string.Equals(currentServer, lastSeen, Ordinal);
+                                   !string.Equals(currentServer, lastSeen, StringComparison.Ordinal);
 
-                    // Update content (WordPressEditor handles LWW meta on conflict)
+                    // Update content via IPostEditor (handles LWW meta + recovery)
                     var edit = await _postEditor.UpdateAsync(post.Id, post.Html, lastSeen, ct).ConfigureAwait(false);
 
-                    // Also update title/categories if changed (single small PATCH)
+                    // Patch title/categories (single small POST)
                     _ = await PatchTitleAndCategoriesAsync(post.Id, post.Title, post.CategoryIds, ct).ConfigureAwait(false);
 
-                    // Status transition if needed
-                    if (!EqualsIgnoreCase(targetStatus, post.Status))
+                    // Status transition
+                    if (!targetStatus.Equals(post.Status, StringComparison.OrdinalIgnoreCase))
                         edit = await _postEditor.SetStatusAsync(post.Id, targetStatus, ct).ConfigureAwait(false);
 
                     var serverModAfter = await _postEditor.GetLastModifiedUtcAsync(post.Id, ct).ConfigureAwait(false);
                     var serverModDto = TryParseDate(serverModAfter);
                     var outcome = conflict
-                        ? Editor.Abstractions.SaveOutcome.Conflict
-                        : targetStatus switch
+                        ? SaveOutcome.Conflict
+                        : targetStatus.ToLowerInvariant() switch
                         {
-                            "publish" => Editor.Abstractions.SaveOutcome.Published,
-                            "pending" => Editor.Abstractions.SaveOutcome.Submitted,
-                            _ => Editor.Abstractions.SaveOutcome.Updated
+                            "publish" => SaveOutcome.Published,
+                            "pending" => SaveOutcome.Submitted,
+                            _ => SaveOutcome.Updated
                         };
 
-                    // Recovered: WordPressEditor might create a duplicate if original vanished
-                    if (edit.Id != post.Id) outcome = Editor.Abstractions.SaveOutcome.Recovered;
+                    if (edit.Id != post.Id) outcome = SaveOutcome.Recovered;
 
-                    return new Editor.Abstractions.SaveResult(outcome, edit.Id, targetStatus, serverModDto,
-                        outcome == Editor.Abstractions.SaveOutcome.Conflict ? "Saved, but a newer version existed (conflict)." : "Saved");
+                    return new SaveResult(outcome, edit.Id, targetStatus, serverModDto,
+                        outcome == SaveOutcome.Conflict ? "Saved, but a newer version existed (conflict)." : "Saved");
                 }
             }
             catch (Exception ex)
             {
-                return new Editor.Abstractions.SaveResult(Editor.Abstractions.SaveOutcome.Error, post.Id, post.Status, DateTimeOffset.UtcNow, ex.Message);
+                return new SaveResult(SaveOutcome.Error, post.Id, post.Status, DateTimeOffset.UtcNow, ex.Message);
             }
         }
 
         // -----------------------
         // Helpers
         // -----------------------
-        private static bool EqualsIgnoreCase(string a, string b) => string.Equals(a, b, OrdinalIgnoreCase);
-
         private static int? TryGetIntHeader(HttpResponseMessage res, string name)
             => res.Headers.TryGetValues(name, out var vals) && int.TryParse(vals.FirstOrDefault(), out var n) ? n : null;
 
@@ -421,10 +383,7 @@ namespace Editor.WordPress
             {
                 using var doc = JsonDocument.Parse(json);
                 if (doc.RootElement.TryGetProperty(prop, out var el))
-                {
-                    var s = el.GetString();
-                    return TryParseDate(s);
-                }
+                    return TryParseDate(el.GetString());
             }
             catch { }
             return null;
@@ -455,7 +414,7 @@ namespace Editor.WordPress
                     if (!string.IsNullOrWhiteSpace(raw) && raw.Contains(':'))
                     {
                         var parts = raw.Split(':');
-                        var ts = long.TryParse(parts[0], out var t) ? t : default(long?);
+                        var ts  = long.TryParse(parts[0], out var t) ? t : default(long?);
                         var uid = long.TryParse(parts[1], out var u) ? u : default(long?);
                         return (uid, ts);
                     }
@@ -471,7 +430,7 @@ namespace Editor.WordPress
             var http = _api.HttpClient ?? throw new InvalidOperationException("WordPress HttpClient not initialized.");
 
             var payload = new { title, categories = cats };
-            using var res = await http.PostAsJsonAsync($"/wp-json/wp/v2/posts/{id}", payload, ct).ConfigureAwait(false);
+            using var res = await http.PostAsJsonAsync($"wp/v2/posts/{id}", payload, ct).ConfigureAwait(false);
             return res.IsSuccessStatusCode;
         }
     }
