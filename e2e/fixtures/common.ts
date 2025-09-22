@@ -2,7 +2,6 @@
 import { test as base, expect, request, type APIRequestContext } from '@playwright/test';
 
 type TestScoped = {
-  blazorURL: string;
 };
 
 type WorkerScoped = {
@@ -13,11 +12,6 @@ type WorkerScoped = {
 };
 
 export const test = base.extend<TestScoped, WorkerScoped>({
-  blazorURL: [async ({}, use, testInfo) => {
-    const { blazorURL } = testInfo.project.use as { blazorURL?: string };
-    if (!blazorURL) throw new Error('blazorURL must be set in project.use');
-    await use(blazorURL.replace(/\/+$/, '') + '/');
-  }, { scope: 'test' }],
 
   wpUser: [async ({}, use, workerInfo) => {
     const { wpUser } = workerInfo.project.use as { wpUser?: string };
