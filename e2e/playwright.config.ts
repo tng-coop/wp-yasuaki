@@ -21,7 +21,6 @@ export default defineConfig({
 
   use: {
     baseURL: process.env.WP_BASE_URL,
-    blazorURL: process.env.BLAZOR_BASE_URL,
     trace: 'on-first-retry',
     video: 'retain-on-failure',
     screenshot: 'only-on-failure',

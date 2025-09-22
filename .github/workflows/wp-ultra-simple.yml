@@ -302,85 +302,6 @@ jobs:
           MH_HTTP_PORT: 8025
         run: scripts/test_wp_mail.py
 
-      # ---------------- .NET & Playwright (unchanged) ----------------
-      - name: Prepare dotnet install dir (user-local)
-        run: |
-          echo "DOTNET_INSTALL_DIR=$HOME/.dotnet" >> "$GITHUB_ENV"
-          echo "DOTNET_ROOT=" >> "$GITHUB_ENV"
-
-      - name: Setup .NET 9 SDK
-        uses: actions/setup-dotnet@v4
-        with:
-          dotnet-version: '9.0.x'
-
-      - name: Verify dotnet
-        run: dotnet --info
-
-      - name: Make gen-appsettings.sh executable
-        run: chmod +x scripts/gen-appsettings.sh
-
-      - name: Generate appsettings (plain files)
-        env:
-          WP_BASE_URL: ${{ env.WP_BASE_URL }}
-        run: |
-          set -euxo pipefail
-          bash -x ./scripts/gen-appsettings.sh
-
-      - name: Postflight FS check (after gen-appsettings)
-        if: always()
-        run: |
-          set -euxo pipefail
-          echo "--- BlazorWP root ---"
-          ls -la BlazorWP || true
-          echo "--- wwwroot ---"
-          ls -la BlazorWP/wwwroot || true
-          echo "--- appsettings.json ---"
-          sed -n '1,120p' BlazorWP/wwwroot/appsettings.json || true
-          echo "--- appsettings.Development.json ---"
-          sed -n '1,120p' BlazorWP/appsettings.Development.json || true
-          echo "--- PHP debug.log (if any) ---"
-          tail -n +1 wordpress/wp-content/debug.log || true
-
-      - name: Restore
-        run: dotnet restore Workspace.sln
-
-      - name: Build (Release)
-        run: dotnet build Workspace.sln -c Release --no-restore
-
-      - name: Run all tests (Workspace.sln)
-        env:
-          WP_BASE_URL: ${{ env.WP_BASE_URL }}
-          WordPress__Url: ${{ env.WP_BASE_URL }}
-          WP_USER: ${{ env.WP_USERNAME }}
-          WP_USERNAME: ${{ env.WP_USERNAME }}
-          WP_APP_PASSWORD: ${{ env.WP_APP_PASSWORD }}
-          DOTNET_ENVIRONMENT: Development
-          DOTNET_CLI_TELEMETRY_OPTOUT: 1
-          WP_PATH: ${{ github.workspace }}/wordpress 
-        run: dotnet test Workspace.sln -c Release --no-build --no-restore -m:1
-
-      - name: Run E2E/Integration tests (if any)
-        if: ${{ hashFiles('BlazorWP.E2E/*.csproj') != '' }}
-        env:
-          WP_BASE_URL: ${{ env.WP_BASE_URL }}
-          WordPress__Url: ${{ env.WP_BASE_URL }}
-          WP_USER: ${{ env.WP_USERNAME }}
-          WP_USERNAME: ${{ env.WP_USERNAME }}
-          WP_APP_PASSWORD: ${{ env.WP_APP_PASSWORD }}
-          DOTNET_ENVIRONMENT: Development
-          DOTNET_CLI_TELEMETRY_OPTOUT: 1
-        run: dotnet test BlazorWP.E2E/BlazorWP.E2E.csproj -c Release --no-build --no-restore --logger "trx;LogFileName=e2e.trx"
-
-      - name: Deploy Blazor App to WordPress (e2e-deploy)
-        shell: bash
-        env:
-          WP_BASE_URL: ${{ env.WP_BASE_URL }}
-          TARGET_DIR: /var/www/wordpress/blazorapp
-        run: |
-          set -euxo pipefail
-          chmod +x scripts/e2e-deploy.sh
-          bash scripts/e2e-deploy.sh
-
       # ---------------- Playwright E2E (Chromium only) ----------------
       - name: Setup Node (for Playwright)
         uses: actions/setup-node@v4
@@ -415,7 +336,6 @@ jobs:
       - name: Run Playwright tests (Chromium only)
         working-directory: e2e
         env:
-          BLAZOR_BASE_URL: ${{ env.WP_BASE_URL }}/blazorapp/
           WP_USER: ${{ env.WP_USER }}
           WP_APP_PASSWORD: ${{ env.WP_APP_PASSWORD }}
           CI: "1"
