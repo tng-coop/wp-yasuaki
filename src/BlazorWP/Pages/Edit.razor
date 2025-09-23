@@ -1,92 +1,404 @@
 @page "/edit"
-@using TinyMCE.Blazor
-@using System.Text.Json
-@using System.Threading
-@using Humanizer
-@using BlazorWP.Data
-@inject IJSRuntime JS
-@inject LocalStorageJsInterop StorageJs
-@inject IWordPressApiService Api
-@inject IStringLocalizer<Edit> L
-@inject BlazorWP.Data.AppFlags Flags
-@implements IDisposable
-@implements IAsyncDisposable
+@using Editor.WordPress
+@using Editor.Abstractions
+@inject IEditingService Editing
 
-<PageTitle>@L["EditTitle"]</PageTitle>
+@* Fire one-time initialization without using lifecycle overrides (avoids collisions with legacy partials). *@
+@{ TriggerInit(); }
 
+<div class="editor-shell" style="display:grid;grid-template-columns: 320px 1fr; gap: 1rem; min-height:calc(100vh - 120px);">
+  <aside class="posts-pane" style="border-right:1px solid #e5e7eb; padding-right:1rem;">
+    <div style="display:flex; gap:.5rem; align-items:center;">
+      <input class="input" style="flex:1; padding:.5rem;" placeholder="Search posts…" @bind="Search" @bind:event="oninput" />
+      <button class="btn" @onclick="LoadPosts">Search</button>
+    </div>
 
-@if (mediaSources.Any() && Flags.Mode != AppMode.Basic)
-{
-    <div class="mb-3">
-        <label class="form-label" for="mediaSource">@L["MediaSource"]</label>
-        <select id="mediaSource" class="form-select" @bind="selectedMediaSource" @bind:after="OnMediaSourceChanged">
-            <option value="">@L["ChooseMediaSite"]</option>
-            @foreach (var site in mediaSources)
-            {
-                <option value="@site">@site</option>
-            }
+    <div style="margin-top:.75rem; display:flex; gap:.5rem;">
+      <select class="input" style="flex:1; padding:.5rem;" @onchange="OnStatusFilter">
+        <option value="draft,pending,publish,private">All statuses</option>
+        <option value="draft">Drafts</option>
+        <option value="pending">Pending</option>
+        <option value="publish">Published</option>
+        <option value="private">Private</option>
+      </select>
+      <button class="btn btn-primary" @onclick="NewArticle">+ New Article</button>
+    </div>
+
+    <div style="margin-top:1rem; display:flex; justify-content:space-between; align-items:center;">
+      <small>Total: @Posts.Total?.ToString() ?? "–"</small>
+      <div style="display:flex; gap:.25rem;">
+        <button class="btn" disabled="@(_page<=1)" @onclick="PrevPage">‹</button>
+        <span style="padding:.25rem .5rem;">@_page / @(Posts.TotalPages ?? _page)</span>
+        <button class="btn" disabled="@(Posts.TotalPages is null || _page >= Posts.TotalPages)" @onclick="NextPage">›</button>
+      </div>
+    </div>
+
+    <ul style="list-style:none; padding:0; margin: .5rem 0 0 0;">
+      @foreach (var p in Posts.Items)
+      {
+        <li>
+          <button class="list-item" @onclick="() => OpenPost(p.Id)" style="width:100%; text-align:left; padding:.5rem; border-radius:.5rem; border:1px solid #eee; margin-bottom:.5rem; background:@(Post?.Id==p.Id?"#f3f4f6":"white");">
+            <div style="font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">@p.Title</div>
+            <div style="display:flex; gap:.5rem; color:#6b7280; font-size:.85rem;">
+              <span>@p.Status</span>
+              <span>·</span>
+              <span>@p.ModifiedGmt</span>
+            </div>
+          </button>
+        </li>
+      }
+    </ul>
+  </aside>
+
+  <section class="editor-pane" style="padding-left: .25rem;">
+    @if (Post is null)
+    {
+      <div style="color:#6b7280;">Select a post or click <b>New Article</b> to start.</div>
+    }
+    else
+    {
+      <div style="display:flex; gap:.5rem; align-items:center; margin-bottom:.5rem;">
+        <input class="input" style="flex:1; padding:.5rem; font-size:1.25rem; font-weight:600;" placeholder="Title" @bind="TitleText" />
+        <span class="badge" title="Current status">@Post.Status</span>
+      </div>
+
+      <div style="margin-bottom:.5rem; display:flex; gap:.5rem; align-items:center; color:#6b7280;">
+        <small>Server modified (UTC): @Post.ModifiedUtc ?? "—"</small>
+        <span>·</span>
+        @if (LockStateDisplay == LockState.Acquired)
+        {
+          <small style="color:#059669;">Locked by you</small>
+        }
+        else if (LockStateDisplay == LockState.AlreadyLocked)
+        {
+          <small style="color:#b91c1c;">Locked by another user</small>
+        }
+        else if (LockStateDisplay == LockState.NotHeld)
+        {
+          <small>Not locked</small>
+        }
+      </div>
+
+      <!-- Temporary textarea; replace with TinyMCE once namespace/tag confirmed -->
+      <div style="border:1px solid #e5e7eb; border-radius:.5rem; overflow:hidden;">
+        <textarea class="input" style="width:100%; height:500px; padding:.75rem;" @bind="HtmlText"></textarea>
+      </div>
+
+      <div style="margin-top:.75rem; display:flex; gap:.5rem; align-items:center; flex-wrap:wrap;">
+        <label>Categories</label>
+        <select multiple class="input" style="min-width: 260px; max-width: 520px; padding:.5rem;" @onchange="OnCategoriesChanged">
+          @foreach (var c in Categories)
+          {
+            <option value="@c.Id" selected="@SelectedCategoryIds.Contains(c.Id)">@c.Name</option>
+          }
         </select>
-    </div>
+        <span style="flex:1"></span>
+        <button class="btn" title="Acquire WP lock" @onclick="AcquireLock">Lock</button>
+        <button class="btn" title="Release WP lock" @onclick="ReleaseLock">Unlock</button>
+      </div>
+
+      <div style="margin-top:.75rem; display:flex; gap:.5rem; flex-wrap:wrap;">
+        <button class="btn" @onclick="Autosave">Autosave</button>
+        <button class="btn" @onclick="SaveDraft">Save Draft</button>
+        <button class="btn" @onclick="SubmitForReview">Submit for Review</button>
+        <button class="btn btn-primary" @onclick="Publish">Publish</button>
+        @if (Post.Id > 0 && !string.Equals(Post.Status, "draft", StringComparison.OrdinalIgnoreCase))
+        {
+          <button class="btn" @onclick="SwitchToDraft">Switch to Draft</button>
+        }
+      </div>
+
+      @if (!string.IsNullOrWhiteSpace(Toast))
+      {
+        <div style="margin-top:.75rem; padding:.5rem .75rem; border-radius:.5rem; background:#f0fdf4; color:#14532d; border:1px solid #bbf7d0;">
+          @Toast
+        </div>
+      }
+
+      @if (!string.IsNullOrWhiteSpace(Error))
+      {
+        <div style="margin-top:.75rem; padding:.5rem .75rem; border-radius:.5rem; background:#fef2f2; color:#7f1d1d; border:1px solid #fecaca;">
+          @Error
+        </div>
+      }
+    }
+  </section>
+</div>
+
+@code {
+  // Listing state
+  private Paged<PostSummary> Posts = new(new List<PostSummary>(), 1, 20, null, null);
+  private int _page = 1;
+  private string StatusCsv = "draft,pending,publish,private";
+  private string? Search;
+
+  // Editor state
+  private PostDetail? Post;
+  private string TitleText = string.Empty;
+  private string HtmlText = string.Empty;
+  private List<int> SelectedCategoryIds = new();
+
+  private IReadOnlyList<CategoryInfo> Categories = Array.Empty<CategoryInfo>();
+  private LockState LockStateDisplay = LockState.NotHeld;
+
+  // UX
+  private string? Toast;
+  private string? Error;
+
+  // ---- init without lifecycle overrides ----
+  private bool _initStarted;
+  private void TriggerInit()
+  {
+    if (_initStarted) return;
+    _initStarted = true;
+    _ = InvokeAsync(async () =>
+    {
+      try
+      {
+        await LoadPosts();
+        await LoadCategories();
+      }
+      catch (Exception ex)
+      {
+        Error = $"Init failed: {ex.Message}";
+      }
+      StateHasChanged();
+    });
+  }
+  // -----------------------------------------
+
+  private async Task LoadPosts()
+  {
+    try
+    {
+      Posts = await Editing.ListPostsAsync(page: _page, perPage: 20, search: Search, statusCsv: StatusCsv);
+    }
+    catch (Exception ex)
+    {
+      Error = $"Failed to load posts: {ex.Message}";
+    }
+  }
+
+  private async Task LoadCategories()
+  {
+    try
+    {
+      Categories = await Editing.ListCategoriesAsync(perPage: 100);
+    }
+    catch (Exception ex)
+    {
+      Error = $"Failed to load categories: {ex.Message}";
+    }
+  }
+
+  private async Task OpenPost(long id)
+  {
+    Error = Toast = null;
+    try
+    {
+      Post = await Editing.GetPostAsync(id);
+      if (Post is not null)
+      {
+        TitleText = Post.Title;
+        HtmlText = Post.Html;
+        SelectedCategoryIds = new List<int>(Post.CategoryIds);
+      }
+      LockStateDisplay = LockState.NotHeld;
+    }
+    catch (Exception ex)
+    {
+      Error = $"Failed to open post: {ex.Message}";
+    }
+  }
+
+  private void NewArticle()
+  {
+    Error = Toast = null;
+    Post = new PostDetail(
+      Id: 0,
+      Title: string.Empty,
+      Html: string.Empty,
+      Status: "draft",
+      CategoryIds: new List<int>(),
+      ModifiedUtc: null,
+      Link: null
+    );
+    TitleText = string.Empty;
+    HtmlText = string.Empty;
+    SelectedCategoryIds = new List<int>();
+    LockStateDisplay = LockState.NotHeld;
+  }
+
+  private PostDetail BuildEditable()
+  {
+    if (Post is null) throw new InvalidOperationException("No post in context");
+    return Post with { Title = TitleText, Html = HtmlText, CategoryIds = SelectedCategoryIds };
+  }
+
+  private async Task Autosave()
+  {
+    if (Post is null) return;
+    Error = Toast = null;
+    try
+    {
+      var toSave = BuildEditable();
+      var r = await Editing.AutosaveAsync(toSave);
+      if (r.ServerModifiedUtc is not null)
+      {
+        Post = Post with { ModifiedUtc = r.ServerModifiedUtc?.ToString("o") };
+      }
+      Toast = r.Message ?? "Autosaved";
+    }
+    catch (Exception ex)
+    {
+      Error = $"Autosave failed: {ex.Message}";
+    }
+  }
+
+  private async Task SaveDraft()
+  {
+    if (Post is null) return;
+    Error = Toast = null;
+    try
+    {
+      var r = await Editing.SaveDraftAsync(BuildEditable());
+      await AfterSave(r);
+    }
+    catch (Exception ex)
+    {
+      Error = $"Save draft failed: {ex.Message}";
+    }
+  }
+
+  private async Task SubmitForReview()
+  {
+    if (Post is null) return;
+    Error = Toast = null;
+    try
+    {
+      var r = await Editing.SubmitForReviewAsync(BuildEditable());
+      await AfterSave(r);
+    }
+    catch (Exception ex)
+    {
+      Error = $"Submit failed: {ex.Message}";
+    }
+  }
+
+  private async Task Publish()
+  {
+    if (Post is null) return;
+    Error = Toast = null;
+    try
+    {
+      var r = await Editing.PublishAsync(BuildEditable());
+      await AfterSave(r);
+    }
+    catch (Exception ex)
+    {
+      Error = $"Publish failed: {ex.Message}";
+    }
+  }
+
+  private async Task SwitchToDraft()
+  {
+    if (Post is null) return;
+    Error = Toast = null;
+    try
+    {
+      var r = await Editing.SwitchToDraftAsync(Post.Id);
+      var refreshed = await Editing.GetPostAsync(Post.Id);
+      if (refreshed is not null)
+      {
+        Post = refreshed;
+        TitleText = Post.Title;
+        HtmlText = Post.Html;
+        SelectedCategoryIds = new List<int>(Post.CategoryIds);
+      }
+      Toast = r.Message ?? "Switched to draft";
+      await LoadPosts();
+    }
+    catch (Exception ex)
+    {
+      Error = $"Switch to draft failed: {ex.Message}";
+    }
+  }
+
+  private async Task AfterSave(SaveResult r)
+  {
+    if (Post is null) return;
+    var refreshed = await Editing.GetPostAsync(r.PostId);
+    if (refreshed is not null)
+    {
+      Post = refreshed;
+      TitleText = Post.Title;
+      HtmlText = Post.Html;
+      SelectedCategoryIds = new List<int>(Post.CategoryIds);
+    }
+
+    Toast = r.Message ?? r.Outcome.ToString();
+    await LoadPosts();
+  }
+
+  private async Task AcquireLock()
+  {
+    if (Post is null) return;
+    Error = Toast = null;
+    var r = await Editing.AcquireLockAsync(Post.Id);
+    LockStateDisplay = r.State;
+    Toast = r.Message ?? r.State.ToString();
+  }
+
+  private async Task ReleaseLock()
+  {
+    Error = Toast = null;
+    var r = await Editing.ReleaseLockAsync();
+    LockStateDisplay = r.State;
+    Toast = r.Message ?? r.State.ToString();
+  }
+
+  private async Task OnStatusFilter(ChangeEventArgs e)
+  {
+    StatusCsv = e.Value?.ToString() ?? "draft,pending,publish,private";
+    _page = 1;
+    await LoadPosts();
+  }
+
+  private async Task PrevPage()
+  {
+    if (_page <= 1) return;
+    _page--; await LoadPosts();
+  }
+
+  private async Task NextPage()
+  {
+    if (Posts.TotalPages is null) return;
+    if (_page >= Posts.TotalPages) return;
+    _page++; await LoadPosts();
+  }
+
+  private Task OnCategoriesChanged(ChangeEventArgs e)
+  {
+    var selected = new List<int>();
+    if (e.Value is not null)
+    {
+      var raw = e.Value.ToString() ?? string.Empty;
+      foreach (var token in raw.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+      {
+        if (int.TryParse(token, out var id)) selected.Add(id);
+      }
+    }
+
+    SelectedCategoryIds = selected;
+    return Task.CompletedTask;
+  }
 }
 
-@if (posts == null)
-{
-    <p><em>@L["LoadingPosts"]</em></p>
-}
-else if (showTable)
-{
-    <div class="table-scroll">
-        <table class="table table-hover">
-            <thead>
-                <tr>
-                    <th>@L["Id"]</th>
-                    <th>@L["Title"]</th>
-                    <th>@L["Author"]</th>
-                    <th>@L["Status"]</th>
-                    <th>@L["PublicationDate"]</th>
-                    <th>@L["ChangeStatus"]</th>
-                </tr>
-            </thead>
-            <tbody>
-                @foreach (var p in DisplayPosts)
-                {
-                    <tr @key="p.Id" class="article-row @(IsSelected(p, postId) ? "table-primary" : null)"
-                        @onclick="() => OpenPost(p)">
-                        <td>@(p.Id > 0 ? p.Id.ToString() : "")</td>
-                        <td>@p.Title</td>
-                        <td>@(string.IsNullOrEmpty(p.AuthorName) ? (p.Author > 0 ? p.Author.ToString() : "") : p.AuthorName)
-                        </td>
-                        <td>@p.Status</td>
-                        <td>@(p.Date.HasValue? p.Date.Value.Humanize() : "")</td>
-                        <td>
-                            @if (p.Id > 0 && !string.IsNullOrEmpty(p.Status))
-                            {
-                                <div class="dropdown">
-                                    <button class="btn btn-sm @(GetStatusButtonClass(p.Status)) dropdown-toggle" type="button"
-                                        data-bs-toggle="dropdown" aria-expanded="false" @onclick:stopPropagation="true">
-                                        @p.Status
-                                    </button>
-                                    <ul class="dropdown-menu">
-                                        @foreach (var st in availableStatuses)
-                                        {
-                                            <li>
-                                                <button type="button" class="dropdown-item @(p.Status == st ? "active" : null)"
-                                                    @onclick="() => ChangeStatus(p, st)" @onclick:stopPropagation="true">@st</button>
-                                            </li>
-                                        }
-                                    </ul>
-                                </div>
-                            }
-                        </td>
-                    </tr>
-                }
-            </tbody>
-        </table>
-    </div>
-}
-
-
-
-
-<Editor Id="mainEditor" ScriptSrc="libman/tinymce/tinymce.min.js" LicenseKey="gpl" JsConfSrc="myTinyMceConfig"
-    Readonly="@EditorReadOnly" @bind-Value="_content" @bind-Value:after="UpdateDirty" />
+<style>
+  .btn { padding: .5rem .75rem; border: 1px solid #d1d5db; background: #fff; border-radius: .5rem; cursor: pointer; }
+  .btn:hover { background:#f9fafb; }
+  .btn:disabled { opacity:.5; cursor:not-allowed; }
+  .btn-primary { background:#111827; color:white; border-color:#111827; }
+  .input { border:1px solid #d1d5db; border-radius:.5rem; }
+  .badge { padding:.25rem .5rem; border-radius:.5rem; background:#f3f4f6; color:#374151; }
+</style>
