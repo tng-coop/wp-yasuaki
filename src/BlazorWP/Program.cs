@@ -6,7 +6,7 @@ using Microsoft.AspNetCore.Components.WebAssembly.Hosting;
 using Microsoft.Extensions.Primitives;
 using TG.Blazor.IndexedDB;
 
-// ADD: WPDI abstractions (IPostEditor, IPostFeed, IPostCache, StreamOptions)
+// ADD: WPDI abstractions
 using Editor.Abstractions;
 
 namespace BlazorWP
@@ -15,14 +15,11 @@ namespace BlazorWP
     {
         public static async Task Main(string[] args)
         {
-            // 1) This pulls in wwwroot/appsettings.json (+ env overrides)
             var builder = WebAssemblyHostBuilder.CreateDefault(args);
 
-            // 2) Root components
             builder.RootComponents.Add<App>("#app");
             builder.RootComponents.Add<HeadOutlet>("head::after");
 
-            // 3) Services
             builder.Services.AddScoped(_ => new HttpClient { BaseAddress = new Uri(builder.HostEnvironment.BaseAddress) });
             builder.Services.Configure<WordPressOptions>(options =>
             {
@@ -50,13 +47,11 @@ namespace BlazorWP
             {
                 db.DbName = "BlazorWPDB";
                 db.Version = 2;
-
                 db.Stores.Add(new StoreSchema
                 {
                     Name = "notes",
                     PrimaryKey = new IndexSpec { Name = "id", KeyPath = "id", Auto = false }
                 });
-
                 db.Stores.Add(new StoreSchema
                 {
                     Name = "kv",
@@ -69,12 +64,27 @@ namespace BlazorWP
             // WPDI caching + services
             builder.Services.AddSingleton<IPostCache, MemoryPostCache>();
 
+            // registers IPostEditor
             builder.Services.AddWordPressEditing();
 
-            // 5) Build the host
+            // add IEditLockService (using WP HttpClient)
+            builder.Services.AddWpdiEditLocks(sp =>
+            {
+                var api = sp.GetRequiredService<IWordPressApiService>();
+                var http = api.HttpClient ?? throw new InvalidOperationException("WP HttpClient not initialized");
+                return http;
+            });
+
+            // add the UI façade (IEditingService)
+            builder.Services.AddScoped<IEditingService>(sp =>
+                new WordPressEditingService(
+                    sp.GetRequiredService<IWordPressApiService>(),
+                    sp.GetRequiredService<IPostEditor>(),
+                    sp.GetRequiredService<IEditLockService>()));
+
             var host = builder.Build();
 
-            // 6) Flags + storage (config not required anymore)
+            // … keep rest of your flags / auth / wpurl setup unchanged …
             var flags = host.Services.GetRequiredService<AppFlags>();
             var storage = host.Services.GetRequiredService<LocalStorageJsInterop>();
             var languageService = host.Services.GetRequiredService<LanguageService>();
