@@ -1,6 +1,14 @@
-using TestSupport;
 using Xunit;
+using TestSupport; // <-- this is where RunUniqueFixture lives
 
-// Per-assembly binding: ties WP EndToEnd collection to RunUniqueFixture
-[CollectionDefinition("WP EndToEnd", DisableParallelization = true)]
-public class WpEndToEndCollection : ICollectionFixture<RunUniqueFixture> { }
+namespace Editor.Tests
+{
+    // Bind BOTH fixtures to the same collection name used by your tests.
+    [CollectionDefinition("WP EndToEnd")]
+    public class WpEndToEndCollection
+        : ICollectionFixture<WordPressCleanupFixture>,
+          ICollectionFixture<RunUniqueFixture>
+    {
+        // no code needed
+    }
+}
