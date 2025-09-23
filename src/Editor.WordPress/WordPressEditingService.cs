@@ -3,6 +3,7 @@
 using System.Net.Http.Json;
 using System.Text;
 using System.Text.Json;
+using System.Collections.Concurrent;
 using Editor.Abstractions;           // <- Use the existing PostSummary, CachePage, IPostCache types
 using WordPressPCL;
 
@@ -86,6 +87,10 @@ namespace Editor.WordPress
 
         private static readonly JsonSerializerOptions JsonWeb = new(JsonSerializerDefaults.Web);
 
+        // Concurrency token (parent post's modified_gmt as ISO-8601 UTC) per post id.
+        // Service owns and updates this; autosave must NOT advance it.
+        private readonly ConcurrentDictionary<long, string?> _lastSeenModifiedUtc = new();
+
         public WordPressEditingService(IWordPressApiService api, IPostEditor postEditor, IEditLockService locks)
         {
             _api        = api  ?? throw new ArgumentNullException(nameof(api));
@@ -150,10 +155,14 @@ namespace Editor.WordPress
             var html = post.Content?.Rendered ?? string.Empty;
             var cats = post.Categories ?? new List<int>();
 
-            // FIX: ModifiedGmt is a non-nullable DateTime in your PCL
+            // ModifiedGmt in the PCL is non-nullable; default means "unknown".
             string? modifiedUtc = post.ModifiedGmt == default
                 ? null
                 : DateTime.SpecifyKind(post.ModifiedGmt, DateTimeKind.Utc).ToString("o");
+
+            // Seed/refresh our token from the parent post (safe to do on read).
+            if (!string.IsNullOrWhiteSpace(modifiedUtc))
+                _lastSeenModifiedUtc[id] = modifiedUtc;
 
             return new PostDetail(
                 Id:         post.Id,
@@ -187,8 +196,10 @@ namespace Editor.WordPress
             var body = await res.Content.ReadAsStringAsync(ct).ConfigureAwait(false);
             res.EnsureSuccessStatusCode();
 
-            var serverMod = TryReadDate(body, "modified_gmt");
-            return new SaveResult(SaveOutcome.Updated, post.Id, post.Status, serverMod, "Autosaved");
+            // IMPORTANT: an autosave is a revision; do NOT advance the parent token.
+            // We intentionally return null for ServerModifiedUtc here to prevent UI misuse.
+            _ = TryReadDate(body, "modified_gmt"); // ignored on purpose
+            return new SaveResult(SaveOutcome.Updated, post.Id, post.Status, null, "Autosaved");
         }
 
         // ------------------
@@ -206,7 +217,10 @@ namespace Editor.WordPress
         public async Task<SaveResult> SwitchToDraftAsync(long id, CancellationToken ct = default)
         {
             var r = await _postEditor.SetStatusAsync(id, "draft", ct).ConfigureAwait(false);
-            return new SaveResult(SaveOutcome.Updated, id, r.Status, DateTimeOffset.UtcNow, "Switched to draft");
+            // After status change, refresh token from parent post.
+            var serverModAfter = await _postEditor.GetLastModifiedUtcAsync(id, ct).ConfigureAwait(false);
+            RememberToken(id, serverModAfter);
+            return new SaveResult(SaveOutcome.Updated, id, r.Status, TryParseDate(serverModAfter), "Switched to draft");
         }
 
         // -----------
@@ -327,13 +341,23 @@ namespace Editor.WordPress
                         "pending" => SaveOutcome.Submitted,
                         _ => SaveOutcome.Created
                     };
+
+                    // Seed the token from the parent post’s modified_gmt on creation.
                     var serverMod = TryReadDate(body, "modified_gmt");
+                    RememberToken(newId, serverMod?.ToString("o"));
+
                     return new SaveResult(outcome, newId, targetStatus, serverMod, "Created");
                 }
                 else
                 {
-                    // Conflict check
-                    var lastSeen = post.ModifiedUtc ?? await _postEditor.GetLastModifiedUtcAsync(post.Id, ct).ConfigureAwait(false) ?? "";
+                    // Conflict check (parent post only, not autosave revisions)
+                    // Priority: service-tracked token → post.ModifiedUtc (from initial load) → server read
+                    var lastSeen =
+                        (_lastSeenModifiedUtc.TryGetValue(post.Id, out var tracked) ? tracked : null)
+                        ?? post.ModifiedUtc
+                        ?? await _postEditor.GetLastModifiedUtcAsync(post.Id, ct).ConfigureAwait(false)
+                        ?? "";
+
                     var currentServer = await _postEditor.GetLastModifiedUtcAsync(post.Id, ct).ConfigureAwait(false);
                     var conflict = !string.IsNullOrWhiteSpace(currentServer) &&
                                    !string.Equals(currentServer, lastSeen, StringComparison.Ordinal);
@@ -348,8 +372,11 @@ namespace Editor.WordPress
                     if (!targetStatus.Equals(post.Status, StringComparison.OrdinalIgnoreCase))
                         edit = await _postEditor.SetStatusAsync(post.Id, targetStatus, ct).ConfigureAwait(false);
 
+                    // After a real save, advance the token with the parent post’s modified_gmt.
                     var serverModAfter = await _postEditor.GetLastModifiedUtcAsync(post.Id, ct).ConfigureAwait(false);
-                    var serverModDto = TryParseDate(serverModAfter);
+                    var serverModDto   = TryParseDate(serverModAfter);
+                    RememberToken(edit.Id, serverModAfter);
+
                     var outcome = conflict
                         ? SaveOutcome.Conflict
                         : targetStatus.ToLowerInvariant() switch
@@ -432,6 +459,12 @@ namespace Editor.WordPress
             var payload = new { title, categories = cats };
             using var res = await http.PostAsJsonAsync($"wp/v2/posts/{id}", payload, ct).ConfigureAwait(false);
             return res.IsSuccessStatusCode;
+        }
+
+        private void RememberToken(long postId, string? modifiedUtc)
+        {
+            if (!string.IsNullOrWhiteSpace(modifiedUtc))
+                _lastSeenModifiedUtc[postId] = modifiedUtc;
         }
     }
 }
