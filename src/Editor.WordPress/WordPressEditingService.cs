@@ -4,14 +4,13 @@ using System.Net.Http.Json;
 using System.Text;
 using System.Text.Json;
 using System.Collections.Concurrent;
-using Editor.Abstractions;           // <- Use the existing PostSummary, CachePage, IPostCache types
+using Editor.Abstractions;           // PostSummary, IPostCache, etc.
 using WordPressPCL;
 
 namespace Editor.WordPress
 {
     // -------------------------------
-    // 1) Intent-level UI façade types
-    //    (No PostSummary here; we reuse Editor.Abstractions.PostSummary)
+    // Intent-level UI façade types
     // -------------------------------
 
     public record Paged<T>(IReadOnlyList<T> Items, int Page, int PerPage, int? Total, int? TotalPages);
@@ -44,7 +43,7 @@ namespace Editor.WordPress
 
     public interface IEditingService
     {
-        // List (paged, header-driven)
+        // List (paged)
         Task<Paged<PostSummary>> ListPostsAsync(
             int page = 1, int perPage = 20,
             string? search = null, string? statusCsv = "draft,pending,publish,private",
@@ -53,10 +52,10 @@ namespace Editor.WordPress
         // Read (edit context)
         Task<PostDetail?> GetPostAsync(long id, CancellationToken ct = default);
 
-        // Server autosave (live stays unchanged)
+        // Server autosave (parent post stays unchanged from the UI perspective)
         Task<SaveResult> AutosaveAsync(PostDetail post, CancellationToken ct = default);
 
-        // Save/submit/publish (WordPress-native statuses, with conflict checks)
+        // Save/submit/publish (with conflict checks)
         Task<SaveResult> SaveDraftAsync(PostDetail post, CancellationToken ct = default);
         Task<SaveResult> SubmitForReviewAsync(PostDetail post, CancellationToken ct = default);
         Task<SaveResult> PublishAsync(PostDetail post, CancellationToken ct = default);
@@ -74,7 +73,7 @@ namespace Editor.WordPress
     }
 
     // --------------------------------------
-    // 2) Implementation over your WP stack
+    // Implementation over WP REST + PCL
     // --------------------------------------
     public sealed class WordPressEditingService : IEditingService
     {
@@ -87,15 +86,14 @@ namespace Editor.WordPress
 
         private static readonly JsonSerializerOptions JsonWeb = new(JsonSerializerDefaults.Web);
 
-        // Concurrency token (parent post's modified_gmt as ISO-8601 UTC) per post id.
-        // Service owns and updates this; autosave must NOT advance it.
+        // Service-owned concurrency token: parent post modified_gmt (ISO-8601 UTC) per post id.
         private readonly ConcurrentDictionary<long, string?> _lastSeenModifiedUtc = new();
 
         public WordPressEditingService(IWordPressApiService api, IPostEditor postEditor, IEditLockService locks)
         {
-            _api        = api  ?? throw new ArgumentNullException(nameof(api));
+            _api = api ?? throw new ArgumentNullException(nameof(api));
             _postEditor = postEditor ?? throw new ArgumentNullException(nameof(postEditor));
-            _locks      = locks ?? throw new ArgumentNullException(nameof(locks));
+            _locks = locks ?? throw new InvalidOperationException(nameof(locks));
         }
 
         // -------------------
@@ -111,9 +109,9 @@ namespace Editor.WordPress
 
             // BaseAddress is expected to be .../wp-json/
             var qs = new StringBuilder($"wp/v2/posts?context=edit&_embed=1&per_page={perPage}&page={page}");
-            if (!string.IsNullOrWhiteSpace(search))    qs.Append("&search=").Append(Uri.EscapeDataString(search));
+            if (!string.IsNullOrWhiteSpace(search)) qs.Append("&search=").Append(Uri.EscapeDataString(search));
             if (!string.IsNullOrWhiteSpace(statusCsv)) qs.Append("&status=").Append(Uri.EscapeDataString(statusCsv));
-            if (categoryId is not null)                qs.Append("&categories=").Append(categoryId.Value);
+            if (categoryId is not null) qs.Append("&categories=").Append(categoryId.Value);
 
             using var res = await http.GetAsync(qs.ToString(), ct).ConfigureAwait(false);
             var body = await res.Content.ReadAsStringAsync(ct).ConfigureAwait(false);
@@ -124,15 +122,14 @@ namespace Editor.WordPress
             {
                 foreach (var el in doc.RootElement.EnumerateArray())
                 {
-                    var id       = el.TryGetProperty("id", out var idEl) ? idEl.GetInt64() : 0;
-                    var status   = el.TryGetProperty("status", out var sEl) ? sEl.GetString() ?? "" : "";
-                    var link     = el.TryGetProperty("link", out var lEl) ? lEl.GetString() ?? "" : "";
-                    var title    = el.TryGetProperty("title", out var tEl) && tEl.TryGetProperty("rendered", out var tr)
+                    var id = el.TryGetProperty("id", out var idEl) ? idEl.GetInt64() : 0;
+                    var status = el.TryGetProperty("status", out var sEl) ? sEl.GetString() ?? "" : "";
+                    var link = el.TryGetProperty("link", out var lEl) ? lEl.GetString() ?? "" : "";
+                    var title = el.TryGetProperty("title", out var tEl) && tEl.TryGetProperty("rendered", out var tr)
                                     ? (tr.GetString() ?? "")
                                     : "";
                     var modified = el.TryGetProperty("modified_gmt", out var mg) ? (mg.GetString() ?? "") : "";
 
-                    // Editor.Abstractions.PostSummary shape: (Id, Title, Status, Link, ModifiedGmt)
                     items.Add(new PostSummary(id, title, status, link, modified));
                 }
             }
@@ -151,7 +148,7 @@ namespace Editor.WordPress
             var post = await client.Posts.GetByIDAsync((int)id, embed: true, useAuth: true).ConfigureAwait(false);
             if (post is null) return null;
 
-            // Use rendered HTML; (older PCLs may not expose Raw)
+            // Use rendered HTML
             var html = post.Content?.Rendered ?? string.Empty;
             var cats = post.Categories ?? new List<int>();
 
@@ -160,18 +157,18 @@ namespace Editor.WordPress
                 ? null
                 : DateTime.SpecifyKind(post.ModifiedGmt, DateTimeKind.Utc).ToString("o");
 
-            // Seed/refresh our token from the parent post (safe to do on read).
+            // Seed/refresh token from parent post on read.
             if (!string.IsNullOrWhiteSpace(modifiedUtc))
                 _lastSeenModifiedUtc[id] = modifiedUtc;
 
             return new PostDetail(
-                Id:         post.Id,
-                Title:      post.Title?.Rendered ?? string.Empty,
-                Html:       html,
-                Status:     post.Status.ToString().ToLowerInvariant(),
+                Id: post.Id,
+                Title: post.Title?.Rendered ?? string.Empty,
+                Html: html,
+                Status: post.Status.ToString().ToLowerInvariant(),
                 CategoryIds: cats,
                 ModifiedUtc: modifiedUtc,
-                Link:       post.Link
+                Link: post.Link
             );
         }
 
@@ -193,14 +190,26 @@ namespace Editor.WordPress
             };
 
             using var res = await http.PostAsJsonAsync($"wp/v2/posts/{post.Id}/autosaves", payload, ct).ConfigureAwait(false);
-            var body = await res.Content.ReadAsStringAsync(ct).ConfigureAwait(false);
+            // we don’t need the body string here anymore, just ensure status
             res.EnsureSuccessStatusCode();
 
-            // IMPORTANT: an autosave is a revision; do NOT advance the parent token.
-            // We intentionally return null for ServerModifiedUtc here to prevent UI misuse.
-            _ = TryReadDate(body, "modified_gmt"); // ignored on purpose
+            // IMPORTANT: autosave is a revision; keep ServerModifiedUtc null
+            // But on some servers autosave *does* bump parent modified_gmt. Refresh token to stay in sync.
+            using var reread = await http.GetAsync($"wp/v2/posts/{post.Id}?context=edit&_fields=modified_gmt", ct).ConfigureAwait(false);
+            var body2 = await reread.Content.ReadAsStringAsync(ct).ConfigureAwait(false);
+            reread.EnsureSuccessStatusCode();
+            using var doc = JsonDocument.Parse(body2);
+            if (doc.RootElement.TryGetProperty("modified_gmt", out var mg) && mg.GetString() is string s && s.Length > 0)
+            {
+                if (DateTimeOffset.TryParse(s, out var dto))
+                    RememberToken(post.Id, dto.ToUniversalTime().ToString("o"));
+                else
+                    RememberToken(post.Id, s);
+            }
+
             return new SaveResult(SaveOutcome.Updated, post.Id, post.Status, null, "Autosaved");
         }
+
 
         // ------------------
         // Save / Submit / Publish (with conflict checks)
@@ -217,9 +226,14 @@ namespace Editor.WordPress
         public async Task<SaveResult> SwitchToDraftAsync(long id, CancellationToken ct = default)
         {
             var r = await _postEditor.SetStatusAsync(id, "draft", ct).ConfigureAwait(false);
+
             // After status change, refresh token from parent post.
             var serverModAfter = await _postEditor.GetLastModifiedUtcAsync(id, ct).ConfigureAwait(false);
-            RememberToken(id, serverModAfter);
+            if (DateTimeOffset.TryParse(serverModAfter, out var dtoSw))
+                RememberToken(id, dtoSw.ToUniversalTime().ToString("o"));
+            else
+                RememberToken(id, serverModAfter);
+
             return new SaveResult(SaveOutcome.Updated, id, r.Status, TryParseDate(serverModAfter), "Switched to draft");
         }
 
@@ -287,7 +301,7 @@ namespace Editor.WordPress
 
             var qs = new StringBuilder($"wp/v2/categories?per_page={perPage}&page={page}&orderby=name&order=asc&_fields=id,name,parent");
             if (!string.IsNullOrWhiteSpace(search)) qs.Append("&search=").Append(Uri.EscapeDataString(search));
-            if (parentId is not null)              qs.Append("&parent=").Append(parentId.Value);
+            if (parentId is not null) qs.Append("&parent=").Append(parentId.Value);
 
             using var res = await http.GetAsync(qs.ToString(), ct).ConfigureAwait(false);
             var body = await res.Content.ReadAsStringAsync(ct).ConfigureAwait(false);
@@ -297,7 +311,7 @@ namespace Editor.WordPress
             using var doc = JsonDocument.Parse(body);
             foreach (var el in doc.RootElement.EnumerateArray())
             {
-                var id   = el.TryGetProperty("id", out var idEl) ? idEl.GetInt32() : 0;
+                var id = el.TryGetProperty("id", out var idEl) ? idEl.GetInt32() : 0;
                 var name = el.TryGetProperty("name", out var nEl) ? (nEl.GetString() ?? "") : "";
                 int? par = el.TryGetProperty("parent", out var pEl) ? pEl.GetInt32() : 0;
                 if (par == 0) par = null;
@@ -342,28 +356,33 @@ namespace Editor.WordPress
                         _ => SaveOutcome.Created
                     };
 
-                    // Seed the token from the parent post’s modified_gmt on creation.
+                    // Seed the token from the parent post’s modified_gmt on creation (normalized).
                     var serverMod = TryReadDate(body, "modified_gmt");
-                    RememberToken(newId, serverMod?.ToString("o"));
+                    if (serverMod is not null)
+                        RememberToken(newId, serverMod.Value.ToUniversalTime().ToString("o"));
 
                     return new SaveResult(outcome, newId, targetStatus, serverMod, "Created");
                 }
                 else
                 {
-                    // Conflict check (parent post only, not autosave revisions)
-                    // Priority: service-tracked token → post.ModifiedUtc (from initial load) → server read
-                    var lastSeen =
+                    // ------- Conflict check using normalized timestamps -------
+                    // Priority: service-tracked token → post.ModifiedUtc (initial load) → server read
+                    var lastSeenRaw =
                         (_lastSeenModifiedUtc.TryGetValue(post.Id, out var tracked) ? tracked : null)
                         ?? post.ModifiedUtc
                         ?? await _postEditor.GetLastModifiedUtcAsync(post.Id, ct).ConfigureAwait(false)
                         ?? "";
 
-                    var currentServer = await _postEditor.GetLastModifiedUtcAsync(post.Id, ct).ConfigureAwait(false);
-                    var conflict = !string.IsNullOrWhiteSpace(currentServer) &&
-                                   !string.Equals(currentServer, lastSeen, StringComparison.Ordinal);
+                    var currentRaw = await _postEditor.GetLastModifiedUtcAsync(post.Id, ct).ConfigureAwait(false) ?? "";
+
+                    bool TryParse(string s, out DateTimeOffset dto) => DateTimeOffset.TryParse(s, out dto);
+                    bool conflict =
+                        TryParse(currentRaw, out var currentDto) && TryParse(lastSeenRaw, out var seenDto)
+                            ? currentDto != seenDto
+                            : !string.Equals(currentRaw, lastSeenRaw, StringComparison.Ordinal);
 
                     // Update content via IPostEditor (handles LWW meta + recovery)
-                    var edit = await _postEditor.UpdateAsync(post.Id, post.Html, lastSeen, ct).ConfigureAwait(false);
+                    var edit = await _postEditor.UpdateAsync(post.Id, post.Html, lastSeenRaw, ct).ConfigureAwait(false);
 
                     // Patch title/categories (single small POST)
                     _ = await PatchTitleAndCategoriesAsync(post.Id, post.Title, post.CategoryIds, ct).ConfigureAwait(false);
@@ -372,10 +391,13 @@ namespace Editor.WordPress
                     if (!targetStatus.Equals(post.Status, StringComparison.OrdinalIgnoreCase))
                         edit = await _postEditor.SetStatusAsync(post.Id, targetStatus, ct).ConfigureAwait(false);
 
-                    // After a real save, advance the token with the parent post’s modified_gmt.
+                    // Refresh token from parent post after a real save
                     var serverModAfter = await _postEditor.GetLastModifiedUtcAsync(post.Id, ct).ConfigureAwait(false);
-                    var serverModDto   = TryParseDate(serverModAfter);
-                    RememberToken(edit.Id, serverModAfter);
+                    DateTimeOffset? serverDto = TryParseDate(serverModAfter);
+                    if (serverDto is not null)
+                        RememberToken(edit.Id, serverDto.Value.ToUniversalTime().ToString("o"));
+                    else
+                        RememberToken(edit.Id, serverModAfter);
 
                     var outcome = conflict
                         ? SaveOutcome.Conflict
@@ -388,7 +410,7 @@ namespace Editor.WordPress
 
                     if (edit.Id != post.Id) outcome = SaveOutcome.Recovered;
 
-                    return new SaveResult(outcome, edit.Id, targetStatus, serverModDto,
+                    return new SaveResult(outcome, edit.Id, targetStatus, serverDto,
                         outcome == SaveOutcome.Conflict ? "Saved, but a newer version existed (conflict)." : "Saved");
                 }
             }
@@ -441,7 +463,7 @@ namespace Editor.WordPress
                     if (!string.IsNullOrWhiteSpace(raw) && raw.Contains(':'))
                     {
                         var parts = raw.Split(':');
-                        var ts  = long.TryParse(parts[0], out var t) ? t : default(long?);
+                        var ts = long.TryParse(parts[0], out var t) ? t : default(long?);
                         var uid = long.TryParse(parts[1], out var u) ? u : default(long?);
                         return (uid, ts);
                     }
