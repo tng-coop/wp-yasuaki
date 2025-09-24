@@ -3,6 +3,9 @@
  * MU Plugin File
  * Path: wp-content/mu-plugins/rex-save.php
  * Purpose: REST endpoint to save posts with auto-fork fallback on failure/conflict.
+ * Notes:
+ *  - Permission callback is coarse (edit_posts). Per-post capability is enforced
+ *    inside the handler after confirming the post exists so 404 vs 403 are correct.
  */
 
 if (!defined('ABSPATH')) { exit; }
@@ -35,9 +38,9 @@ final class REX_Save_API {
         register_rest_route(self::REST_NS, '/save', [
             'methods' => 'POST',
             'callback' => [__CLASS__, 'route_save'],
+            // Coarse capability; per-post check occurs inside after existence
             'permission_callback' => function( WP_REST_Request $req ) {
-                $id = (int) $req->get_param('id');
-                return $id ? current_user_can('edit_post', $id) : current_user_can('edit_posts');
+                return current_user_can('edit_posts');
             },
             'args' => [
                 'id'   => ['required' => true, 'type' => 'integer'],
@@ -75,6 +78,18 @@ final class REX_Save_API {
         }
     }
 
+    /** Replace non-protected meta from one post to another (drop original marker). */
+    private static function replace_meta_from(int $from_id, int $to_id) : void {
+        $all_meta = get_post_meta($from_id);
+        if (!is_array($all_meta)) { return; }
+        foreach ($all_meta as $key => $values) {
+            if (is_protected_meta($key, 'post')) { continue; }
+            if ($key === self::META_ORIGINAL) { continue; }
+            delete_post_meta($to_id, $key);
+            foreach ($values as $v) { add_post_meta($to_id, $key, maybe_unserialize($v)); }
+        }
+    }
+
     /** POST /rex/v1/save */
     public static function route_save( WP_REST_Request $req ) {
         $id   = (int) $req->get_param('id');
@@ -84,11 +99,15 @@ final class REX_Save_API {
         if (!$existing) {
             return new WP_Error('not_found', 'Post not found for save.', ['status' => 404]);
         }
+        // Enforce per-post permission only after the post is known to exist
+        if (! current_user_can('edit_post', $id)) {
+            return new WP_Error('forbidden', 'Cannot edit this post.', ['status' => 403]);
+        }
 
         // Optional optimistic concurrency using modified_gmt
         $expected = isset($data['expected_modified_gmt']) ? (string) $data['expected_modified_gmt'] : '';
         if ($expected !== '') {
-            $cur_gmt = (string) $existing->post_modified_gmt;
+            $cur_gmt = (string) $existing->post_modified_gmt; // GMT string
             if ($cur_gmt !== $expected) {
                 return self::fork_on_save_failure($id, $data, 'conflict');
             }

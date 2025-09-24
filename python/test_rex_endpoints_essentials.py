@@ -297,15 +297,12 @@ def main() -> None:
         test_e_fork_nonexistent_404()
         test_f_save_ignores_original_meta()
         test_g_taxonomy_copy_on_fork()
-        print("
-ESSENTIAL TESTS PASSED ✔")
+        print(" ESSENTIAL TESTS PASSED ✔")
     except AssertionError as e:
-        print(f"
-TEST FAILED: {e}", file=sys.stderr)
+        print(f" TEST FAILED: {e}", file=sys.stderr)
         sys.exit(1)
     except requests.RequestException as e:
-        print(f"
-HTTP ERROR: {e}", file=sys.stderr)
+        print(f" HTTP ERROR: {e}", file=sys.stderr)
         sys.exit(1)
 
 

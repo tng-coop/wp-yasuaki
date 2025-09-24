@@ -3,6 +3,9 @@
  * MU Plugin File
  * Path: wp-content/mu-plugins/rex-fork.php
  * Purpose: REST endpoint to fork posts with a single original marker.
+ * Notes:
+ *  - Permission callback is coarse (edit_posts). Per-post capability is enforced
+ *    inside the handler after confirming the source exists so 404 vs 403 are correct.
  */
 
 if (!defined('ABSPATH')) { exit; }
@@ -35,9 +38,9 @@ final class REX_Fork_API {
         register_rest_route(self::REST_NS, '/fork', [
             'methods' => 'POST',
             'callback' => [__CLASS__, 'route_fork'],
+            // Coarse capability here; fine-grained check happens inside after existence check
             'permission_callback' => function( WP_REST_Request $req ) {
-                $source_id = (int) $req->get_param('source_id');
-                return $source_id ? current_user_can('edit_post', $source_id) : current_user_can('edit_posts');
+                return current_user_can('edit_posts');
             },
             'args' => [
                 'source_id' => ['required' => true, 'type' => 'integer'],
@@ -83,7 +86,13 @@ final class REX_Fork_API {
         $status    = $req->get_param('status') ?: 'draft';
 
         $source = get_post($source_id);
-        if (!$source) { return new WP_Error('not_found', 'Source post not found.', ['status' => 404]); }
+        if (!$source) {
+            return new WP_Error('not_found', 'Source post not found.', ['status' => 404]);
+        }
+        // Enforce per-post permission only after the post is known to exist
+        if (! current_user_can('edit_post', $source_id)) {
+            return new WP_Error('forbidden', 'Cannot edit source post.', ['status' => 403]);
+        }
 
         $new_post = [
             'post_title'   => $source->post_title,

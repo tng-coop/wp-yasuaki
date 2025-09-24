@@ -3,6 +3,9 @@
  * MU Plugin File
  * Path: wp-content/mu-plugins/rex-publish.php
  * Purpose: REST endpoint to publish a staging draft; if it references an original, overwrite & (if needed) untrash that original.
+ * Notes:
+ *  - Permission callback is coarse (publish_posts). Per-post capability is enforced
+ *    inside the handler after confirming the staging (and original, if any) exist.
  */
 
 if (!defined('ABSPATH')) { exit; }
@@ -35,9 +38,9 @@ final class REX_Publish_API {
         register_rest_route(self::REST_NS, '/publish', [
             'methods' => 'POST',
             'callback' => [__CLASS__, 'route_publish'],
+            // Coarse capability only; fine-grained checks inside
             'permission_callback' => function( WP_REST_Request $req ) {
-                $staging_id = (int) $req->get_param('staging_id');
-                return current_user_can('publish_posts') && current_user_can('edit_post', $staging_id);
+                return current_user_can('publish_posts');
             },
             'args' => [
                 'staging_id' => ['required' => true, 'type' => 'integer'],
@@ -70,13 +73,29 @@ final class REX_Publish_API {
     public static function route_publish( WP_REST_Request $req ) {
         $staging_id = (int) $req->get_param('staging_id');
         $staging = get_post($staging_id);
-        if (!$staging) { return new WP_Error('not_found', 'Staging post not found.', ['status' => 404]); }
+        if (!$staging) {
+            return new WP_Error('not_found', 'Staging post not found.', ['status' => 404]);
+        }
+        // Must be able to edit the staging post
+        if (! current_user_can('edit_post', $staging_id)) {
+            return new WP_Error('forbidden', 'Cannot edit staging post.', ['status' => 403]);
+        }
 
         $root_original_id = (int) get_post_meta($staging_id, self::META_ORIGINAL, true);
         if ($root_original_id) {
             $target = get_post($root_original_id);
             if ($target) {
-                if ($target->post_status === 'trash') { wp_untrash_post($root_original_id); }
+                // Also ensure permission to edit the original before overwriting it
+                if (! current_user_can('edit_post', $root_original_id)) {
+                    return new WP_Error('forbidden', 'Cannot edit original post.', ['status' => 403]);
+                }
+
+                if ($target->post_status === 'trash') {
+                    $untrashed = wp_untrash_post($root_original_id);
+                    if (!$untrashed) {
+                        return new WP_Error('untrash_failed', 'Failed to untrash original post.', ['status' => 500]);
+                    }
+                }
 
                 $update = [
                     'ID'           => $root_original_id,
@@ -96,7 +115,7 @@ final class REX_Publish_API {
                     'used_original' => true,
                 ]);
             } else {
-                // original was hard-deleted; publish staging as new
+                // Original was hard-deleted; publish staging as new
                 delete_post_meta($staging_id, self::META_ORIGINAL);
             }
         }
