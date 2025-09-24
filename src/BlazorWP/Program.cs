@@ -75,12 +75,7 @@ namespace BlazorWP
                 return http;
             });
 
-            // add the UI façade (IEditingService)
-            builder.Services.AddScoped<IEditingService>(sp =>
-                new WordPressEditingService(
-                    sp.GetRequiredService<IWordPressApiService>(),
-                    sp.GetRequiredService<IPostEditor>(),
-                    sp.GetRequiredService<IEditLockService>()));
+
 
             var host = builder.Build();
 
