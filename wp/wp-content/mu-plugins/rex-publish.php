@@ -3,9 +3,7 @@
  * MU Plugin File
  * Path: wp-content/mu-plugins/rex-publish.php
  * Purpose: REST endpoint to publish a staging draft; if it references an original, overwrite & (if needed) untrash that original.
- * Notes:
- *  - Permission callback is coarse (publish_posts). Per-post capability is enforced
- *    inside the handler after confirming the staging (and original, if any) exist.
+ * Change: After a successful swap (used_original = true), the staging post is ALWAYS moved to trash.
  */
 
 if (!defined('ABSPATH')) { exit; }
@@ -110,9 +108,18 @@ final class REX_Publish_API {
                 self::copy_taxonomies($staging_id, $root_original_id, $staging->post_type);
                 self::replace_meta_from($staging_id, $root_original_id);
 
+                // ALWAYS move the staging post to trash after a successful swap
+                $trashed_staging = false;
+                if ((int) $staging_id !== (int) $root_original_id && get_post_status($staging_id) !== 'trash') {
+                    // Attempt trash; don't fail the request if it doesn't work
+                    $trashed = wp_trash_post($staging_id);
+                    $trashed_staging = (bool) $trashed;
+                }
+
                 return rest_ensure_response([
-                    'published_id' => $root_original_id,
-                    'used_original' => true,
+                    'published_id'    => $root_original_id,
+                    'used_original'   => true,
+                    'trashed_staging' => $trashed_staging,
                 ]);
             } else {
                 // Original was hard-deleted; publish staging as new
@@ -120,7 +127,7 @@ final class REX_Publish_API {
             }
         }
 
-        // No usable original; just publish the staging post
+        // No usable original; just publish the staging post itself
         $r = wp_update_post([
             'ID' => $staging_id,
             'post_status' => 'publish',
@@ -128,8 +135,9 @@ final class REX_Publish_API {
         if (is_wp_error($r)) { return $r; }
 
         return rest_ensure_response([
-            'published_id' => $staging_id,
+            'published_id'  => $staging_id,
             'used_original' => false,
+            // NOTE: we do NOT trash here because the staging is now the live post
         ]);
     }
 }

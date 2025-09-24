@@ -216,7 +216,10 @@ def test_c_publish_untrash_overwrite() -> None:
     post = wp_post_get(orig_id, fields="id,status,title")
     assert_equal(post.get("status"), "publish")
     assert_true("REX Untrash New" in post.get("title", {}).get("rendered", ""))
-    print(f"[C] OK original {orig_id} untrashed & overwritten")
+    # Verify staging got trashed after successful swap
+    stg_after = wp_post_get(stg_id, fields="status")
+    assert_equal(stg_after.get("status"), "trash", f"staging should be trashed, got: {stg_after}")
+    print(f"[C] OK original {orig_id} untrashed & overwritten; staging trashed")
 
 
 def test_d_publish_hard_deleted_original_fallback() -> None:
