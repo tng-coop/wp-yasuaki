@@ -18,6 +18,8 @@ public interface IWordPressEditingService
 {
     Task<ForkResponse>    ForkAsync(int sourceId, string status = "draft", CancellationToken ct = default);
     Task<SaveResponse>    SaveAsync(int id, SaveData data, CancellationToken ct = default);
+    Task<SaveResponse>    SaveAsync(SaveData data, string postType = "post", CancellationToken ct = default);
+
     Task<PublishResponse> PublishAsync(int stagingId, CancellationToken ct = default);
 }
 
@@ -55,11 +57,25 @@ public sealed class WordPressEditingService : IWordPressEditingService
         return res ?? throw new InvalidOperationException("Save returned no content");
     }
 
+    // NEW: create-then-save on the server (no ID on client)
+    public async Task<SaveResponse> SaveAsync(SaveData data, string postType = "post", CancellationToken ct = default)
+    {
+        if (data is null) throw new ArgumentNullException(nameof(data));
+
+        if (data.Meta is not null && data.Meta.ContainsKey("_rex_original_post_id"))
+            data = data with { Meta = data.Meta.Where(kv => kv.Key != "_rex_original_post_id")
+                                              .ToDictionary(kv => kv.Key, kv => kv.Value) };
+
+        var req = new SaveRequest { Id = null, PostType = postType, Data = data };
+        var res = await _wp.PostJsonAsync<SaveResponse>("wp-json/rex/v1/save", req, ct);
+        return res ?? throw new InvalidOperationException("Save returned no content");
+    }
+
     // 5) Publish Post
     public async Task<PublishResponse> PublishAsync(int stagingId, CancellationToken ct = default)
     {
         var body = new { staging_id = stagingId };
-        var res  = await _wp.PostJsonAsync<PublishResponse>("wp-json/rex/v1/publish", body, ct);
+        var res = await _wp.PostJsonAsync<PublishResponse>("wp-json/rex/v1/publish", body, ct);
         return res ?? throw new InvalidOperationException("Publish returned no content");
     }
 }
@@ -73,11 +89,21 @@ public sealed class ForkResponse
     [JsonPropertyName("original_post_id")] public int?   OriginalPostId  { get; init; }
 }
 
+
 public sealed class SaveRequest
 {
-    [JsonPropertyName("id")]   public int      Id   { get; init; }
-    [JsonPropertyName("data")] public SaveData Data { get; init; } = default!;
+    [JsonPropertyName("id")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public int? Id { get; init; }   // <- was int
+
+    [JsonPropertyName("post_type")]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public string? PostType { get; init; }  // <- NEW
+
+    [JsonPropertyName("data")]
+    public SaveData Data { get; init; } = default!;
 }
+
 
 public sealed record SaveData
 (

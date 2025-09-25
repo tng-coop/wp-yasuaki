@@ -43,8 +43,10 @@ final class REX_Save_API {
                 return current_user_can('edit_posts');
             },
             'args' => [
-                'id'   => ['required' => true, 'type' => 'integer'],
-                'data' => ['required' => true, 'type' => 'object'],
+                // 👇 id now optional; post_type optional (default 'post')
+                'id'        => ['required' => false, 'type' => 'integer'],
+                'post_type' => ['required' => false, 'type' => 'string', 'default' => 'post'],
+                'data'      => ['required' => true,  'type' => 'object'],
             ],
         ]);
     }
@@ -90,11 +92,60 @@ final class REX_Save_API {
         }
     }
 
-    /** POST /rex/v1/save */
+    /** POST /rex/v1/save
+     *  If id is missing or <=0: create a new post (or page/CPT) and apply fields/meta/tax_input.
+     *  If id is present: normal update with optimistic concurrency and fork-on-conflict.
+     */
     public static function route_save( WP_REST_Request $req ) {
-        $id   = (int) $req->get_param('id');
-        $data = (array) $req->get_param('data');
+        $id        = (int) ($req->get_param('id') ?: 0);
+        $post_type = (string) ($req->get_param('post_type') ?: 'post');
+        $post_type = sanitize_key($post_type);
+        $data      = (array) $req->get_param('data');
 
+        // Creation path (no id yet)
+        if ($id <= 0) {
+            $insert = [
+                'post_type'   => $post_type ?: 'post',
+                'post_status' => array_key_exists('post_status', $data) ? $data['post_status'] : 'draft',
+                'post_title'  => array_key_exists('post_title',  $data) ? $data['post_title']  : '',
+                'post_content'=> array_key_exists('post_content',$data) ? $data['post_content']: '',
+                'post_author' => get_current_user_id(),
+            ];
+            if (array_key_exists('post_name', $data)) {
+                $insert['post_name'] = $data['post_name'];
+            }
+
+            $new_id = wp_insert_post(wp_slash($insert), true);
+            if (is_wp_error($new_id)) {
+                return new WP_REST_Response(['reason' => $new_id->get_error_message()], 400);
+            }
+
+            // Meta (ignore META_ORIGINAL from client)
+            if (isset($data['meta']) && is_array($data['meta'])) {
+                foreach ($data['meta'] as $k => $v) {
+                    if ($k === self::META_ORIGINAL) { continue; }
+                    update_post_meta($new_id, $k, $v);
+                }
+            }
+
+            // Taxonomies
+            if (isset($data['tax_input']) && is_array($data['tax_input'])) {
+                foreach ($data['tax_input'] as $tax => $terms) {
+                    wp_set_object_terms($new_id, $terms, $tax, false);
+                }
+            }
+
+            return rest_ensure_response([
+                'id'            => $new_id,
+                'status'        => get_post_status($new_id),
+                'saved'         => true,
+                'forked'        => false,
+                'original_post_id' => null,
+                'modified_gmt'  => (string) get_post($new_id)->post_modified_gmt,
+            ]);
+        }
+
+        // --- Update path (existing post) ---
         $existing = get_post($id);
         if (!$existing) {
             return new WP_Error('not_found', 'Post not found for save.', ['status' => 404]);
@@ -140,9 +191,9 @@ final class REX_Save_API {
         }
 
         return rest_ensure_response([
-            'id' => $id,
-            'status' => get_post_status($id),
-            'saved' => true,
+            'id'           => $id,
+            'status'       => get_post_status($id),
+            'saved'        => true,
             'modified_gmt' => (string) get_post($id)->post_modified_gmt,
         ]);
     }
