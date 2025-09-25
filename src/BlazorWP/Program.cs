@@ -64,8 +64,6 @@ namespace BlazorWP
             // WPDI caching + services
             builder.Services.AddSingleton<IPostCache, MemoryPostCache>();
 
-            // registers IPostEditor
-            builder.Services.AddWordPressEditing();
 
             // add IEditLockService (using WP HttpClient)
             builder.Services.AddWpdiEditLocks(sp =>
