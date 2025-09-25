@@ -6,38 +6,37 @@
 
 <h2 class="mb-2">Editor</h2>
 
-<button class="btn btn-primary mb-3" @onclick="NewPageAsync">New Page</button>
-
-@if (Id is not null)
-{
-    <div class="mb-2">
+<div class="d-flex align-items-center gap-2 mb-3">
+    <button class="btn btn-primary" @onclick="NewPageAsync">New Page</button>
+    @if (Id is not null)
+    {
         <span class="badge bg-secondary">Editing ID: @Id</span>
-    </div>
+    }
+    else
+    {
+        <span class="text-muted">New draft (no ID yet). Fill in and click Save.</span>
+    }
+</div>
 
-    <div class="mb-3">
-        <label class="form-label">Title</label>
-        <input class="form-control" @bind="Title" />
-    </div>
+<div class="mb-3">
+    <label class="form-label">Title</label>
+    <input class="form-control" @bind="Title" />
+</div>
 
-    <div class="mb-3">
-        <label class="form-label">Content</label>
-        <textarea class="form-control" rows="12" @bind="Content"></textarea>
-    </div>
+<div class="mb-3">
+    <label class="form-label">Content</label>
+    <textarea class="form-control" rows="12" @bind="Content"></textarea>
+</div>
 
-    <div class="d-flex align-items-center gap-2 mb-3">
-        <button class="btn btn-success" @onclick="SaveAsync" disabled="@_saving">
-            @(_saving ? "Saving…" : "Save")
-        </button>
-        @if (!string.IsNullOrEmpty(_status))
-        {
-            <span class="text-muted">@_status</span>
-        }
-    </div>
-}
-else
-{
-    <p class="text-muted">No page selected. Click <em>New Page</em> to start.</p>
-}
+<div class="d-flex align-items-center gap-2 mb-3">
+    <button class="btn btn-success" @onclick="SaveAsync" disabled="@_saving">
+        @(_saving ? "Saving…" : "Save")
+    </button>
+    @if (!string.IsNullOrEmpty(_status))
+    {
+        <span class="text-muted">@_status</span>
+    }
+</div>
 
 @code {
     [Parameter] public int? Id { get; set; }
@@ -54,11 +53,11 @@ else
 
         if (Id is int id)
         {
-            // Ensure API is initialized, then use raw HttpClient like the rest of the codebase
+            // Load existing page
             _ = await Api.GetClientAsync();
             var http = Api.HttpClient ?? throw new InvalidOperationException("WordPress HttpClient is not initialized.");
 
-            using var resp = await http.GetAsync($"/wp-json/wp/v2/pages/{id}?context=edit&_fields=id,status,title,content");
+            using var resp = await http.GetAsync($"/wp-json/wp/v2/pages/{id}?context=edit&_fields=id,status,title,content,modified_gmt");
             resp.EnsureSuccessStatusCode();
 
             var page = await System.Text.Json.JsonSerializer.DeserializeAsync<WpPage>(
@@ -68,16 +67,20 @@ else
 
             if (page is not null)
             {
-                Title = page.title?.raw ?? page.title?.rendered;
-                Content = page.content?.raw ?? page.content?.rendered;
+                Title = page.title?.raw ?? page.title?.rendered ?? "";
+                Content = page.content?.raw ?? page.content?.rendered ?? "";
             }
+        }
+        else
+        {
+            // Keep whatever is in the editor; default to empty strings
+            Title ??= "";
+            Content ??= "";
         }
     }
 
     private async Task SaveAsync()
     {
-        if (Id is not int id) return;
-
         _saving = true;
         _status = null;
         try
@@ -85,35 +88,53 @@ else
             _ = await Api.GetClientAsync();
             var http = Api.HttpClient ?? throw new InvalidOperationException("WordPress HttpClient is not initialized.");
 
-            // Build minimal update payload; avoid sending nulls (which can clear fields)
-            var payload = new Dictionary<string, object>();
-            if (Title is not null) payload["title"] = Title;
-            if (Content is not null) payload["content"] = Content;
+            // Build rex save payload (id omitted when creating)
+            var data = new Dictionary<string, object?> {
+                ["post_title"]   = Title ?? "",
+                ["post_content"] = Content ?? "",
+                // leave status null for updates; use "draft" on create below
+            };
+
+            var payload = new Dictionary<string, object?> {
+                ["data"] = data,
+                ["post_type"] = "page" // we're editing Pages here
+            };
+
+            if (Id is int id)
+            {
+                payload["id"] = id;
+            }
+            else
+            {
+                // creation path
+                data["post_status"] = "draft";
+            }
+
+            var json = System.Text.Json.JsonSerializer.Serialize(
+                payload,
+                new System.Text.Json.JsonSerializerOptions { DefaultIgnoreCondition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull }
+            );
 
             using var res = await http.PostAsync(
-                $"/wp-json/wp/v2/pages/{id}",
-                new System.Net.Http.StringContent(
-                    System.Text.Json.JsonSerializer.Serialize(payload,
-                        new System.Text.Json.JsonSerializerOptions { DefaultIgnoreCondition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull }),
-                    System.Text.Encoding.UTF8,
-                    "application/json"
-                )
+                "/wp-json/rex/v1/save",
+                new System.Net.Http.StringContent(json, System.Text.Encoding.UTF8, "application/json")
             );
             res.EnsureSuccessStatusCode();
 
-            // Refresh local state from server response
-            var updated = await System.Text.Json.JsonSerializer.DeserializeAsync<WpPage>(
-                await res.Content.ReadAsStreamAsync(),
-                new System.Text.Json.JsonSerializerOptions { PropertyNameCaseInsensitive = true }
-            );
+            using var doc = await System.Text.Json.JsonDocument.ParseAsync(await res.Content.ReadAsStreamAsync());
+            var root = doc.RootElement;
 
-            if (updated is not null)
+            // Get returned ID and update route if it changed (i.e., creation)
+            var newId = root.GetProperty("id").GetInt32();
+            if (Id != newId)
             {
-                Title = updated.title?.raw ?? updated.title?.rendered ?? Title;
-                Content = updated.content?.raw ?? updated.content?.rendered ?? Content;
+                Id = newId;
+                Nav.NavigateTo($"edit/{newId}", replace: true);
             }
 
-            _status = "Saved.";
+            _status = root.TryGetProperty("forked", out var f) && f.ValueKind == System.Text.Json.JsonValueKind.True
+                ? $"Saved (forked to #{newId})."
+                : "Saved.";
         }
         catch (Exception ex)
         {
@@ -126,29 +147,15 @@ else
         }
     }
 
-    private async Task NewPageAsync()
+    private Task NewPageAsync()
     {
-        // Create a new DRAFT page using the core WP REST API
-        _ = await Api.GetClientAsync();
-        var http = Api.HttpClient ?? throw new InvalidOperationException("WordPress HttpClient is not initialized.");
-
-        var payload = new { title = "Untitled Page", status = "draft" };
-        using var res = await http.PostAsync(
-            "/wp-json/wp/v2/pages",
-            new System.Net.Http.StringContent(System.Text.Json.JsonSerializer.Serialize(payload), System.Text.Encoding.UTF8, "application/json")
-        );
-        res.EnsureSuccessStatusCode();
-
-        var created = await System.Text.Json.JsonSerializer.DeserializeAsync<WpPage>(
-            await res.Content.ReadAsStreamAsync(),
-            new System.Text.Json.JsonSerializerOptions { PropertyNameCaseInsensitive = true }
-        );
-
-        if (created is not null)
-        {
-            // Navigate relative to base path; no extra flags
-            Nav.NavigateTo($"edit/{created.id}");
-        }
+        // Minimal: make this a no-ID new draft (creation happens on Save)
+        Id = null;
+        Title = "";
+        Content = "";
+        _status = "New draft (no ID). Fill in and Save.";
+        Nav.NavigateTo("edit", replace: true);
+        return Task.CompletedTask;
     }
 
     // Minimal DTOs (match WP field casing; we deserialize case-insensitively)
@@ -159,5 +166,6 @@ else
         public string? status { get; set; }
         public WpRender? title { get; set; }
         public WpRender? content { get; set; }
+        public string? modified_gmt { get; set; }
     }
 }
