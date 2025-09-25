@@ -75,7 +75,7 @@ public interface IWordPressApiService
     Task<T?> PostJsonAsync<T>(string path, object body, CancellationToken ct = default);
 }
 
-// ===== Request/Response DTOs =====
+// ===== Request/Responso DTOs =====
 
 public sealed class ForkResponse
 {

@@ -65,15 +65,6 @@ namespace BlazorWP
             builder.Services.AddSingleton<IPostCache, MemoryPostCache>();
 
 
-            // add IEditLockService (using WP HttpClient)
-            builder.Services.AddWpdiEditLocks(sp =>
-            {
-                var api = sp.GetRequiredService<IWordPressApiService>();
-                var http = api.HttpClient ?? throw new InvalidOperationException("WP HttpClient not initialized");
-                return http;
-            });
-
-
 
             var host = builder.Build();
 
