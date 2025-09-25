@@ -169,52 +169,52 @@ namespace BlazorWP
             }
             api.SetAuthPreference(authPreference);
 
-            // ---------- Normalize URL query (write current flags + wpurl) ----------
-            var needsNormalization =
-                !queryParams.TryGetValue("lang", out var existingLang) ||
-                !existingLang.ToString().Equals(lang, StringComparison.OrdinalIgnoreCase) ||
-                !queryParams.TryGetValue("appmode", out var existingMode) ||
-                !existingMode.ToString().Equals(appMode == AppMode.Basic ? "basic" : "full", StringComparison.OrdinalIgnoreCase) ||
-                !queryParams.TryGetValue("auth", out var existingAuth) ||
-                !existingAuth.ToString().Equals(authMode == AuthType.Nonce ? "nonce" : "apppass", StringComparison.OrdinalIgnoreCase) ||
-                !queryParams.TryGetValue("wpurl", out var existingWpUrl) ||
-                !existingWpUrl.ToString().Equals(wpurl, StringComparison.Ordinal);
+            // // ---------- Normalize URL query (write current flags + wpurl) ----------
+            // var needsNormalization =
+            //     !queryParams.TryGetValue("lang", out var existingLang) ||
+            //     !existingLang.ToString().Equals(lang, StringComparison.OrdinalIgnoreCase) ||
+            //     !queryParams.TryGetValue("appmode", out var existingMode) ||
+            //     !existingMode.ToString().Equals(appMode == AppMode.Basic ? "basic" : "full", StringComparison.OrdinalIgnoreCase) ||
+            //     !queryParams.TryGetValue("auth", out var existingAuth) ||
+            //     !existingAuth.ToString().Equals(authMode == AuthType.Nonce ? "nonce" : "apppass", StringComparison.OrdinalIgnoreCase) ||
+            //     !queryParams.TryGetValue("wpurl", out var existingWpUrl) ||
+            //     !existingWpUrl.ToString().Equals(wpurl, StringComparison.Ordinal);
 
-            if (needsNormalization)
-            {
-                var segments = new List<string>();
-                foreach (var kvp in queryParams)
-                {
-                    if (kvp.Key.Equals("lang", StringComparison.OrdinalIgnoreCase) ||
-                        kvp.Key.Equals("appmode", StringComparison.OrdinalIgnoreCase) ||
-                        kvp.Key.Equals("auth", StringComparison.OrdinalIgnoreCase) ||
-                        kvp.Key.Equals("wpurl", StringComparison.OrdinalIgnoreCase))
-                    {
-                        continue;
-                    }
+            // if (needsNormalization)
+            // {
+            //     var segments = new List<string>();
+            //     foreach (var kvp in queryParams)
+            //     {
+            //         if (kvp.Key.Equals("lang", StringComparison.OrdinalIgnoreCase) ||
+            //             kvp.Key.Equals("appmode", StringComparison.OrdinalIgnoreCase) ||
+            //             kvp.Key.Equals("auth", StringComparison.OrdinalIgnoreCase) ||
+            //             kvp.Key.Equals("wpurl", StringComparison.OrdinalIgnoreCase))
+            //         {
+            //             continue;
+            //         }
 
-                    if (StringValues.IsNullOrEmpty(kvp.Value))
-                    {
-                        segments.Add(Uri.EscapeDataString(kvp.Key));
-                    }
-                    else
-                    {
-                        foreach (var v in kvp.Value)
-                        {
-                            segments.Add($"{Uri.EscapeDataString(kvp.Key)}={Uri.EscapeDataString(v ?? string.Empty)}");
-                        }
-                    }
-                }
+            //         if (StringValues.IsNullOrEmpty(kvp.Value))
+            //         {
+            //             segments.Add(Uri.EscapeDataString(kvp.Key));
+            //         }
+            //         else
+            //         {
+            //             foreach (var v in kvp.Value)
+            //             {
+            //                 segments.Add($"{Uri.EscapeDataString(kvp.Key)}={Uri.EscapeDataString(v ?? string.Empty)}");
+            //             }
+            //         }
+            //     }
 
-                segments.Add($"appmode={(appMode == AppMode.Basic ? "basic" : "full")}");
-                segments.Add($"lang={lang}");
-                segments.Add($"auth={(authMode == AuthType.Nonce ? "nonce" : "apppass")}");
-                segments.Add($"wpurl={Uri.EscapeDataString(wpurl)}");
+            //     segments.Add($"appmode={(appMode == AppMode.Basic ? "basic" : "full")}");
+            //     segments.Add($"lang={lang}");
+            //     segments.Add($"auth={(authMode == AuthType.Nonce ? "nonce" : "apppass")}");
+            //     segments.Add($"wpurl={Uri.EscapeDataString(wpurl)}");
 
-                var newQuery = string.Join("&", segments);
-                var normalizedUri = uri.GetLeftPart(UriPartial.Path) + (newQuery.Length > 0 ? "?" + newQuery : string.Empty);
-                navigationManager.NavigateTo(normalizedUri, replace: true);
-            }
+            //     var newQuery = string.Join("&", segments);
+            //     var normalizedUri = uri.GetLeftPart(UriPartial.Path) + (newQuery.Length > 0 ? "?" + newQuery : string.Empty);
+            //     navigationManager.NavigateTo(normalizedUri, replace: true);
+            // }
 
             // 7) Run app
             await host.RunAsync();

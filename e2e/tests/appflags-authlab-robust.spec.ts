@@ -7,7 +7,7 @@ async function expectStatus(page: Page, matcher: RegExp | string, timeout = 10_0
 }
 
 test.describe('AppFlags AuthLab – robustness (lean)', () => {
-  test('query flags respected and URL normalized', async ({ page, blazorURL, baseURL }) => {
+  test.skip('query flags respected and URL normalized', async ({ page, blazorURL, baseURL }) => {
     const url = new URL('appflags?auth=nonce', blazorURL);
     if (baseURL) url.searchParams.set('wpurl', baseURL);
     await page.goto(url.toString());

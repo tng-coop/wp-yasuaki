@@ -24,7 +24,15 @@
         <textarea class="form-control" rows="12" @bind="Content"></textarea>
     </div>
 
-    @* Save/Publish wiring will be added later; for now it's a simple editor *@
+    <div class="d-flex align-items-center gap-2 mb-3">
+        <button class="btn btn-success" @onclick="SaveAsync" disabled="@_saving">
+            @(_saving ? "Saving…" : "Save")
+        </button>
+        @if (!string.IsNullOrEmpty(_status))
+        {
+            <span class="text-muted">@_status</span>
+        }
+    </div>
 }
 else
 {
@@ -37,8 +45,13 @@ else
     private string? Title;
     private string? Content;
 
+    private bool _saving;
+    private string? _status;
+
     protected override async Task OnParametersSetAsync()
     {
+        _status = null;
+
         if (Id is int id)
         {
             // Ensure API is initialized, then use raw HttpClient like the rest of the codebase
@@ -58,6 +71,58 @@ else
                 Title = page.title?.raw ?? page.title?.rendered;
                 Content = page.content?.raw ?? page.content?.rendered;
             }
+        }
+    }
+
+    private async Task SaveAsync()
+    {
+        if (Id is not int id) return;
+
+        _saving = true;
+        _status = null;
+        try
+        {
+            _ = await Api.GetClientAsync();
+            var http = Api.HttpClient ?? throw new InvalidOperationException("WordPress HttpClient is not initialized.");
+
+            // Build minimal update payload; avoid sending nulls (which can clear fields)
+            var payload = new Dictionary<string, object>();
+            if (Title is not null) payload["title"] = Title;
+            if (Content is not null) payload["content"] = Content;
+
+            using var res = await http.PostAsync(
+                $"/wp-json/wp/v2/pages/{id}",
+                new System.Net.Http.StringContent(
+                    System.Text.Json.JsonSerializer.Serialize(payload,
+                        new System.Text.Json.JsonSerializerOptions { DefaultIgnoreCondition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull }),
+                    System.Text.Encoding.UTF8,
+                    "application/json"
+                )
+            );
+            res.EnsureSuccessStatusCode();
+
+            // Refresh local state from server response
+            var updated = await System.Text.Json.JsonSerializer.DeserializeAsync<WpPage>(
+                await res.Content.ReadAsStreamAsync(),
+                new System.Text.Json.JsonSerializerOptions { PropertyNameCaseInsensitive = true }
+            );
+
+            if (updated is not null)
+            {
+                Title = updated.title?.raw ?? updated.title?.rendered ?? Title;
+                Content = updated.content?.raw ?? updated.content?.rendered ?? Content;
+            }
+
+            _status = "Saved.";
+        }
+        catch (Exception ex)
+        {
+            _status = $"Save failed: {ex.Message}";
+        }
+        finally
+        {
+            _saving = false;
+            StateHasChanged();
         }
     }
 
