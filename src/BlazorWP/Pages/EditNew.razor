@@ -1,0 +1,17 @@
+<div class="d-flex align-items-center gap-2 mb-3">
+    <button class="btn btn-primary" @onclick="OnNewPage">New Page</button>
+
+    @if (Id is not null)
+    {
+        <span class="badge bg-secondary">Editing ID: @Id</span>
+    }
+    else
+    {
+        <span class="text-muted">New draft (no ID yet). Fill in and click Save.</span>
+    }
+</div>
+
+@code {
+    [Parameter] public int? Id { get; set; }
+    [Parameter] public EventCallback OnNewPage { get; set; }
+}

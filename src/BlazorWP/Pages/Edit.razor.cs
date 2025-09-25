@@ -29,7 +29,7 @@ namespace BlazorWP.Pages
                 _ = await Api.GetClientAsync();
                 var http = Api.HttpClient ?? throw new InvalidOperationException("WordPress HttpClient is not initialized.");
 
-                using var resp = await http.GetAsync($"/wp-json/wp/v2/pages/{id}?context=edit&_fields=id,status,title,content,modified_gmt");
+                using var resp = await http.GetAsync($"/wp-json/wp/v2/posts/{id}?context=edit&_fields=id,status,title,content,modified_gmt");
                 resp.EnsureSuccessStatusCode();
 
                 var page = await System.Text.Json.JsonSerializer.DeserializeAsync<WpPage>(
