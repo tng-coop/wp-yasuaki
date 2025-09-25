@@ -71,7 +71,7 @@ namespace BlazorWP.Pages
                 var payload = new Dictionary<string, object?>
                 {
                     ["data"] = data,
-                    ["post_type"] = "page" // we're editing Pages here
+                    ["post_type"] = "post" 
                 };
 
                 if (Id is int id)

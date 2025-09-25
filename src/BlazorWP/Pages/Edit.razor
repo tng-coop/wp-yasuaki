@@ -1,18 +1,14 @@
 @page "/edit"
 @page "/edit/{Id:int}"
+@inject BlazorWP.Data.AppFlags Flags
+@using TinyMCE.Blazor
+@inject IJSRuntime JS
 
 <h2 class="mb-2">Editor</h2>
 
 <div class="d-flex align-items-center gap-2 mb-3">
     <button class="btn btn-primary" @onclick="NewPageAsync">New Page</button>
-    @if (Id is not null)
-    {
-        <span class="badge bg-secondary">Editing ID: @Id</span>
-    }
-    else
-    {
-        <span class="text-muted">New draft (no ID yet). Fill in and click Save.</span>
-    }
+    <NewPage Id="Id" />
 </div>
 
 <div class="mb-3">
@@ -22,7 +18,8 @@
 
 <div class="mb-3">
     <label class="form-label">Content</label>
-    <textarea class="form-control" rows="12" @bind="Content"></textarea>
+    <Editor Id="mainEditor" ScriptSrc="libman/tinymce/tinymce.min.js" LicenseKey="gpl" JsConfSrc="myTinyMceConfig"
+            @bind-Value="Content"  />
 </div>
 
 <div class="d-flex align-items-center gap-2 mb-3">
