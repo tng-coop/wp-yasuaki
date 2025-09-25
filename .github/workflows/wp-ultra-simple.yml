@@ -238,13 +238,7 @@ jobs:
       - name: Run Python REX API tests (essentials)
         working-directory: python
         run: |
-          python3 -V
-          python3 test_rex_endpoints_essentials.py
-
-      - name: Run Python REX API tests (full)
-        working-directory: python
-        run: |
-          python3 test_rex_endpoints.py
+          bash run_tests.sh
 
       # If tests fail, surface debug.log to help triage
       - name: Dump PHP debug.log on failure

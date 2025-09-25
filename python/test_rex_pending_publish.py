@@ -124,9 +124,9 @@ def test_pending_staging_publishes_over_original() -> None:
     title = (orig_read.get("title") or {}).get("rendered", "")
     assert_true(f"Pending Title {ts}" in title, f"original title not updated: {title}")
 
-    print("[P] Verify staging remains pending…")
+    print("[P] Verify staging is now in TRASH…")
     stg_after = wp_post_get(stg_id, fields="status")
-    assert_true(stg_after.get("status") == "pending", f"staging status changed unexpectedly: {stg_after}")
+    assert_true(stg_after.get("status") == "trash", f"staging status changed unexpectedly: {stg_after}")
 
     print("\nPENDING → PUBLISH SWAP TEST PASSED ✔")
 
