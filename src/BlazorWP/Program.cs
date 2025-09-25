@@ -61,11 +61,6 @@ namespace BlazorWP
 
             builder.Services.AddScoped<ILocalStore, IndexedDbLocalStore>();
 
-            // WPDI caching + services
-            builder.Services.AddSingleton<IPostCache, MemoryPostCache>();
-
-
-
             var host = builder.Build();
 
             // … keep rest of your flags / auth / wpurl setup unchanged …
