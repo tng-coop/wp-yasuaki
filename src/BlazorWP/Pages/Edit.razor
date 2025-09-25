@@ -1,3 +1,99 @@
 @page "/edit"
+@page "/edit/{Id:int}"
 @using Editor.WordPress
 @using Editor.Abstractions
+@inject NavigationManager Nav
+@inject IWordPressApiService Api
+
+<h2 class="mb-2">Editor</h2>
+
+<button class="btn btn-primary mb-3" @onclick="NewPageAsync">New Page</button>
+
+@if (Id is not null)
+{
+    <div class="mb-2">
+        <span class="badge bg-secondary">Editing ID: @Id</span>
+    </div>
+
+    <div class="mb-3">
+        <label class="form-label">Title</label>
+        <input class="form-control" @bind="Title" />
+    </div>
+
+    <div class="mb-3">
+        <label class="form-label">Content</label>
+        <textarea class="form-control" rows="12" @bind="Content"></textarea>
+    </div>
+
+    @* Save/Publish wiring will be added later; for now it's a simple editor *@
+}
+else
+{
+    <p class="text-muted">No page selected. Click <em>New Page</em> to start.</p>
+}
+
+@code {
+    [Parameter] public int? Id { get; set; }
+
+    private string? Title;
+    private string? Content;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (Id is int id)
+        {
+            // Ensure API is initialized, then use raw HttpClient like the rest of the codebase
+            _ = await Api.GetClientAsync();
+            var http = Api.HttpClient ?? throw new InvalidOperationException("WordPress HttpClient is not initialized.");
+
+            using var resp = await http.GetAsync($"/wp-json/wp/v2/pages/{id}?context=edit&_fields=id,status,title,content");
+            resp.EnsureSuccessStatusCode();
+
+            var page = await System.Text.Json.JsonSerializer.DeserializeAsync<WpPage>(
+                await resp.Content.ReadAsStreamAsync(),
+                new System.Text.Json.JsonSerializerOptions { PropertyNameCaseInsensitive = true }
+            );
+
+            if (page is not null)
+            {
+                Title = page.title?.raw ?? page.title?.rendered;
+                Content = page.content?.raw ?? page.content?.rendered;
+            }
+        }
+    }
+
+    private async Task NewPageAsync()
+    {
+        // Create a new DRAFT page using the core WP REST API
+        _ = await Api.GetClientAsync();
+        var http = Api.HttpClient ?? throw new InvalidOperationException("WordPress HttpClient is not initialized.");
+
+        var payload = new { title = "Untitled Page", status = "draft" };
+        using var res = await http.PostAsync(
+            "/wp-json/wp/v2/pages",
+            new System.Net.Http.StringContent(System.Text.Json.JsonSerializer.Serialize(payload), System.Text.Encoding.UTF8, "application/json")
+        );
+        res.EnsureSuccessStatusCode();
+
+        var created = await System.Text.Json.JsonSerializer.DeserializeAsync<WpPage>(
+            await res.Content.ReadAsStreamAsync(),
+            new System.Text.Json.JsonSerializerOptions { PropertyNameCaseInsensitive = true }
+        );
+
+        if (created is not null)
+        {
+            // Navigate relative to base path; no extra flags
+            Nav.NavigateTo($"edit/{created.id}");
+        }
+    }
+
+    // Minimal DTOs (match WP field casing; we deserialize case-insensitively)
+    private sealed class WpRender { public string? rendered { get; set; } public string? raw { get; set; } }
+    private sealed class WpPage
+    {
+        public int id { get; set; }
+        public string? status { get; set; }
+        public WpRender? title { get; set; }
+        public WpRender? content { get; set; }
+    }
+}
