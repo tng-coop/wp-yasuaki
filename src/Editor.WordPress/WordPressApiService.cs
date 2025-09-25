@@ -5,6 +5,7 @@ using System.Net.Http.Json;
 using System.Text.Json;
 using WordPressPCL;
 using Editor.Abstractions;
+using System.Text.Json.Serialization;
 
 namespace Editor.WordPress;
 
@@ -217,5 +218,41 @@ public sealed class WordPressApiService : IWordPressApiService
         // PolicyHandler already throws for 401/403 (AuthError), 429 (RateLimited), timeout (TimeoutError),
         // and 5xx (HttpRequestException). If we’re here, it’s a pass-through 4xx like 404/400 → map to domain.
         throw new UnexpectedHttpError(res.StatusCode);
+    }
+    // -----------------------------
+    // Generic JSON POST helper
+    // -----------------------------
+    private static readonly JsonSerializerOptions _json = new(JsonSerializerDefaults.Web)
+    {
+        PropertyNamingPolicy = null,
+        DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull
+    };
+
+    private static string NormalizePath(string path)
+    {
+        if (string.IsNullOrWhiteSpace(path))
+            throw new ArgumentException("Path must not be empty.", nameof(path));
+
+        var p = path.Trim();
+        if (p.StartsWith("/", StringComparison.Ordinal)) p = p[1..];
+        if (p.StartsWith("wp-json/", StringComparison.OrdinalIgnoreCase)) p = p["wp-json/".Length..];
+        return p; // e.g. "wp/v2/posts/123" or "rex/v1/fork"
+    }
+
+    public async Task<T?> PostJsonAsync<T>(string path, object body, CancellationToken ct = default)
+    {
+        _ = await GetClientAsync().ConfigureAwait(false);
+        var http = HttpClient ?? throw new InvalidOperationException("WordPress HttpClient is not initialized.");
+
+        var normalized = NormalizePath(path);
+
+        using var content = JsonContent.Create(body, options: _json);
+        using var res = await http.PostAsync(normalized, content, ct).ConfigureAwait(false);
+        res.EnsureSuccessStatusCode();
+
+        if (res.Content.Headers.ContentLength == 0) return default;
+        var payload = await res.Content.ReadFromJsonAsync<T>(_json, ct).ConfigureAwait(false);
+        if (payload is null) throw new InvalidOperationException($"Invalid JSON from POST {normalized}");
+        return payload;
     }
 }

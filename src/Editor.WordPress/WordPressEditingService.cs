@@ -12,7 +12,7 @@
 
 using System.Text.Json.Serialization;
 
-namespace WpEditing;
+namespace Editor.WordPress;
 
 public interface IWordPressEditingService
 {
@@ -62,17 +62,6 @@ public sealed class WordPressEditingService : IWordPressEditingService
         var res  = await _wp.PostJsonAsync<PublishResponse>("wp-json/rex/v1/publish", body, ct);
         return res ?? throw new InvalidOperationException("Publish returned no content");
     }
-}
-
-// ===== Adapter contract to your existing HTTP abstraction =====
-// If you already have this interface, delete/ignore this and reference your real one.
-public interface IWordPressApiService
-{
-    /// <summary>
-    /// Sends a JSON POST to a WP-relative path (e.g., "wp-json/rex/v1/fork").
-    /// Must throw on non-2xx; returns deserialized body on success.
-    /// </summary>
-    Task<T?> PostJsonAsync<T>(string path, object body, CancellationToken ct = default);
 }
 
 // ===== Request/Responso DTOs =====

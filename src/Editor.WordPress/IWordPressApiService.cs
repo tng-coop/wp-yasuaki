@@ -20,5 +20,6 @@ namespace Editor.WordPress
         /// produced by our Http policy/handlers; non-auth 4xx are mapped here.
         /// </summary>
         Task<WpMe> GetCurrentUserAsync(CancellationToken ct = default);
+        Task<T?> PostJsonAsync<T>(string path, object body, CancellationToken ct = default);
     }
 }
