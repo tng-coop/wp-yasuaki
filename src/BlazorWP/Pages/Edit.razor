@@ -1,11 +1,12 @@
 @page "/edit"
 @page "/edit/{Id:int}"
+@layout FullPageLayout
 @inject BlazorWP.Data.AppFlags Flags
 @using TinyMCE.Blazor
 @inject IJSRuntime JS
 
 
-<RadzenSplitter Style="height:100vh">
+<RadzenSplitter>
     <RadzenSplitterPane Size="30%" Min="100px">
         <EditNew Id="Id" OnNewPage="NewPageAsync" />
         <div class="mb-3 d-flex align-items-center">
@@ -14,10 +15,13 @@
         </div>
     </RadzenSplitterPane>
     <RadzenSplitterPane>
-        <div class="mb-3">
-            <Editor Id="articleEditor" ScriptSrc="libman/tinymce/tinymce.min.js" LicenseKey="gpl"
-                JsConfSrc="myTinyMceConfig" @bind-Value="Content" />
-        </div>
+    <div id="editorHost" class="editor-host">
+      <Editor Id="articleEditor"
+              ScriptSrc="libman/tinymce/tinymce.min.js"
+              LicenseKey="gpl"
+              JsConfSrc="myTinyMceConfig"
+              @bind-Value="Content" />
+    </div>
 
         <EditSave isDirty="_isDirty" Saving="_saving" Status="_status" OnSave="SaveAsync" />
     </RadzenSplitterPane>
