@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Components;
+using Microsoft.JSInterop; 
 using Editor.WordPress;
 
 namespace BlazorWP.Pages
@@ -122,6 +123,8 @@ namespace BlazorWP.Pages
             finally
             {
                 _saving = false;
+                _isDirty = false;
+                await JS.InvokeVoidAsync("BlazorBridge.setDirty", "articleEditor", false);
                 StateHasChanged();
             }
         }

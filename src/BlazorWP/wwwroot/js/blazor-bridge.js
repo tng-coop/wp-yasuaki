@@ -14,5 +14,14 @@ window.BlazorBridge = {
         if (this._ref) {
             this._ref.invokeMethodAsync('OnEditorDirtyChanged', dirty);
         }
-    }
+    },
+    // NEW: set/clear dirty from Blazor
+    setDirty(editorId, dirty) {
+        const ed = editorId ? tinymce.get(editorId) : tinymce.activeEditor;
+        if (!ed) { console.warn('[BlazorDraftBridge] editor not found:', editorId); return; }
+
+        if (typeof ed.setDirty === 'function') {
+            ed.setDirty(!!dirty);      // TinyMCE 6+
+        }
+    },
 };

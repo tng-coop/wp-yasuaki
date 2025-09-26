@@ -1,3 +1,4 @@
+using System.ComponentModel.Design;
 using Microsoft.JSInterop;
 namespace BlazorWP.Pages;
 
@@ -24,11 +25,17 @@ public partial class Edit
         // 3 second delay
         await Task.Delay(100);
 
-        // apply recovered content after delay
-        Content = html;
-        Console.WriteLine($"Draft restored, content length: {html.Length}");
 
-        StateHasChanged();
+        if (Content != html)
+        {
+            // apply recovered content after delay
+            Content = html;
+            Console.WriteLine($"Draft restored, content length: {html.Length}");
+            StateHasChanged();
+        await Task.Delay(1000);
+            _isDirty = true;
+            StateHasChanged();
+        }
     }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)

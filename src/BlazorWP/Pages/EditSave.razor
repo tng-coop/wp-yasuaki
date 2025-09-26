@@ -17,4 +17,8 @@
     [Parameter] public bool Saving { get; set; }
     [Parameter] public string? Status { get; set; }
     [Parameter] public EventCallback OnSave { get; set; }
+    protected override void OnParametersSet()
+{
+    Console.WriteLine($"[EditSave] isDirty={isDirty} Saving={Saving}");
+}
 }
