@@ -11,7 +11,7 @@ public partial class Edit
     public Task OnEditorDirtyChanged(bool isDirty)
     {
         _isDirty = isDirty;
-        Console.WriteLine($"Dirty state changed: {isDirty}");
+        // Console.WriteLine($"Dirty state changed: {isDirty}");
         StateHasChanged();
         return Task.CompletedTask;
     }
@@ -19,7 +19,7 @@ public partial class Edit
     public async Task OnDraftRestored(string html)
     {
         // optional: log immediately
-        Console.WriteLine($"Draft restore requested, waiting to avoid race");
+        // Console.WriteLine($"Draft restore requested, waiting to avoid race");
 
         // 3 second delay
         await Task.Delay(100);
@@ -54,7 +54,7 @@ public partial class Edit
     public async Task OnTinySave(string html)
     {
         // Persist html (e.g., await _service.SaveAsync(html))
-        Console.WriteLine($"Save requested, content length: {html.Length}");
+        // Console.WriteLine($"Save requested, content length: {html.Length}");
         await SaveAsync();
     }
 
