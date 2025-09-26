@@ -1,13 +1,21 @@
 @inherits LayoutComponentBase
 
-<div class="page">
-    <div class="sidebar">
-        <NavMenu />
-    </div>
+<div class="with-splitter">
+    <RadzenSplitter>
+        <RadzenSplitterPane Size="250px" Min="20px" Max="250px">
+            <div class="sidebar">
+                <NavMenu />
+            </div>
+        </RadzenSplitterPane>
 
-    <main>
-        <article class="content">
-            @Body
-        </article>
-    </main>
+        <RadzenSplitterPane>
+            <div class="page">
+                <main>
+                    <article class="content">
+                        @Body
+                    </article>
+                </main>
+            </div>
+        </RadzenSplitterPane>
+    </RadzenSplitter>
 </div>

@@ -128,3 +128,137 @@ article.content {
         min-height: 0;
     }
 }
+
+/* ===== Radzen Splitter layout overrides (scoped) ===== */
+.with-splitter,
+.with-splitter html,
+.with-splitter body {
+    /* ensure full-height context inside this layout */
+    height: 100%;
+}
+
+.with-splitter .rz-splitter {
+    /* let the splitter own the layout height */
+    height: 100dvh;
+    border: 0; /* optional: remove splitter outer border */
+}
+
+/* Kill the old grid/column reservation when the splitter is present */
+.with-splitter .page {
+    display: block;         /* no flex/grid wrapper needed here */
+    min-height: 0;
+    height: 100%;           /* so inner content can size correctly */
+}
+
+/* The old desktop grid created the 250px blank. Turn it off within scope. */
+@media (min-width: 641px) {
+    .with-splitter .page {
+        display: block !important;
+        grid-template-columns: none !important;
+        height: 100%;
+    }
+
+    /* Old sticky/width rules are not needed with Splitter */
+    .with-splitter .sidebar {
+        width: auto !important;
+        position: static !important;
+        height: auto !important;
+        overflow: visible; /* Splitter panes manage overflow */
+    }
+
+    /* If you previously padded to clear the sidebar, keep content padding modest */
+    .with-splitter .top-row,
+    .with-splitter article {
+        padding-left: 1.5rem !important;
+        padding-right: 1.5rem !important;
+    }
+}
+
+/* Make the content area scroll independently inside the right pane */
+.with-splitter main {
+    display: flex;
+    flex-direction: column;
+    min-height: 0; /* critical for nested overflow */
+}
+
+.with-splitter article.content {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-y: auto;
+}
+
+/* Optional: pane overflow behavior (keeps splitter bars usable) */
+.with-splitter .rz-splitter-pane {
+    overflow: hidden; /* inner article/sidebar handle their own scrolling */
+}
+
+/* Keep your existing sidebar background styling */
+.with-splitter .sidebar {
+    background-image: linear-gradient(180deg, rgb(5, 39, 103) 0%, #3a0647 70%);
+}
+/* ===== Fix: make Radzen Splitter + panes truly full-height ===== */
+
+/* The splitter itself spans the viewport */
+.with-splitter .rz-splitter {
+  height: 100dvh;
+  min-height: 0; /* avoid flex min-content traps */
+}
+
+/* Panels and panes must inherit height from the splitter */
+.with-splitter .rz-splitter-panels,
+.with-splitter .rz-splitter-pane {
+  height: 100%;
+  min-height: 0;
+}
+
+/* Let each pane act as a flex column so its immediate child can stretch */
+.with-splitter .rz-splitter-pane {
+  display: flex;
+  flex-direction: column;
+}
+
+/* Make the *direct child* of each pane fill and allow inner scrolling */
+.with-splitter .rz-splitter-pane > * {
+  flex: 1 1 auto;
+  min-height: 0;  /* critical so nested overflow works */
+}
+
+/* Your right pane wrapper */
+.with-splitter .page {
+  display: flex;          /* simple flex column is enough */
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+}
+
+/* Keep good scrolling behavior inside main/article */
+.with-splitter main {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.with-splitter article.content {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+/* Remove this from earlier advice if you added it: it prevents pane content from filling
+   .with-splitter .rz-splitter-pane { overflow: hidden; }  <-- delete/omit
+*/
+
+/* Keep the "disable old grid" bit to avoid the 250px ghost column */
+@media (min-width: 641px) {
+  .with-splitter .page {
+    display: flex !important;    /* not grid */
+    grid-template-columns: none !important;
+    height: 100%;
+  }
+  .with-splitter .sidebar {
+    width: auto !important;
+    position: static !important;
+    height: auto !important;
+    overflow: visible;
+  }
+}
