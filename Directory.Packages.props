@@ -7,6 +7,7 @@
     <!-- Unified test stack -->
     <PackageVersion Include="Microsoft.AspNetCore.WebUtilities" Version="9.0.9" />
     <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="17.14.1" />
+    <PackageVersion Include="Radzen.Blazor" Version="7.4.2" />
     <PackageVersion Include="System.Resources.Extensions" Version="9.0.9" />
     <PackageVersion Include="xunit" Version="2.9.3" />
     <PackageVersion Include="xunit.runner.visualstudio" Version="3.1.4" />
@@ -28,6 +29,5 @@
     <PackageVersion Include="TG.Blazor.IndexedDB" Version="1.5.0-preview" />
     <PackageVersion Include="TinyMCE.Blazor" Version="2.2.1" />
     <PackageVersion Include="WordPressPCL" Version="2.1.0" />
-
   </ItemGroup>
 </Project>

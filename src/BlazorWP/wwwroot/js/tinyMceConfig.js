@@ -8,26 +8,34 @@ window.myTinyMceConfig = {
   toolbar: 'save | undo redo | bold italic | table | code mediaLibraryButton customButton showInfoButton fullscreen',
   autosave_restore_when_empty: true,
   mediaSource: null,
-    save_onsavecallback: function (editor) {
-    // Your Blazor interop here
-    if (window.__tinySaveToBlazor) window.__tinySaveToBlazor();
+  // TinyMCE "save" plugin callback (prevents default form submit)
+  save_onsavecallback: function (editor) {
+    const html = editor.getContent({ format: 'html' });
+    // Tell Blazor
+    window.BlazorBridge?.onSave(html);
+    // Clear dirty after successful handoff (optional)
+    if (typeof editor.setDirty === 'function') editor.setDirty(false);
   },
-  save_oncancelcallback: function (editor) {
-    // optional
-  },
-  save_enablewhendirty: true,
-  setup: function (editor) {
 
+  // Optional: if user cancels (save_oncancelcallback is part of the save plugin)
+  save_oncancelcallback: function (editor) {
+    window.BlazorBridge?.onCancel?.();
+  },
+
+  setup: function (editor) {
 
     // report dirty status whenever content changes
     const fire = () => window.BlazorBridge.report(editor.isDirty());
 
-    editor.on('Change Input Undo Redo SetContent ExecCommand', fire);
-    editor.on('init', fire);
+    editor.on('init Change Input Undo Redo SetContent ExecCommand', () => {
+      console.log('Content changed, dirty=', editor.isDirty());
+      fire();
+    });
 
     editor.on('RestoreDraft', () => {
       const html = editor.getContent({ format: 'html' });
       window.BlazorBridge.restored(html);
+      console.log('Draft restored');
       fire();
     });
 
@@ -49,19 +57,19 @@ window.myTinyMceConfig = {
       const sizes = item.media_details?.sizes || {};
       const valid = Object.values(sizes).filter(sz => sz.source_url && sz.width);
       const srcset = valid.map(sz => `${sz.source_url} ${sz.width}w`).join(', ');
-  const lg  = sizes.large;
-  if (!lg) {
-    return `<img src="${item.source_url}" />`;
-  }
-  return (`<img loading="lazy" decoding="async"` +
-          ` src="${lg.source_url}"` +
-          ` srcset="${srcset}"` +
-          ` sizes="(max-width: ${lg.width}px) 100vw, ${lg.width}px"` +
-          ` width="${lg.width}" height="${lg.height}"` +
-          ` class="attachment-large size-large"` +
-          (item.alt_text ? ` alt="${item.alt_text}"` : ``) +
-          ` />`);
- }
+      const lg = sizes.large;
+      if (!lg) {
+        return `<img src="${item.source_url}" />`;
+      }
+      return (`<img loading="lazy" decoding="async"` +
+        ` src="${lg.source_url}"` +
+        ` srcset="${srcset}"` +
+        ` sizes="(max-width: ${lg.width}px) 100vw, ${lg.width}px"` +
+        ` width="${lg.width}" height="${lg.height}"` +
+        ` class="attachment-large size-large"` +
+        (item.alt_text ? ` alt="${item.alt_text}"` : ``) +
+        ` />`);
+    }
 
     function openMediaDialog(items, totalPages) {
       let page = 1;

@@ -18,13 +18,23 @@ window.BlazorBridge = {
     // NEW: set/clear dirty from Blazor
     setDirty(editorId, dirty) {
         const ed = editorId ? tinymce.get(editorId) : tinymce.activeEditor;
-        if (!ed) { 
-            console.warn('[BlazorDraftBridge] editor not found:', editorId); 
-            return; 
+        if (!ed) {
+            console.warn('[BlazorDraftBridge] editor not found:', editorId);
+            return;
         }
 
         if (typeof ed.setDirty === 'function') {
             ed.setDirty(!!dirty);      // TinyMCE 6+
         }
     },
+    // Notify Blazor that a save was triggered, passing the HTML
+    onSave(html) {
+        // Use the stored DotNetObjectReference from init()
+        this._ref?.invokeMethodAsync('OnTinySave', html);
+    },
+
+    // Optional: notify Blazor that "Cancel" was used in the save plugin
+    onCancel() {
+        this._ref?.invokeMethodAsync('OnTinyCancel');
+    }
 };

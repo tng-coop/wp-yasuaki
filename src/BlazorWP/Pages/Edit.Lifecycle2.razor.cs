@@ -6,8 +6,7 @@ namespace BlazorWP.Pages;
 public partial class Edit
 {
     private DotNetObjectReference<Edit>? _objRef;
-
-    // called from JS: window.BlazorDirtyBridge.report(...)
+    private IJSObjectReference? _module;
     [JSInvokable]
     public Task OnEditorDirtyChanged(bool isDirty)
     {
@@ -30,9 +29,9 @@ public partial class Edit
         {
             // apply recovered content after delay
             Content = html;
-            Console.WriteLine($"Draft restored, content length: {html.Length}");
             StateHasChanged();
-        await Task.Delay(1000);
+            await JS.InvokeVoidAsync("BlazorBridge.setDirty", "articleEditor", true);
+            await Task.Delay(100);
             _isDirty = true;
             StateHasChanged();
         }
@@ -42,24 +41,30 @@ public partial class Edit
     {
         if (firstRender)
         {
-            var mod = await JS.InvokeAsync<IJSObjectReference>("import", "/js/blazor-bridge.js");
-            var objRef = DotNetObjectReference.Create(this);
-            await JS.InvokeVoidAsync("BlazorBridge.init", objRef);
+            // ✅ assign to fields (not locals)
+            _module = await JS.InvokeAsync<IJSObjectReference>("import", "/js/blazor-bridge.js");
+            _objRef = DotNetObjectReference.Create(this);
+            await JS.InvokeVoidAsync("BlazorBridge.init", _objRef);
 
             await JS.InvokeVoidAsync("setTinyMediaSource", Flags.WpUrl);
-            await JS.InvokeVoidAsync("splitInterop.init",
-                new[] { ".split > .pane:first-child", ".split > .pane:last-child" },
-                new { sizes = new[] { 25, 75 }, direction = "vertical" }
-            );
         }
     }
+    // ✅ Must be public AND [JSInvokable] to be called from JS
     [JSInvokable]
-    public Task OnEditorSave() => SaveAsync();   // your existing save
-
-    public ValueTask DisposeAsync()
+    public async Task OnTinySave(string html)
     {
-        _objRef?.Dispose();
-        return ValueTask.CompletedTask;
+        // Persist html (e.g., await _service.SaveAsync(html))
+        Console.WriteLine($"Save requested, content length: {html.Length}");
+        await SaveAsync();
     }
 
+    // ✅ dispose both the DotNetObjectReference and JS module
+    public async ValueTask DisposeAsync()
+    {
+        _objRef?.Dispose();
+        if (_module is not null)
+        {
+            try { await _module.DisposeAsync(); } catch { /* no-op */ }
+        }
+    }
 }

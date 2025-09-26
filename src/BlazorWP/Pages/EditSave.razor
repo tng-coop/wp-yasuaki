@@ -1,9 +1,7 @@
 <div class="d-flex align-items-center gap-2 mb-3">
-<button class="btn btn-success"
-        @onclick="OnSave"
-        disabled="@(! isDirty || Saving)">
-    @(Saving ? "Saving…" : "Save")
-</button>
+    <button class="btn btn-success" @onclick="OnSave" disabled="@(!isDirty || Saving)">
+        @(Saving ? "Saving…" : "Save")
+    </button>
 
 
     @if (!string.IsNullOrEmpty(Status))
@@ -18,7 +16,7 @@
     [Parameter] public string? Status { get; set; }
     [Parameter] public EventCallback OnSave { get; set; }
     protected override void OnParametersSet()
-{
-    Console.WriteLine($"[EditSave] isDirty={isDirty} Saving={Saving}");
-}
+    {
+        @* Console.WriteLine($"[EditSave] isDirty={isDirty} Saving={Saving}"); *@
+    }
 }
