@@ -4,8 +4,9 @@ window.myTinyMceConfig = {
   branding: false,
   statusbar: true,
   resize: 'vertical',
-  plugins: 'code media table fullscreen save',
+  plugins: 'code media table fullscreen save autosave',
   toolbar: 'save | undo redo | bold italic | table | code mediaLibraryButton customButton showInfoButton fullscreen',
+  autosave_restore_when_empty: true,
   mediaSource: null,
     save_onsavecallback: function (editor) {
     // Your Blazor interop here
@@ -18,7 +19,17 @@ window.myTinyMceConfig = {
   setup: function (editor) {
 
 
+    // report dirty status whenever content changes
+    const fire = () => window.BlazorBridge.report(editor.isDirty());
 
+    editor.on('Change Input Undo Redo SetContent ExecCommand', fire);
+    editor.on('init', fire);
+
+    editor.on('RestoreDraft', () => {
+      const html = editor.getContent({ format: 'html' });
+      window.BlazorBridge.restored(html);
+      fire();
+    });
 
     editor.ui.registry.addButton('customButton', {
       text: 'Alert',

@@ -13,6 +13,8 @@ namespace BlazorWP.Pages
         [Inject] public NavigationManager Nav { get; set; } = default!;
         [Inject] public IWordPressApiService Api { get; set; } = default!;
 
+
+        private bool _isDirty;
         private string? Title;
         private string? Content;
 
@@ -63,7 +65,7 @@ namespace BlazorWP.Pages
                 // Build rex save payload (id omitted when creating)
                 var data = new Dictionary<string, object?>
                 {
-                    ["post_title"]   = Title ?? "",
+                    ["post_title"] = Title ?? "",
                     ["post_content"] = Content ?? "",
                     // leave status null for updates; use "draft" on create below
                 };
@@ -71,7 +73,7 @@ namespace BlazorWP.Pages
                 var payload = new Dictionary<string, object?>
                 {
                     ["data"] = data,
-                    ["post_type"] = "post" 
+                    ["post_type"] = "post"
                 };
 
                 if (Id is int id)

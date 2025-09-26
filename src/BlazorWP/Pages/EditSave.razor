@@ -1,7 +1,10 @@
 <div class="d-flex align-items-center gap-2 mb-3">
-    <button class="btn btn-success" @onclick="OnSave" disabled="@Saving">
-        @(Saving ? "Saving…" : "Save")
-    </button>
+<button class="btn btn-success"
+        @onclick="OnSave"
+        disabled="@(! isDirty || Saving)">
+    @(Saving ? "Saving…" : "Save")
+</button>
+
 
     @if (!string.IsNullOrEmpty(Status))
     {
@@ -10,6 +13,7 @@
 </div>
 
 @code {
+    [Parameter] public bool isDirty { get; set; }
     [Parameter] public bool Saving { get; set; }
     [Parameter] public string? Status { get; set; }
     [Parameter] public EventCallback OnSave { get; set; }
