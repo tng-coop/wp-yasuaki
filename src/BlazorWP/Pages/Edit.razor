@@ -4,26 +4,23 @@
 @using TinyMCE.Blazor
 @inject IJSRuntime JS
 
-<h2 class="mb-2">Editor</h2>
 
-<EditNew Id="Id" OnNewPage="NewPageAsync" />
 
-<div class="mb-3">
-    <label class="form-label">Title</label>
-    <input class="form-control" @bind="Title" />
-</div>
+<div class="split vertical" style="height:100vh">
+    <div class="pane">
+        <EditNew Id="Id" OnNewPage="NewPageAsync" />
+        <div class="mb-3">
+            <label class="form-label">Title</label>
+            <input class="form-control" @bind="Title" />
+        </div>
+    </div>
+    <div class="pane">
+        <div class="mb-3">
+            <label class="form-label">Content</label>
+            <Editor Id="mainEditor" ScriptSrc="libman/tinymce/tinymce.min.js" LicenseKey="gpl"
+                JsConfSrc="myTinyMceConfig" @bind-Value="Content" />
+        </div>
 
-<div class="mb-3">
-    <label class="form-label">Content</label>
-    <Editor Id="mainEditor"
-            ScriptSrc="libman/tinymce/tinymce.min.js"
-            LicenseKey="gpl"
-            JsConfSrc="myTinyMceConfig"
-            @bind-Value="Content" />
-</div>
-
-<EditSave Saving="_saving" Status="_status" OnSave="SaveAsync" />
-<div class="split" style="height:100vh;">
-    <div class="pane" style="background:#f2f2f2;">Left Pane</div>
-    <div class="pane" style="background:#ddd;">Right Pane</div>
+        <EditSave Saving="_saving" Status="_status" OnSave="SaveAsync" />
+    </div>
 </div>

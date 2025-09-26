@@ -11,7 +11,7 @@ public partial class Edit
             await JS.InvokeVoidAsync("setTinyMediaSource",  Flags.WpUrl);
             await JS.InvokeVoidAsync("splitInterop.init", 
                 new[] { ".split > .pane:first-child", ".split > .pane:last-child" },
-                new { sizes = new[] { 25, 75 } }
+                new { sizes = new[] { 25, 75 }, direction = "vertical"  }
             );
         }
     }
