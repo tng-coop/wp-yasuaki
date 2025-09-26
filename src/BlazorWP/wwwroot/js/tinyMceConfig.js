@@ -4,10 +4,22 @@ window.myTinyMceConfig = {
   branding: false,
   statusbar: true,
   resize: 'vertical',
-  plugins: 'code media table fullscreen',
-  toolbar: 'undo redo | bold italic | table | code mediaLibraryButton customButton showInfoButton fullscreen',
+  plugins: 'code media table fullscreen save',
+  toolbar: 'save | undo redo | bold italic | table | code mediaLibraryButton customButton showInfoButton fullscreen',
   mediaSource: null,
+    save_onsavecallback: function (editor) {
+    // Your Blazor interop here
+    if (window.__tinySaveToBlazor) window.__tinySaveToBlazor();
+  },
+  save_oncancelcallback: function (editor) {
+    // optional
+  },
+  save_enablewhendirty: true,
   setup: function (editor) {
+
+
+
+
     editor.ui.registry.addButton('customButton', {
       text: 'Alert',
       onAction: () => alert('Hello from TinyMCE!')
@@ -152,39 +164,5 @@ window.myTinyMceConfig = {
 
 window.setTinyMediaSource = function (url) {
   window.myTinyMceConfig.mediaSource = url || null;
-};
-
-window.setTinyEditorContent = function (html) {
-  if (window.tinymce && tinymce.get('articleEditor')) {
-    tinymce.get('articleEditor').setContent(html || '');
-  }
-};
-
-window.getTinyEditorContent = function () {
-  if (window.tinymce && tinymce.get('articleEditor')) {
-    return tinymce.get('articleEditor').getContent();
-  }
-  return '';
-};
-
-window.getTinyEditorContentLength = function () {
-  if (window.tinymce && tinymce.get('articleEditor')) {
-    return tinymce.get('articleEditor').getContent().length;
-  }
-  return 0;
-};
-
-window.registerTinyEditorCallbacks = function (dotNetHelper) {
-  if (window.tinymce && tinymce.get('articleEditor')) {
-    const editor = tinymce.get('articleEditor');
-    editor.on('blur', function () {
-      dotNetHelper.invokeMethodAsync('OnEditorBlur');
-    });
-    const changeHandler = function () {
-      dotNetHelper.invokeMethodAsync('OnEditorDirty');
-      editor.off('change', changeHandler);
-    };
-    editor.on('change', changeHandler);
-  }
 };
 
