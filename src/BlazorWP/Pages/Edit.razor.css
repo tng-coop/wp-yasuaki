@@ -17,7 +17,7 @@
 }
 /* gutters injected by Split.js */
 ::deep .gutter {
-  background: gray
+  background: gray;
   background-repeat: no-repeat;
   background-position: 50%;
 }
