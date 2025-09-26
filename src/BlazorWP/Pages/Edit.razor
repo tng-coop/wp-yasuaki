@@ -13,7 +13,8 @@
         <EditNew Id="Id" OnNewPage="NewPageAsync" />
         <div class="mb-3 d-flex align-items-center">
             <label class="form-label me-2 mb-0 text-nowrap">Title</label>
-            <input class="form-control flex-grow-1 min-w-0" @bind="Title" />
+            <input class="form-control flex-grow-1 min-w-0" value="@Title" @oninput="HandleTitleInput" />
+
         </div>
         <div id="editorHost" class="editor-host">
             <Editor Id="articleEditor" ScriptSrc="libman/tinymce/tinymce.min.js" LicenseKey="gpl"
@@ -23,3 +24,27 @@
         <EditSave isDirty="_isDirty" Saving="_saving" Status="_status" OnSave="SaveAsync" />
     </RadzenSplitterPane>
 </RadzenSplitter>
+@code {
+    private string? _originalTitle;
+    private CancellationTokenSource? _cts;
+
+    protected override void OnInitialized() => _originalTitle = Title;
+
+    private async Task HandleTitleInput(ChangeEventArgs e)
+    {
+        _cts?.Cancel();
+        _cts = new();
+
+        var next = e.Value?.ToString();
+
+        try
+        {
+            await Task.Delay(300, _cts.Token); // debounce
+            Title = next;
+            _isDirty = Title != _originalTitle;
+            await JS.InvokeVoidAsync("BlazorBridge.setDirty", "articleEditor", _isDirty);
+            StateHasChanged();
+        }
+        catch (TaskCanceledException) { /* ignore */ }
+    }
+}
