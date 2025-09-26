@@ -9,16 +9,16 @@
 <div class="split vertical" style="height:100vh">
     <div class="pane">
         <EditNew Id="Id" OnNewPage="NewPageAsync" />
-<div class="mb-3 d-flex align-items-center">
-    <label class="form-label me-2 mb-0 text-nowrap">Title</label>
-    <input class="form-control flex-grow-1 min-w-0" @bind="Title" />
-</div>
+        <div class="mb-3 d-flex align-items-center">
+            <label class="form-label me-2 mb-0 text-nowrap">Title</label>
+            <input class="form-control flex-grow-1 min-w-0" @bind="Title" />
+        </div>
 
     </div>
     <div class="pane">
         <div class="mb-3">
             <Editor Id="articleEditor" ScriptSrc="libman/tinymce/tinymce.min.js" LicenseKey="gpl"
-                JsConfSrc="myTinyMceConfig" @bind-Value="Content"/>
+                JsConfSrc="myTinyMceConfig" @bind-Value="Content" />
         </div>
 
         <EditSave isDirty="_isDirty" Saving="_saving" Status="_status" OnSave="SaveAsync" />
