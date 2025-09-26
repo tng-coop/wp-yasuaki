@@ -8,20 +8,17 @@
 
 <RadzenSplitter>
     <RadzenSplitterPane Size="30%" Min="100px">
+    </RadzenSplitterPane>
+    <RadzenSplitterPane>
         <EditNew Id="Id" OnNewPage="NewPageAsync" />
         <div class="mb-3 d-flex align-items-center">
             <label class="form-label me-2 mb-0 text-nowrap">Title</label>
             <input class="form-control flex-grow-1 min-w-0" @bind="Title" />
         </div>
-    </RadzenSplitterPane>
-    <RadzenSplitterPane>
-    <div id="editorHost" class="editor-host">
-      <Editor Id="articleEditor"
-              ScriptSrc="libman/tinymce/tinymce.min.js"
-              LicenseKey="gpl"
-              JsConfSrc="myTinyMceConfig"
-              @bind-Value="Content" />
-    </div>
+        <div id="editorHost" class="editor-host">
+            <Editor Id="articleEditor" ScriptSrc="libman/tinymce/tinymce.min.js" LicenseKey="gpl"
+                JsConfSrc="myTinyMceConfig" @bind-Value="Content" />
+        </div>
 
         <EditSave isDirty="_isDirty" Saving="_saving" Status="_status" OnSave="SaveAsync" />
     </RadzenSplitterPane>
