@@ -16,10 +16,12 @@ namespace Editor.WordPress;
 
 public interface IWordPressEditingService
 {
-    Task<ForkResponse>    ForkAsync(int sourceId, string status = "draft", CancellationToken ct = default);
-    Task<SaveResponse>    SaveAsync(int id, SaveData data, CancellationToken ct = default);
-    Task<SaveResponse>    SaveAsync(SaveData data, string postType = "post", CancellationToken ct = default);
-
+    Task<ForkResponse> ForkAsync(int sourceId, string status = "draft", CancellationToken ct = default);
+    Task<SaveResponse> SaveAsync(
+        SaveData data,
+        int? id = null,
+        string postType = "post",
+        CancellationToken ct = default);
     Task<PublishResponse> PublishAsync(int stagingId, CancellationToken ct = default);
 }
 
@@ -37,39 +39,43 @@ public sealed class WordPressEditingService : IWordPressEditingService
     public async Task<ForkResponse> ForkAsync(int sourceId, string status = "draft", CancellationToken ct = default)
     {
         var body = new { source_id = sourceId, status };
-        var res  = await _wp.PostJsonAsync<ForkResponse>("wp-json/rex/v1/fork", body, ct);
+        var res = await _wp.PostJsonAsync<ForkResponse>("wp-json/rex/v1/fork", body, ct);
         return res ?? throw new InvalidOperationException("Fork returned no content");
     }
 
-    // 4) Save Post (may fork on server depending on errors/conflicts)
-    public async Task<SaveResponse> SaveAsync(int id, SaveData data, CancellationToken ct = default)
+    public async Task<SaveResponse> SaveAsync(
+        SaveData data,
+        int? id = null,
+        string postType = "post",
+        CancellationToken ct = default)
     {
         if (data is null) throw new ArgumentNullException(nameof(data));
 
-        // Guard: never let client send the original marker (server ignores anyway)
-        if (data.Meta is not null && data.Meta.ContainsKey("_rex_original_post_id"))
+        // Defensive: never send the server-managed original pointer
+        const string OriginalMetaKey = "_rex_original_post_id";
+        if (data.Meta is not null && data.Meta.ContainsKey(OriginalMetaKey))
         {
-            data = data with { Meta = data.Meta.Where(kv => kv.Key != "_rex_original_post_id").ToDictionary(kv => kv.Key, kv => kv.Value) };
+            data = data with
+            {
+                Meta = data.Meta
+                    .Where(kv => !string.Equals(kv.Key, OriginalMetaKey, StringComparison.Ordinal))
+                    .ToDictionary(kv => kv.Key, kv => kv.Value)
+            };
         }
 
-        var body = new SaveRequest { Id = id, Data = data };
-        var res  = await _wp.PostJsonAsync<SaveResponse>("wp-json/rex/v1/save", body, ct);
+        // Build payload with exact wire keys. Only include post_type on create.
+        var payload = new Dictionary<string, object?>
+        {
+            ["id"] = id,
+            ["data"] = data
+        };
+        if (id is null)
+            payload["post_type"] = string.IsNullOrWhiteSpace(postType) ? "post" : postType;
+
+        var res = await _wp.PostJsonAsync<SaveResponse>("wp-json/rex/v1/save", payload, ct);
         return res ?? throw new InvalidOperationException("Save returned no content");
     }
 
-    // NEW: create-then-save on the server (no ID on client)
-    public async Task<SaveResponse> SaveAsync(SaveData data, string postType = "post", CancellationToken ct = default)
-    {
-        if (data is null) throw new ArgumentNullException(nameof(data));
-
-        if (data.Meta is not null && data.Meta.ContainsKey("_rex_original_post_id"))
-            data = data with { Meta = data.Meta.Where(kv => kv.Key != "_rex_original_post_id")
-                                              .ToDictionary(kv => kv.Key, kv => kv.Value) };
-
-        var req = new SaveRequest { Id = null, PostType = postType, Data = data };
-        var res = await _wp.PostJsonAsync<SaveResponse>("wp-json/rex/v1/save", req, ct);
-        return res ?? throw new InvalidOperationException("Save returned no content");
-    }
 
     // 5) Publish Post
     public async Task<PublishResponse> PublishAsync(int stagingId, CancellationToken ct = default)
@@ -84,9 +90,9 @@ public sealed class WordPressEditingService : IWordPressEditingService
 
 public sealed class ForkResponse
 {
-    [JsonPropertyName("id")]               public int    Id              { get; init; }
-    [JsonPropertyName("status")]           public string? Status         { get; init; }
-    [JsonPropertyName("original_post_id")] public int?   OriginalPostId  { get; init; }
+    [JsonPropertyName("id")] public int Id { get; init; }
+    [JsonPropertyName("status")] public string? Status { get; init; }
+    [JsonPropertyName("original_post_id")] public int? OriginalPostId { get; init; }
 }
 
 
@@ -107,34 +113,34 @@ public sealed class SaveRequest
 
 public sealed record SaveData
 (
-    [property: JsonPropertyName("post_title")]           string? Title,
-    [property: JsonPropertyName("post_content")]         string? Content,
-    [property: JsonPropertyName("post_excerpt")]         string? Excerpt,
-    [property: JsonPropertyName("post_status")]          string? Status,
-    [property: JsonPropertyName("post_name")]            string? Slug,
-    [property: JsonPropertyName("meta")]                 Dictionary<string, object>? Meta,
-    [property: JsonPropertyName("tax_input")]            Dictionary<string, IEnumerable<int>>? TaxInput,
+    [property: JsonPropertyName("post_title")] string? Title,
+    [property: JsonPropertyName("post_content")] string? Content,
+    [property: JsonPropertyName("post_excerpt")] string? Excerpt,
+    [property: JsonPropertyName("post_status")] string? Status,
+    [property: JsonPropertyName("post_name")] string? Slug,
+    [property: JsonPropertyName("meta")] Dictionary<string, object>? Meta,
+    [property: JsonPropertyName("tax_input")] Dictionary<string, IEnumerable<int>>? TaxInput,
     [property: JsonPropertyName("expected_modified_gmt")] string? ExpectedModifiedGmt
 )
 {
     // Convenient builders
     public static SaveData TitleOnly(string title) => new(title, null, null, null, null, null, null, null);
-    public SaveData WithContent(string content)     => this with { Content = content };
+    public SaveData WithContent(string content) => this with { Content = content };
 }
 
 public sealed class SaveResponse
 {
-    [JsonPropertyName("id")]               public int    Id              { get; init; }
-    [JsonPropertyName("status")]           public string? Status         { get; init; }
-    [JsonPropertyName("saved")]            public bool?  Saved           { get; init; }
-    [JsonPropertyName("forked")]           public bool?  Forked          { get; init; }
-    [JsonPropertyName("reason")]           public string? Reason         { get; init; }
-    [JsonPropertyName("original_post_id")] public int?   OriginalPostId  { get; init; }
-    [JsonPropertyName("modified_gmt")]     public string? ModifiedGmt    { get; init; }
+    [JsonPropertyName("id")] public int Id { get; init; }
+    [JsonPropertyName("status")] public string? Status { get; init; }
+    [JsonPropertyName("saved")] public bool? Saved { get; init; }
+    [JsonPropertyName("forked")] public bool? Forked { get; init; }
+    [JsonPropertyName("reason")] public string? Reason { get; init; }
+    [JsonPropertyName("original_post_id")] public int? OriginalPostId { get; init; }
+    [JsonPropertyName("modified_gmt")] public string? ModifiedGmt { get; init; }
 }
 
 public sealed class PublishResponse
 {
-    [JsonPropertyName("published_id")] public int  PublishedId  { get; init; }
+    [JsonPropertyName("published_id")] public int PublishedId { get; init; }
     [JsonPropertyName("used_original")] public bool UsedOriginal { get; init; }
 }

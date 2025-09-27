@@ -50,16 +50,20 @@ namespace Editor.Tests
                 ["status"] = "draft"
             });
 
-            var res1 = await editing.SaveAsync(postId, new SaveData(
-                Title: "REX SaveOK A1",
-                Content: null,
-                Excerpt: null,
-                Status: null,
-                Slug: null,
-                Meta: null,
-                TaxInput: null,
-                ExpectedModifiedGmt: null
-            ));
+            var res1 = await editing.SaveAsync(
+                new SaveData(
+                    Title: "REX SaveOK A1",
+                    Content: null,
+                    Excerpt: null,
+                    Status: null,
+                    Slug: null,
+                    Meta: null,
+                    TaxInput: null,
+                    ExpectedModifiedGmt: null
+                ),
+                id: postId // update existing post
+            );
+
             Assert.False(res1.Forked.GetValueOrDefault(), "Should not fork on first save");
             Assert.Equal(postId, res1.Id);
 
@@ -68,16 +72,20 @@ namespace Editor.Tests
                 : await _wp.GetModifiedGmtAsync(postId);
             Assert.False(string.IsNullOrWhiteSpace(token));
 
-            var res2 = await editing.SaveAsync(postId, new SaveData(
-                Title: null,
-                Content: "v2 - concurrency pass",
-                Excerpt: null,
-                Status: null,
-                Slug: null,
-                Meta: null,
-                TaxInput: null,
-                ExpectedModifiedGmt: token
-            ));
+            var res2 = await editing.SaveAsync(
+                new SaveData(
+                    Title: null,
+                    Content: "v2 - concurrency pass",
+                    Excerpt: null,
+                    Status: null,
+                    Slug: null,
+                    Meta: null,
+                    TaxInput: null,
+                    ExpectedModifiedGmt: token
+                ),
+                id: postId
+            );
+
             Assert.False(res2.Forked.GetValueOrDefault(), "Should not fork on second save");
             Assert.Equal(postId, res2.Id);
 
@@ -121,16 +129,20 @@ namespace Editor.Tests
                 ["status"] = "publish"
             });
 
-            var saveRes = await editing.SaveAsync(origId, new SaveData(
-                Title: "REX Updated via conflict",
-                Content: "Updated body (conflict path)",
-                Excerpt: null,
-                Status: null,
-                Slug: null,
-                Meta: null,
-                TaxInput: null,
-                ExpectedModifiedGmt: "1970-01-01 00:00:00"
-            ));
+            var saveRes = await editing.SaveAsync(
+                new SaveData(
+                    Title: "REX Updated via conflict",
+                    Content: "Updated body (conflict path)",
+                    Excerpt: null,
+                    Status: null,
+                    Slug: null,
+                    Meta: null,
+                    TaxInput: null,
+                    ExpectedModifiedGmt: "1970-01-01 00:00:00"
+                ),
+                id: origId
+            );
+
             Assert.True(saveRes.Forked);
             Assert.Equal(origId, saveRes.OriginalPostId);
             int draftId = saveRes.Id;
@@ -167,16 +179,20 @@ namespace Editor.Tests
 
             await _wp.DeletePostAsync(origId, force: false);
 
-            await editing.SaveAsync(stgId, new SaveData(
-                Title: _unique.Next("REX Untrash New"),
-                Content: "updated before publish",
-                Excerpt: null,
-                Status: null,
-                Slug: null,
-                Meta: null,
-                TaxInput: null,
-                ExpectedModifiedGmt: null
-            ));
+            await editing.SaveAsync(
+                new SaveData(
+                    Title: _unique.Next("REX Untrash New"),
+                    Content: "updated before publish",
+                    Excerpt: null,
+                    Status: null,
+                    Slug: null,
+                    Meta: null,
+                    TaxInput: null,
+                    ExpectedModifiedGmt: null
+                ),
+                id: stgId
+            );
+
 
             var pubRes = await editing.PublishAsync(stgId);
             Assert.True(pubRes.UsedOriginal);
@@ -261,19 +277,23 @@ namespace Editor.Tests
                 ["status"] = "draft"
             });
 
-            var res = await editing.SaveAsync(postId, new SaveData(
-                Title: "Ignore meta attempt",
-                Content: null,
-                Excerpt: null,
-                Status: null,
-                Slug: null,
-                Meta: new Dictionary<string, object>
-                {
-                    ["_rex_original_post_id"] = 12345
-                },
-                TaxInput: null,
-                ExpectedModifiedGmt: null
-            ));
+            var res = await editing.SaveAsync(
+                new SaveData(
+                    Title: "Ignore meta attempt",
+                    Content: null,
+                    Excerpt: null,
+                    Status: null,
+                    Slug: null,
+                    Meta: new Dictionary<string, object>
+                    {
+                        ["_rex_original_post_id"] = 12345
+                    },
+                    TaxInput: null,
+                    ExpectedModifiedGmt: null
+                ),
+                id: postId
+            );
+
             Assert.Equal(postId, res.Id);
 
             var post = await _wp.GetPostAsync(postId, "id,meta,title");
@@ -372,26 +392,26 @@ namespace Editor.Tests
 
         public void RegisterPost(int id) => _createdPosts.Add(id);
 
-public async Task<int> CreatePostAsync(Dictionary<string, object?> payload)
-{
-    var res = await Client!.PostAsJsonAsync("wp/v2/posts", payload).ConfigureAwait(false);
-    res.EnsureSuccessStatusCode();
+        public async Task<int> CreatePostAsync(Dictionary<string, object?> payload)
+        {
+            var res = await Client!.PostAsJsonAsync("wp/v2/posts", payload).ConfigureAwait(false);
+            res.EnsureSuccessStatusCode();
 
-    // Read as JsonElement and extract id robustly
-    var root = await res.Content.ReadFromJsonAsync<JsonElement>();
-    if (!root.TryGetProperty("id", out var idNode))
-        throw new InvalidOperationException("CreatePostAsync: response missing 'id'");
+            // Read as JsonElement and extract id robustly
+            var root = await res.Content.ReadFromJsonAsync<JsonElement>();
+            if (!root.TryGetProperty("id", out var idNode))
+                throw new InvalidOperationException("CreatePostAsync: response missing 'id'");
 
-    int id = idNode.ValueKind switch
-    {
-        JsonValueKind.Number => idNode.GetInt32(),
-        JsonValueKind.String when int.TryParse(idNode.GetString(), out var n) => n,
-        _ => throw new InvalidOperationException($"CreatePostAsync: unexpected 'id' kind: {idNode.ValueKind}")
-    };
+            int id = idNode.ValueKind switch
+            {
+                JsonValueKind.Number => idNode.GetInt32(),
+                JsonValueKind.String when int.TryParse(idNode.GetString(), out var n) => n,
+                _ => throw new InvalidOperationException($"CreatePostAsync: unexpected 'id' kind: {idNode.ValueKind}")
+            };
 
-    RegisterPost(id);
-    return id;
-}
+            RegisterPost(id);
+            return id;
+        }
 
 
         public async Task DeletePostAsync(int id, bool force)
@@ -415,24 +435,24 @@ public async Task<int> CreatePostAsync(Dictionary<string, object?> payload)
             return p;
         }
 
-public async Task<int> CreateCategoryAsync(string name)
-{
-    var res = await Client!.PostAsJsonAsync("wp/v2/categories", new { name }).ConfigureAwait(false);
-    res.EnsureSuccessStatusCode();
+        public async Task<int> CreateCategoryAsync(string name)
+        {
+            var res = await Client!.PostAsJsonAsync("wp/v2/categories", new { name }).ConfigureAwait(false);
+            res.EnsureSuccessStatusCode();
 
-    var root = await res.Content.ReadFromJsonAsync<JsonElement>();
-    if (!root.TryGetProperty("id", out var idNode))
-        throw new InvalidOperationException("CreateCategoryAsync: response missing 'id'");
+            var root = await res.Content.ReadFromJsonAsync<JsonElement>();
+            if (!root.TryGetProperty("id", out var idNode))
+                throw new InvalidOperationException("CreateCategoryAsync: response missing 'id'");
 
-    int id = idNode.ValueKind switch
-    {
-        JsonValueKind.Number => idNode.GetInt32(),
-        JsonValueKind.String when int.TryParse(idNode.GetString(), out var n) => n,
-        _ => throw new InvalidOperationException($"CreateCategoryAsync: unexpected 'id' kind: {idNode.ValueKind}")
-    };
+            int id = idNode.ValueKind switch
+            {
+                JsonValueKind.Number => idNode.GetInt32(),
+                JsonValueKind.String when int.TryParse(idNode.GetString(), out var n) => n,
+                _ => throw new InvalidOperationException($"CreateCategoryAsync: unexpected 'id' kind: {idNode.ValueKind}")
+            };
 
-    return id;
-}
+            return id;
+        }
     }
 
     public sealed class RunUniqueFixture
