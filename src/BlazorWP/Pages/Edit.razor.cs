@@ -2,8 +2,9 @@ using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Components;
-using Microsoft.JSInterop; 
+using Microsoft.JSInterop;
 using Editor.WordPress;
+using System.Net;
 
 namespace BlazorWP.Pages
 {
@@ -33,7 +34,16 @@ namespace BlazorWP.Pages
                 var http = Api.HttpClient ?? throw new InvalidOperationException("WordPress HttpClient is not initialized.");
 
                 using var resp = await http.GetAsync($"/wp-json/wp/v2/posts/{id}?context=edit&_fields=id,status,title,content,modified_gmt");
+
+                if (resp.StatusCode == HttpStatusCode.NotFound)
+                {
+                    // Non-existent ID → go to create mode (/edit)
+                    Nav.NavigateTo("edit", replace: true);
+                    return; // stop further processing
+                }
+
                 resp.EnsureSuccessStatusCode();
+
 
                 var page = await System.Text.Json.JsonSerializer.DeserializeAsync<WpPage>(
                     await resp.Content.ReadAsStreamAsync(),
