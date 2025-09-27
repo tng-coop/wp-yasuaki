@@ -40,9 +40,9 @@ test.describe('AppFlags AuthLab – robustness (lean)', () => {
     const toEnglish = page.getByTestId('lang-english');
 
     await toJapanese.click();
-    await expect(page.getByTestId('state-lang')).toHaveText('Japanese');
-    await expect(page.getByTestId('state-mode')).toHaveText('Basic');
-    await expect(page.getByTestId('state-auth')).toHaveText('App Password');
+    await expect(page.getByTestId('state-lang')).toHaveText('日本語');
+    await expect(page.getByTestId('state-mode')).toHaveText('Basic / 基本');
+    await expect(page.getByTestId('state-auth')).toHaveText('アプリパスワード');
 
     await toEnglish.click();
     await expect(page.getByTestId('state-lang')).toHaveText('English');
