@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <data name="Title" xml:space="preserve"><value>PDF アップロード</value></data>
+  <data name="Heading" xml:space="preserve"><value>PDF をアップロード</value></data>
+  <data name="NoEndpointStart" xml:space="preserve"><value>WordPress エンドポイントが確認されていません。まず</value></data>
+  <data name="HomeLink" xml:space="preserve"><value>ホーム</value></data>
+  <data name="NoEndpointEnd" xml:space="preserve"><value>を開いてください。</value></data>
+  <data name="UploadButton" xml:space="preserve"><value>WordPress にアップロード</value></data>
+  <data name="PreviewAlt" xml:space="preserve"><value>PDF プレビュー</value></data>
+  <data name="SizeNameColumn" xml:space="preserve"><value>サイズ名</value></data>
+  <data name="WidthColumn" xml:space="preserve"><value>幅 (px)</value></data>
+  <data name="HeightColumn" xml:space="preserve"><value>高さ (px)</value></data>
+  <data name="CropModeColumn" xml:space="preserve"><value>トリミング方式</value></data>
+  <data name="NotesColumn" xml:space="preserve"><value>メモ</value></data>
+  <data name="CropHardCover" xml:space="preserve"><value>ハード（カバー）</value></data>
+  <data name="NotePreviewThumbnail" xml:space="preserve"><value>サムネイルプレビュー</value></data>
+  <data name="CropSoftMax" xml:space="preserve"><value>ソフト（最大）</value></data>
+  <data name="NoteScaledPreview" xml:space="preserve"><value>縮小プレビュー</value></data>
+  <data name="NoteMaxWidth768" xml:space="preserve"><value>最大幅 768</value></data>
+  <data name="NoteMaxWidth1024" xml:space="preserve"><value>最大幅 1024</value></data>
+  <data name="CropFull" xml:space="preserve"><value>該当なし</value></data>
+  <data name="NoteFullFirstPage" xml:space="preserve"><value>1 ページ目（フル）</value></data>
+  <data name="UploadComplete" xml:space="preserve"><value>アップロードが完了しました</value></data>
+  <data name="ErrorMessage" xml:space="preserve"><value>エラー: {0}</value></data>
+</root>

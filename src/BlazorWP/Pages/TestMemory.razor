@@ -1,18 +1,21 @@
 @page "/test-memory"
 @inject BlazorWP.Data.ILocalStore LocalStore
+@inject IStringLocalizer<TestMemory> L
 
-<h3>Test Local Memory (Harness)</h3>
+<PageTitle>@L["Title"]</PageTitle>
+
+<h3>@L["Heading"]</h3>
 
 <input id="title" data-testid="title-input" @bind="title" />
 
-<button id="add" data-testid="btn-add" @onclick="Add">Add</button>
-<button id="put" data-testid="btn-put" @onclick="Put">Put</button>
-<button id="get" data-testid="btn-get" @onclick="GetById">GetById</button>
-<button id="list" data-testid="btn-list" @onclick="ListAll">List</button>
-<button id="delete" data-testid="btn-delete" @onclick="Delete">Delete</button>
+<button id="add" data-testid="btn-add" @onclick="Add">@L["AddButton"]</button>
+<button id="put" data-testid="btn-put" @onclick="Put">@L["PutButton"]</button>
+<button id="get" data-testid="btn-get" @onclick="GetById">@L["GetButton"]</button>
+<button id="list" data-testid="btn-list" @onclick="ListAll">@L["ListButton"]</button>
+<button id="delete" data-testid="btn-delete" @onclick="Delete">@L["DeleteButton"]</button>
 
 <!-- NEW: single button that triggers two concurrent adds with distinct payloads -->
-<button id="add-race" data-testid="btn-add-race" @onclick="AddRaceCombined">Add Race</button>
+<button id="add-race" data-testid="btn-add-race" @onclick="AddRaceCombined">@L["AddRaceButton"]</button>
 
 <p id="status" data-testid="status" role="status" aria-live="polite">@status</p>
 
@@ -43,34 +46,34 @@
     {
         var key = $"draft:{Guid.NewGuid():N}";
         await LocalStore.PutAsync(STORE, new Draft { id = key, Title = title }); // upsert acts as insert
-        status = $"Added {key}";
+        status = string.Format(L["StatusAdded"].Value, key);
     }
 
     private async Task Put()
     {
         const string key = "draft:1";
         await LocalStore.PutAsync(STORE, new Draft { id = key, Title = title }); // upsert fixed id
-        status = "Put/Upserted!";
+        status = L["StatusPut"].Value;
     }
 
     private async Task GetById()
     {
         const string key = "draft:1";
         var result = await LocalStore.GetByKeyAsync<Draft>(STORE, key);
-        status = result?.Title ?? "Not found";
+        status = result?.Title ?? L["StatusNotFound"].Value;
     }
 
     private async Task ListAll()
     {
         drafts = (await LocalStore.GetAllAsync<Draft>(STORE)).ToList();
-        status = $"Listed {drafts.Count} items";
+        status = string.Format(L["StatusListed"].Value, drafts.Count);
     }
 
     private async Task Delete()
     {
         const string key = "draft:1";
         await LocalStore.DeleteAsync(STORE, key);
-        status = "Deleted!";
+        status = L["StatusDeleted"].Value;
     }
 
     // --- NEW: deterministic internal "race" ---
@@ -79,8 +82,8 @@
     {
         // Fire two concurrent writes with distinct payloads.
         // Small stagger to encourage interleaving; ordering is irrelevant.
-        var t1 = AddWithPayloadAsync("Quick Alpha", 30);
-        var t2 = AddWithPayloadAsync("Quick Beta",  0);
+        var t1 = AddWithPayloadAsync(L["PayloadQuickAlpha"].Value, 30);
+        var t2 = AddWithPayloadAsync(L["PayloadQuickBeta"].Value,  0);
         await Task.WhenAll(t1, t2);
     }
 
@@ -91,6 +94,6 @@
 
         var key = $"draft:{Guid.NewGuid():N}";
         await LocalStore.PutAsync(STORE, new Draft { id = key, Title = payloadTitle });
-        status = $"Added {key}";
+        status = string.Format(L["StatusAdded"].Value, key);
     }
 }

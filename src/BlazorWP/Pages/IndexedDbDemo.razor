@@ -1,25 +1,26 @@
 @page "/indexeddb-demo"
 @inject ILocalStore LocalStore
+@inject IStringLocalizer<IndexedDbDemo> L
 
-<PageTitle>IndexedDB Demo</PageTitle>
+<PageTitle>@L["Title"]</PageTitle>
 
-<h3>IndexedDB Demo – Notes</h3>
+<h3>@L["Heading"]</h3>
 
 <!-- Note entry form (for adding or editing) -->
 <div class="mb-3">
-    <label class="form-label"><strong>Name:</strong></label>
-    <input @bind="currentNote.Name" class="form-control" placeholder="Enter note name" />
+    <label class="form-label"><strong>@L["NameLabel"]</strong></label>
+    <input @bind="currentNote.Name" class="form-control" placeholder="@L["NamePlaceholder"]" />
 </div>
 <div class="mb-3">
-    <label class="form-label"><strong>Description:</strong></label>
-    <textarea @bind="currentNote.Description" class="form-control" placeholder="Enter description"></textarea>
+    <label class="form-label"><strong>@L["DescriptionLabel"]</strong></label>
+    <textarea @bind="currentNote.Description" class="form-control" placeholder="@L["DescriptionPlaceholder"]"></textarea>
 </div>
 <button class="btn btn-primary me-2" @onclick="SaveNote">
-    @if (isEditing) { <span>Update Note</span> } else { <span>Add Note</span> }
+    @if (isEditing) { <span>@L["UpdateButton"]</span> } else { <span>@L["AddButton"]</span> }
 </button>
 @if (isEditing)
 {
-    <button class="btn btn-secondary" @onclick="CancelEdit">Cancel</button>
+    <button class="btn btn-secondary" @onclick="CancelEdit">@L["CancelButton"]</button>
 }
 
 <hr />
@@ -27,16 +28,16 @@
 <!-- Notes list display -->
 @if (notes.Count == 0)
 {
-    <p><em>No notes available.</em></p>
+    <p><em>@L["NoNotes"]</em></p>
 }
 else
 {
     <table class="table align-middle">
         <thead>
             <tr>
-                <th>Name</th>
-                <th>Description</th>
-                <th style="width:150px;">Actions</th>
+                <th>@L["NameColumn"]</th>
+                <th>@L["DescriptionColumn"]</th>
+                <th style="width:150px;">@L["ActionsColumn"]</th>
             </tr>
         </thead>
         <tbody>
@@ -46,8 +47,8 @@ else
                 <td>@note.Name</td>
                 <td>@note.Description</td>
                 <td>
-                    <button class="btn btn-sm btn-outline-secondary me-1" @onclick="@(() => EditNote(note))">Edit</button>
-                    <button class="btn btn-sm btn-danger" @onclick="@(() => DeleteNote(note))">Delete</button>
+                    <button class="btn btn-sm btn-outline-secondary me-1" @onclick="@(() => EditNote(note))">@L["EditButton"]</button>
+                    <button class="btn btn-sm btn-danger" @onclick="@(() => DeleteNote(note))">@L["DeleteButton"]</button>
                 </td>
             </tr>
         }

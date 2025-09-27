@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <data name="Title" xml:space="preserve"><value>Upload PDF</value></data>
+  <data name="Heading" xml:space="preserve"><value>Upload PDF</value></data>
+  <data name="NoEndpointStart" xml:space="preserve"><value>No WordPress endpoint verified. Visit </value></data>
+  <data name="HomeLink" xml:space="preserve"><value>Home</value></data>
+  <data name="NoEndpointEnd" xml:space="preserve"><value> first.</value></data>
+  <data name="UploadButton" xml:space="preserve"><value>Upload to WordPress</value></data>
+  <data name="PreviewAlt" xml:space="preserve"><value>PDF preview</value></data>
+  <data name="SizeNameColumn" xml:space="preserve"><value>Size name</value></data>
+  <data name="WidthColumn" xml:space="preserve"><value>Width (px)</value></data>
+  <data name="HeightColumn" xml:space="preserve"><value>Height (px)</value></data>
+  <data name="CropModeColumn" xml:space="preserve"><value>Crop mode</value></data>
+  <data name="NotesColumn" xml:space="preserve"><value>Notes</value></data>
+  <data name="CropHardCover" xml:space="preserve"><value>hard (cover)</value></data>
+  <data name="NotePreviewThumbnail" xml:space="preserve"><value>Preview thumbnail</value></data>
+  <data name="CropSoftMax" xml:space="preserve"><value>soft (max)</value></data>
+  <data name="NoteScaledPreview" xml:space="preserve"><value>Scaled preview</value></data>
+  <data name="NoteMaxWidth768" xml:space="preserve"><value>Max width 768</value></data>
+  <data name="NoteMaxWidth1024" xml:space="preserve"><value>Max width 1024</value></data>
+  <data name="CropFull" xml:space="preserve"><value>n/a</value></data>
+  <data name="NoteFullFirstPage" xml:space="preserve"><value>Full first page</value></data>
+  <data name="UploadComplete" xml:space="preserve"><value>Upload complete</value></data>
+  <data name="ErrorMessage" xml:space="preserve"><value>Error: {0}</value></data>
+</root>

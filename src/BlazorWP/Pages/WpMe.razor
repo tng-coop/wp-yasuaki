@@ -2,14 +2,15 @@
 @using Editor.WordPress
 @inject IWordPressApiService Api
 @inject IConfiguration Config
+@inject IStringLocalizer<WpMe> L
 
-<PageTitle>WP /me</PageTitle>
+<PageTitle>@L["Title"]</PageTitle>
 
-<h1>WordPress /users/me</h1>
+<h1>@L["Heading"]</h1>
 
 @if (loading)
 {
-  <p><em>Loading…</em></p>
+  <p><em>@L["Loading"]</em></p>
 }
 else if (!string.IsNullOrEmpty(error))
 {
@@ -18,13 +19,13 @@ else if (!string.IsNullOrEmpty(error))
 else if (meId is not null)
 {
   <div data-testid="wp-me-ok">
-    <div><strong>id:</strong> @meId</div>
-    <div><strong>name:</strong> @meName</div>
+    <div><strong>@L["IdLabel"]</strong> @meId</div>
+    <div><strong>@L["NameLabel"]</strong> @meName</div>
   </div>
 }
 else
 {
-  <p>No data.</p>
+  <p>@L["NoData"]</p>
 }
 
 @code {
@@ -40,7 +41,7 @@ else
       var client = await Api.GetClientAsync(); // uses wpurl app flag
       if (client is null)
       {
-        error = "No WordPress endpoint configured (wpurl app flag missing).";
+        error = L["NoEndpointConfigured"].Value;
         return;
       }
 
@@ -50,7 +51,7 @@ else
     }
     catch (Exception ex)
     {
-      error = ex.Message;
+      error = string.Format(L["UnexpectedError"].Value, ex.Message);
     }
     finally
     {

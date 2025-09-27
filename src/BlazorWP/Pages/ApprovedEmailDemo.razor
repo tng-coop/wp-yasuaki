@@ -3,20 +3,21 @@
 @using System.Net.Http.Json
 @using System.Text.Json
 @inject IWordPressApiService Api
+@inject IStringLocalizer<ApprovedEmailDemo> L
 
-<PageTitle>Approved Email Demo</PageTitle>
+<PageTitle>@L["Title"]</PageTitle>
 
-<h1>Approved Email List</h1>
+<h1>@L["Heading"]</h1>
 
 @if (client == null)
 {
-    <p>No WordPress endpoint verified. Visit <NavLink href="/">Home</NavLink> first.</p>
+    <p>@L["NoEndpointStart"] <NavLink href="/">@L["HomeLink"]</NavLink>@L["NoEndpointEnd"]</p>
 }
 else
 {
     <div class="mb-3 d-flex gap-2">
-        <input class="form-control" placeholder="email@example.com" @bind="newEmail" />
-        <button class="btn btn-primary" @onclick="AddEmailAsync">Add</button>
+        <input class="form-control" placeholder="@L["EmailPlaceholder"]" @bind="newEmail" />
+        <button class="btn btn-primary" @onclick="AddEmailAsync">@L["AddButton"]</button>
     </div>
     @if (!string.IsNullOrEmpty(status))
     {
@@ -24,18 +25,18 @@ else
     }
     @if (emails == null)
     {
-        <p><em>Loading...</em></p>
+        <p><em>@L["Loading"]</em></p>
     }
     else if (emails.Count == 0)
     {
-        <p>No approved emails found.</p>
+        <p>@L["NoEmails"]</p>
     }
     else
     {
         <table class="table table-sm">
             <thead>
                 <tr>
-                    <th>Email</th>
+                    <th>@L["EmailColumn"]</th>
                     <th></th>
                 </tr>
             </thead>
@@ -45,7 +46,7 @@ else
                     <tr>
                         <td>@e</td>
                         <td>
-                            <button class="btn btn-danger btn-sm" @onclick="() => RemoveEmailAsync(e)">Remove</button>
+                            <button class="btn btn-danger btn-sm" @onclick="() => RemoveEmailAsync(e)">@L["RemoveButton"]</button>
                         </td>
                     </tr>
                 }
@@ -83,7 +84,7 @@ else
         }
         catch (Exception ex)
         {
-            status = $"Error: {ex.Message}";
+            status = string.Format(L["ErrorMessage"].Value, ex.Message);
             emails = new();
         }
         await InvokeAsync(StateHasChanged);
@@ -102,7 +103,7 @@ else
         }
         catch (Exception ex)
         {
-            status = $"Error: {ex.Message}";
+            status = string.Format(L["ErrorMessage"].Value, ex.Message);
         }
     }
 
@@ -118,7 +119,7 @@ else
         }
         catch (Exception ex)
         {
-            status = $"Error: {ex.Message}";
+            status = string.Format(L["ErrorMessage"].Value, ex.Message);
         }
     }
 }

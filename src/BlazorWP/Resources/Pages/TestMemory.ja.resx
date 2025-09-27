@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <data name="Title" xml:space="preserve"><value>メモリテスト</value></data>
+  <data name="Heading" xml:space="preserve"><value>ローカルメモリテスト（ハーネス）</value></data>
+  <data name="AddButton" xml:space="preserve"><value>追加</value></data>
+  <data name="PutButton" xml:space="preserve"><value>Put/更新</value></data>
+  <data name="GetButton" xml:space="preserve"><value>IDで取得</value></data>
+  <data name="ListButton" xml:space="preserve"><value>一覧</value></data>
+  <data name="DeleteButton" xml:space="preserve"><value>削除</value></data>
+  <data name="AddRaceButton" xml:space="preserve"><value>同時追加</value></data>
+  <data name="StatusAdded" xml:space="preserve"><value>{0} を追加しました</value></data>
+  <data name="StatusPut" xml:space="preserve"><value>Put/Upsert 完了！</value></data>
+  <data name="StatusNotFound" xml:space="preserve"><value>見つかりません</value></data>
+  <data name="StatusListed" xml:space="preserve"><value>{0} 件を一覧表示</value></data>
+  <data name="StatusDeleted" xml:space="preserve"><value>削除しました！</value></data>
+  <data name="PayloadQuickAlpha" xml:space="preserve"><value>クイック Alpha</value></data>
+  <data name="PayloadQuickBeta" xml:space="preserve"><value>クイック Beta</value></data>
+</root>

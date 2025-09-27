@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <data name="Title" xml:space="preserve"><value>アプリフラグ</value></data>
+  <data name="Heading" xml:space="preserve"><value>アプリケーション設定</value></data>
+  <data name="StateModeLabel" xml:space="preserve"><value>モード:</value></data>
+  <data name="StateAuthLabel" xml:space="preserve"><value>認証:</value></data>
+  <data name="StateLanguageLabel" xml:space="preserve"><value>言語:</value></data>
+  <data name="StateWpUrlLabel" xml:space="preserve"><value>WP URL:</value></data>
+  <data name="FeatureHeader" xml:space="preserve"><value>機能</value></data>
+  <data name="OptionsHeader" xml:space="preserve"><value>オプション</value></data>
+  <data name="AppModeLabel" xml:space="preserve"><value>アプリモード</value></data>
+  <data name="AuthTypeLabel" xml:space="preserve"><value>認証方式</value></data>
+  <data name="LanguageLabel" xml:space="preserve"><value>言語</value></data>
+  <data name="SetAppModeTo" xml:space="preserve"><value>アプリモードを {0} に設定</value></data>
+  <data name="SetAuthTo" xml:space="preserve"><value>認証方式を {0} に設定</value></data>
+  <data name="SetLanguageTo" xml:space="preserve"><value>言語を {0} に設定</value></data>
+  <data name="WpUrlLabel" xml:space="preserve"><value>WordPress URL</value></data>
+  <data name="SaveButton" xml:space="preserve"><value>保存</value></data>
+  <data name="WpUrlHint" xml:space="preserve"><value>値は&lt;strong&gt;保存&lt;/strong&gt;（または &lt;kbd&gt;Enter&lt;/kbd&gt; キー）でのみ適用されます。</value></data>
+  <data name="QuickCheckTitle" xml:space="preserve"><value>WPDI クイックチェック</value></data>
+  <data name="QuickCheckAuthLabel" xml:space="preserve"><value>認証モード:</value></data>
+  <data name="StatusLabel" xml:space="preserve"><value>状態:</value></data>
+  <data name="IdleStatus" xml:space="preserve"><value>待機中</value></data>
+  <data name="UserLabel" xml:space="preserve"><value>ユーザー:</value></data>
+  <data name="LastLabel" xml:space="preserve"><value>最終:</value></data>
+  <data name="CheckingEllipsis" xml:space="preserve"><value>チェック中…</value></data>
+  <data name="RunCheck" xml:space="preserve"><value>チェックを実行</value></data>
+  <data name="AuthLabTitle" xml:space="preserve"><value>認証シナリオ ラボ</value></data>
+  <data name="AuthLabDescription" xml:space="preserve"><value>テストで扱いにくい状態（アプリパスワードの未設定・無効、クッキー／ノンス未準備など）を再現・準備するための操作です。WP ログインリンクとテストフィクスチャを組み合わせてクッキーを制御してください。</value></data>
+  <data name="AppPassUsernameLabel" xml:space="preserve"><value>アプリパスワードのユーザー名</value></data>
+  <data name="AppPassPasswordLabel" xml:space="preserve"><value>アプリパスワード</value></data>
+  <data name="SaveAppPassButton" xml:space="preserve"><value>アプリパスを保存</value></data>
+  <data name="SaveInvalidButton" xml:space="preserve"><value>無効な情報を保存</value></data>
+  <data name="ClearButton" xml:space="preserve"><value>クリア</value></data>
+  <data name="OpenWpLoginButton" xml:space="preserve"><value>WP ログインを開く</value></data>
+  <data name="OpenWpAdminButton" xml:space="preserve"><value>WP 管理画面を開く</value></data>
+  <data name="ForceRebuildButton" xml:space="preserve"><value>クライアントを再構築</value></data>
+  <data name="CredsPresentLabel" xml:space="preserve"><value>資格情報あり:</value></data>
+  <data name="Yes" xml:space="preserve"><value>あり</value></data>
+  <data name="No" xml:space="preserve"><value>なし</value></data>
+  <data name="AuthLabTip" xml:space="preserve"><value>ヒント: &lt;em&gt;ノンス未準備&lt;/em&gt;のケースでは、テストフィクスチャでクッキーを削除してからこのページを再読み込みし、上の WPDI クイックチェックを&lt;strong&gt;ノンス&lt;/strong&gt;モードで実行してください。</value></data>
+  <data name="EmptyMask" xml:space="preserve"><value>(空)</value></data>
+  <data name="CheckingStatus" xml:space="preserve"><value>チェック中</value></data>
+  <data name="UnauthorizedStatus" xml:space="preserve"><value>認証失敗</value></data>
+  <data name="OkStatus" xml:space="preserve"><value>OK</value></data>
+  <data name="HttpStatus" xml:space="preserve"><value>HTTP {0}</value></data>
+  <data name="TooManyRequestsWithRetry" xml:space="preserve"><value>リクエストが多すぎます。{0} 後に再試行してください。</value></data>
+  <data name="TooManyRequests" xml:space="preserve"><value>リクエストが多すぎます。</value></data>
+  <data name="ErrorStatus" xml:space="preserve"><value>エラー</value></data>
+  <data name="AuthLabStatusMissingCreds" xml:space="preserve"><value>ユーザー名とパスワードを両方入力してください。</value></data>
+  <data name="AuthLabStatusSaved" xml:space="preserve"><value>アプリパスワードを保存しました。</value></data>
+  <data name="AuthLabStatusMissingInvalid" xml:space="preserve"><value>ユーザー名とパスワードを両方入力してください（意図的に誤った値を保存します）。</value></data>
+  <data name="AuthLabStatusSavedInvalid" xml:space="preserve"><value>意図的に無効なアプリパスワードを保存しました。</value></data>
+  <data name="AuthLabStatusCleared" xml:space="preserve"><value>保存されたアプリパスワードを消去しました。</value></data>
+  <data name="AppMode_Basic" xml:space="preserve"><value>Basic / 基本</value></data>
+  <data name="AppMode_Full" xml:space="preserve"><value>Full / フル</value></data>
+  <data name="AuthType_Nonce" xml:space="preserve"><value>Nonce</value></data>
+  <data name="AuthType_AppPass" xml:space="preserve"><value>アプリパスワード</value></data>
+  <data name="Language_English" xml:space="preserve"><value>English / 英語</value></data>
+  <data name="Language_Japanese" xml:space="preserve"><value>日本語</value></data>
+</root>

@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <data name="Title" xml:space="preserve"><value>Test Memory</value></data>
+  <data name="Heading" xml:space="preserve"><value>Test Local Memory (Harness)</value></data>
+  <data name="AddButton" xml:space="preserve"><value>Add</value></data>
+  <data name="PutButton" xml:space="preserve"><value>Put</value></data>
+  <data name="GetButton" xml:space="preserve"><value>GetById</value></data>
+  <data name="ListButton" xml:space="preserve"><value>List</value></data>
+  <data name="DeleteButton" xml:space="preserve"><value>Delete</value></data>
+  <data name="AddRaceButton" xml:space="preserve"><value>Add Race</value></data>
+  <data name="StatusAdded" xml:space="preserve"><value>Added {0}</value></data>
+  <data name="StatusPut" xml:space="preserve"><value>Put/Upserted!</value></data>
+  <data name="StatusNotFound" xml:space="preserve"><value>Not found</value></data>
+  <data name="StatusListed" xml:space="preserve"><value>Listed {0} items</value></data>
+  <data name="StatusDeleted" xml:space="preserve"><value>Deleted!</value></data>
+  <data name="PayloadQuickAlpha" xml:space="preserve"><value>Quick Alpha</value></data>
+  <data name="PayloadQuickBeta" xml:space="preserve"><value>Quick Beta</value></data>
+</root>

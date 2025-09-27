@@ -1,31 +1,28 @@
 @page "/data-storage"
 @inject LocalStorageJsInterop StorageJs
+@inject IStringLocalizer<DataStorage> L
 
-<PageTitle>Data Storage</PageTitle>
+<PageTitle>@L["Title"]</PageTitle>
 
-<h1>Data Storage</h1>
+<h1>@L["Heading"]</h1>
 
-<p>
-    This page shows information stored in <code>localStorage</code> by this application. The
-    most important entry is <code>wpEndpoint</code> which caches the detected WordPress site
-    URL so you don't need to verify it each time.
-</p>
+<p>@((MarkupString)L["Description"].Value)</p>
 
 @if (items == null)
 {
-    <p><em>Loading...</em></p>
+    <p><em>@L["Loading"]</em></p>
 }
 else if (items.Count == 0)
 {
-    <p>No stored data found.</p>
+    <p>@L["NoData"]</p>
 }
 else
 {
     <table class="table">
         <thead>
             <tr>
-                <th>Key</th>
-                <th>Value</th>
+                <th>@L["KeyHeader"]</th>
+                <th>@L["ValueHeader"]</th>
                 <th></th>
             </tr>
         </thead>
@@ -36,7 +33,7 @@ else
                     <td>@item.Key</td>
                     <td class="text-break">@item.Value</td>
                     <td>
-                        <button class="btn btn-danger btn-sm" @onclick="() => DeleteItem(item.Key)">Delete</button>
+                        <button class="btn btn-danger btn-sm" @onclick="() => DeleteItem(item.Key)">@L["DeleteButton"]</button>
                     </td>
                 </tr>
             }

@@ -1,10 +1,12 @@
 @page "/diagnostics"
-<PageTitle>Diagnostics</PageTitle>
-<h3>Diagnostics</h3>
+@inject IStringLocalizer<Diagnostics> L
+
+<PageTitle>@L["Title"]</PageTitle>
+<h3>@L["Heading"]</h3>
 
 <table class="table">
     <thead>
-        <tr><th>Key</th><th>Value</th></tr>
+        <tr><th>@L["KeyHeader"]</th><th>@L["ValueHeader"]</th></tr>
     </thead>
     <tbody>
         @foreach (var setting in _settings)

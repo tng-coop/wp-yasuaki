@@ -8,30 +8,31 @@
 @inject IWordPressApiService Api
 @inject AppPasswordService AppPassService
 @inject WpNonceJsInterop NonceJs
+@inject IStringLocalizer<AppFlags> L
 @implements IDisposable
 
-<PageTitle>App Flags</PageTitle>
+<PageTitle>@L["Title"]</PageTitle>
 
 <section aria-labelledby="appflags-heading" class="container py-3" data-testid="appflags-page">
-    <h3 id="appflags-heading" class="mb-3">Application Flags</h3>
+    <h3 id="appflags-heading" class="mb-3">@L["Heading"]</h3>
 
     <div class="alert alert-light border" role="status" aria-live="polite" data-testid="state-panel">
-        <div>Mode: <span data-testid="state-mode">@Flags.Mode</span></div>
-        <div>Auth: <span data-testid="state-auth">@Flags.Auth</span></div>
-        <div>Language: <span data-testid="state-lang">@Flags.Language</span></div>
-        <div>WP URL: <span data-testid="state-wpurl">@Flags.WpUrl</span></div>
+        <div>@L["StateModeLabel"] <span data-testid="state-mode">@GetModeLabel(Flags.Mode)</span></div>
+        <div>@L["StateAuthLabel"] <span data-testid="state-auth">@GetAuthLabel(Flags.Auth)</span></div>
+        <div>@L["StateLanguageLabel"] <span data-testid="state-lang">@GetLanguageLabel(Flags.Language)</span></div>
+        <div>@L["StateWpUrlLabel"] <span data-testid="state-wpurl">@Flags.WpUrl</span></div>
     </div>
 
     <table class="table table-striped" data-testid="flags-table">
         <thead>
             <tr>
-                <th scope="col">Feature</th>
-                <th scope="col">Options</th>
+                <th scope="col">@L["FeatureHeader"]</th>
+                <th scope="col">@L["OptionsHeader"]</th>
             </tr>
         </thead>
         <tbody>
             <tr data-testid="row-appmode">
-                <td><label id="appmode-label">App Mode</label></td>
+                <td><label id="appmode-label">@L["AppModeLabel"]</label></td>
                 <td aria-labelledby="appmode-label">
                     @foreach (AppMode mode in Enum.GetValues<AppMode>())
                     {
@@ -39,14 +40,14 @@
                         var url = BuildUrl("appmode", mode == AppMode.Basic ? "basic" : "full");
                         <button type="button" class="btn btn-sm me-1 @(active ? "btn-primary" : "btn-outline-secondary")"
                             role="button" aria-pressed="@active" data-testid="@($"appmode-{mode.ToString().ToLower()}")"
-                            title="@($"Set App Mode to {mode}")" @onclick="() => SetAppMode(mode, url)">
-                            @mode
+                            title="@L["SetAppModeTo", GetModeLabel(mode)]" @onclick="() => SetAppMode(mode, url)">
+                            @GetModeLabel(mode)
                         </button>
                     }
                 </td>
             </tr>
             <tr data-testid="row-authtype">
-                <td><label id="authtype-label">Auth Type</label></td>
+                <td><label id="authtype-label">@L["AuthTypeLabel"]</label></td>
                 <td aria-labelledby="authtype-label">
                     @foreach (AuthType type in Enum.GetValues<AuthType>())
                     {
@@ -54,14 +55,14 @@
                         var url = BuildUrl("auth", type == AuthType.Nonce ? "nonce" : "apppass");
                         <button type="button" class="btn btn-sm me-1 @(active ? "btn-primary" : "btn-outline-secondary")"
                             role="button" aria-pressed="@active" data-testid="@($"auth-{type.ToString().ToLower()}")"
-                            title="@($"Set Auth to {type}")" @onclick="() => SetAuth(type, url)">
-                            @type
+                            title="@L["SetAuthTo", GetAuthLabel(type)]" @onclick="() => SetAuth(type, url)">
+                            @GetAuthLabel(type)
                         </button>
                     }
                 </td>
             </tr>
             <tr data-testid="row-language">
-                <td><label id="language-label">Language</label></td>
+                <td><label id="language-label">@L["LanguageLabel"]</label></td>
                 <td aria-labelledby="language-label">
                     @foreach (Language lang in Enum.GetValues<Language>())
                     {
@@ -69,25 +70,25 @@
                         var url = BuildUrl("lang", lang == Language.Japanese ? "jp" : "en");
                         <button type="button" class="btn btn-sm me-1 @(active ? "btn-primary" : "btn-outline-secondary")"
                             role="button" aria-pressed="@active" data-testid="@($"lang-{lang.ToString().ToLower()}")"
-                            title="@($"Set Language to {lang}")" @onclick="() => SetLanguage(lang, url)">
-                            @lang
+                            title="@L["SetLanguageTo", GetLanguageLabel(lang)]" @onclick="() => SetLanguage(lang, url)">
+                            @GetLanguageLabel(lang)
                         </button>
                     }
                 </td>
             </tr>
             <tr data-testid="row-wpurl">
                 <td>
-                    <label for="wpurl-input">WordPress URL</label>
+                    <label for="wpurl-input">@L["WpUrlLabel"]</label>
                 </td>
                 <td>
                     <form @onsubmit="OnWpUrlSubmit" data-testid="wpurl-form">
                         <div class="input-group">
                             <input id="wpurl-input" class="form-control" placeholder="https://example.com" @bind="wpUrl"
                                 @bind:event="oninput" data-testid="wpurl-input" />
-                            <button type="submit" class="btn btn-primary" data-testid="wpurl-save">Save</button>
+                            <button type="submit" class="btn btn-primary" data-testid="wpurl-save">@L["SaveButton"]</button>
                         </div>
                         <div class="form-text">
-                            Value is applied only on <strong>Save</strong> (or pressing <kbd>Enter</kbd>).
+                            @((MarkupString)L["WpUrlHint"].Value)
                         </div>
                     </form>
                 </td>
@@ -98,21 +99,21 @@
     <!-- Quick Check -->
     <div class="card mt-4" data-testid="wpdi-card">
         <div class="card-body">
-            <h5 class="card-title mb-3">WPDI Quick Check</h5>
+            <h5 class="card-title mb-3">@L["QuickCheckTitle"]</h5>
             <div class="row g-2 align-items-center mb-2">
-                <div class="col-auto">Auth Mode:</div>
-                <div class="col-auto"><span class="badge bg-info" data-testid="wpdi-auth">@Flags.Auth</span></div>
+                <div class="col-auto">@L["QuickCheckAuthLabel"]</div>
+                <div class="col-auto"><span class="badge bg-info" data-testid="wpdi-auth">@GetAuthLabel(Flags.Auth)</span></div>
             </div>
             <div class="mb-2">
-                <strong>Status:</strong>
-                <span data-testid="wpdi-status">@(_checkStatus ?? "Idle")</span>
+                <strong>@L["StatusLabel"]</strong>
+                <span data-testid="wpdi-status">@(_checkStatus ?? L["IdleStatus"].Value)</span>
                 @if (_httpCode is not null)
                 {
                     <span class="text-muted" data-testid="wpdi-code"> (@_httpCode)</span>
                 }
                 @if (!string.IsNullOrWhiteSpace(_userName))
                 {
-                    <span class="ms-2" data-testid="wpdi-user">user: @_userName</span>
+                    <span class="ms-2" data-testid="wpdi-user">@L["UserLabel"] @_userName</span>
                 }
                 @if (!string.IsNullOrWhiteSpace(_error))
                 {
@@ -120,12 +121,12 @@
                 }
                 @if (_lastChecked is not null)
                 {
-                    <div class="text-muted small" data-testid="wpdi-last">last: @_lastChecked</div>
+                    <div class="text-muted small" data-testid="wpdi-last">@L["LastLabel"] @_lastChecked</div>
                 }
             </div>
             <button class="btn btn-outline-primary btn-sm" data-testid="wpdi-run" disabled="@_checking"
                 @onclick="RunQuickCheck">
-                @(_checking ? "Checking…" : "Run check")
+                @(_checking ? L["CheckingEllipsis"] : L["RunCheck"])
             </button>
         </div>
     </div>
@@ -134,51 +135,48 @@
 <!-- Auth Scenarios Lab -->
 <div class="card mt-4" data-testid="authlab-card">
     <div class="card-body">
-        <h5 class="card-title mb-3">Auth Scenarios Lab</h5>
+        <h5 class="card-title mb-3">@L["AuthLabTitle"]</h5>
 
         <div class="mb-2 text-muted small">
-            Use these controls to simulate / prepare tricky states for tests: missing/invalid App Password,
-            or cookie/nonce not ready (use the WP login link + your test fixtures to control cookies).
+            @((MarkupString)L["AuthLabDescription"].Value)
         </div>
 
         <div class="row g-2 align-items-end mb-2">
             <div class="col-sm-4">
-                <label for="authlab-user" class="form-label">AppPass Username</label>
+                <label for="authlab-user" class="form-label">@L["AppPassUsernameLabel"]</label>
                 <input id="authlab-user" class="form-control" @bind="_appUser" data-testid="authlab-user" />
             </div>
             <div class="col-sm-4">
-                <label for="authlab-pass" class="form-label">AppPass Password</label>
+                <label for="authlab-pass" class="form-label">@L["AppPassPasswordLabel"]</label>
                 <input id="authlab-pass" type="password" class="form-control" @bind="_appPass"
                     data-testid="authlab-pass" />
             </div>
             <div class="col-sm-4 d-flex gap-2">
                 <button class="btn btn-primary" data-testid="authlab-save-valid" @onclick="SaveValidAppPass"
-                    disabled="@(_saving)">Save AppPass</button>
+                    disabled="@(_saving)">@L["SaveAppPassButton"]</button>
                 <button class="btn btn-outline-danger" data-testid="authlab-save-invalid" @onclick="SaveInvalidAppPass"
-                    disabled="@(_saving)">Save Invalid</button>
+                    disabled="@(_saving)">@L["SaveInvalidButton"]</button>
                 <button class="btn btn-outline-secondary" data-testid="authlab-clear" @onclick="ClearAppPass"
-                    disabled="@(_saving)">Clear</button>
+                    disabled="@(_saving)">@L["ClearButton"]</button>
             </div>
         </div>
 
         <div class="d-flex flex-wrap gap-2 mb-2">
-            <button class="btn btn-outline-primary btn-sm" data-testid="authlab-open-login" @onclick="OpenWpLogin">Open
-                WP Login</button>
+            <button class="btn btn-outline-primary btn-sm" data-testid="authlab-open-login" @onclick="OpenWpLogin">@L["OpenWpLoginButton"]</button>
             <button class="btn btn-outline-secondary btn-sm" data-testid="authlab-open-admin"
-                @onclick="OpenWpAdmin">Open WP Admin</button>
+                @onclick="OpenWpAdmin">@L["OpenWpAdminButton"]</button>
             <button class="btn btn-outline-dark btn-sm" data-testid="authlab-rebuild"
-                @onclick="ForceRebuildClient">Force Rebuild Client</button>
+                @onclick="ForceRebuildClient">@L["ForceRebuildButton"]</button>
         </div>
 
         <div class="small">
-            <div>Creds present: <strong data-testid="authlab-creds-present">@(_credsPresent ? "yes" : "no")</strong>
+            <div>@L["CredsPresentLabel"] <strong data-testid="authlab-creds-present">@(_credsPresent ? L["Yes"] : L["No"])</strong>
                 @if (_credsPresent)
                 {
                     <span class="ms-2 text-muted" data-testid="authlab-creds-mask">(@_credsMask)</span>
                 }
             </div>
-            <div class="text-muted">Tip: For <em>nonce not ready</em> cases, clear cookies via your test fixture and
-                reload this page, then run the WPDI Quick Check above in <strong>Nonce</strong> mode.</div>
+            <div class="text-muted">@((MarkupString)L["AuthLabTip"].Value)</div>
             @if (!string.IsNullOrEmpty(_authlabStatus))
             {
                 <div class="mt-2" data-testid="authlab-status">@_authlabStatus</div>
@@ -225,7 +223,7 @@
         {
             var (u, p) = (creds.Value.Username ?? "", creds.Value.AppPassword ?? "");
             _appUser = string.IsNullOrEmpty(_appUser) ? u : _appUser;
-            _credsMask = string.IsNullOrEmpty(p) ? "(empty)" : (p.Length <= 4 ? new string('*', p.Length) : new string('*', p.Length - 4) + p[^4..]);
+            _credsMask = string.IsNullOrEmpty(p) ? L["EmptyMask"] : (p.Length <= 4 ? new string('*', p.Length) : new string('*', p.Length - 4) + p[^4..]);
         }
         else
         {
@@ -304,7 +302,7 @@
     private async Task RunQuickCheck()
     {
         _checking = true;
-        _checkStatus = "Checking";
+        _checkStatus = L["CheckingStatus"];
         _error = null; _userName = null; _httpCode = null;
         StateHasChanged();
 
@@ -318,7 +316,7 @@
                     || string.IsNullOrWhiteSpace(creds.Value.Username)
                     || string.IsNullOrWhiteSpace(creds.Value.AppPassword))
                 {
-                    _checkStatus = "Unauthorized";
+                    _checkStatus = L["UnauthorizedStatus"];
                     _httpCode = (int)HttpStatusCode.Unauthorized;
                     return;
                 }
@@ -326,42 +324,42 @@
 
             // Call the domain service (Option A). It uses our managed HttpClient + handlers.
             var me = await Api.GetCurrentUserAsync();
-            _checkStatus = "OK";
+            _checkStatus = L["OkStatus"];
             _userName = me?.Name ?? me?.Username;
         }
         catch (AuthError ae)
         {
             _httpCode = (int)ae.StatusCode;
-            _checkStatus = "Unauthorized";
+            _checkStatus = L["UnauthorizedStatus"];
             _error = ae.Message;
         }
         catch (RateLimited rl)
         {
             _httpCode = 429;
-            _checkStatus = "HTTP 429";
-            _error = rl.RetryAfter is { } ra ? $"Too many requests. Retry after {ra}." : "Too many requests.";
+            _checkStatus = string.Format(L["HttpStatus"].Value, 429);
+            _error = rl.RetryAfter is { } ra ? string.Format(L["TooManyRequestsWithRetry"].Value, ra) : L["TooManyRequests"].Value;
         }
         catch (TimeoutError te)
         {
-            _checkStatus = "Error";
+            _checkStatus = L["ErrorStatus"];
             _error = te.Message;
         }
         catch (TransientHttpError th)
         {
             _httpCode = th.StatusCode is { } sc ? (int)sc : null;
-            _checkStatus = th.StatusCode is { } sc2 ? $"HTTP {(int)sc2}" : "Error";
+            _checkStatus = th.StatusCode is { } sc2 ? string.Format(L["HttpStatus"].Value, (int)sc2) : L["ErrorStatus"].Value;
             _error = th.Message;
         }
         catch (UnexpectedHttpError uh)
         {
             _httpCode = (int)uh.StatusCode;
-            _checkStatus = $"HTTP {_httpCode}";
+            _checkStatus = string.Format(L["HttpStatus"].Value, _httpCode);
             _error = uh.Message;
         }
         catch (Exception ex)
         {
             // 5xx and raw transport may still bubble HttpRequestException from PolicyHandler tests → show generic Error
-            _checkStatus = "Error";
+            _checkStatus = L["ErrorStatus"];
             _error = ex.Message;
         }
         finally
@@ -379,11 +377,11 @@
         {
             if (string.IsNullOrWhiteSpace(_appUser) || string.IsNullOrWhiteSpace(_appPass))
             {
-                _authlabStatus = "Enter both username and password.";
+                _authlabStatus = L["AuthLabStatusMissingCreds"];
                 return;
             }
             await AppPassService.SetAsync(_appUser, _appPass);
-            _authlabStatus = "Saved App Password.";
+            _authlabStatus = L["AuthLabStatusSaved"];
             Api.SetAuthPreference(WordPressAuthPreference.AppPassword(_appUser, _appPass));
             await LoadCredsPreview();
             await RunQuickCheck();
@@ -398,12 +396,12 @@
         {
             if (string.IsNullOrWhiteSpace(_appUser) || string.IsNullOrWhiteSpace(_appPass))
             {
-                _authlabStatus = "Enter both username and password (we will store an intentionally wrong one).";
+                _authlabStatus = L["AuthLabStatusMissingInvalid"];
                 return;
             }
             var wrong = _appPass + "-wrong";
             await AppPassService.SetAsync(_appUser, wrong);
-            _authlabStatus = "Saved intentionally invalid App Password.";
+            _authlabStatus = L["AuthLabStatusSavedInvalid"];
             Api.SetAuthPreference(WordPressAuthPreference.AppPassword(_appUser, wrong));
             await LoadCredsPreview();
             await RunQuickCheck();
@@ -417,7 +415,7 @@
         try
         {
             await AppPassService.ClearAsync();
-            _authlabStatus = "Cleared stored App Password.";
+            _authlabStatus = L["AuthLabStatusCleared"];
             Api.SetAuthPreference(WordPressAuthPreference.None);
             await LoadCredsPreview();
             await RunQuickCheck();
@@ -444,4 +442,8 @@
     }
 
     public void Dispose() => Flags.OnChange -= OnFlagsChanged;
+
+    private string GetModeLabel(AppMode mode) => L[$"AppMode_{mode}"];
+    private string GetAuthLabel(AuthType type) => L[$"AuthType_{type}"];
+    private string GetLanguageLabel(Language lang) => L[$"Language_{lang}"];
 }
