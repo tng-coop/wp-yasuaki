@@ -1,26 +1,26 @@
-﻿@page "/weather"
+@page "/weather"
 @inject HttpClient Http
+@inject IStringLocalizer<Weather> L
 
-<PageTitle>Weather</PageTitle>
+<PageTitle>@L["Title"]</PageTitle>
 
-<h1>Weather</h1>
+<h1>@L["Heading"]</h1>
 
-<p>This component demonstrates fetching data from the server.</p>
-
+<p>@L["Description"]</p>
 
 @if (forecasts == null)
 {
-    <p><em>Loading...</em></p>
+    <p><em>@L["Loading"]</em></p>
 }
 else
 {
     <table class="table">
         <thead>
             <tr>
-                <th>Date</th>
-                <th aria-label="Temperature in Celsius">Temp. (C)</th>
-                <th aria-label="Temperature in Farenheit">Temp. (F)</th>
-                <th>Summary</th>
+                <th>@L["ColumnDate"]</th>
+                <th aria-label='@L["ColumnCelsiusAria"]'>@L["ColumnCelsius"]</th>
+                <th aria-label='@L["ColumnFahrenheitAria"]'>@L["ColumnFahrenheit"]</th>
+                <th>@L["ColumnSummary"]</th>
             </tr>
         </thead>
         <tbody>
