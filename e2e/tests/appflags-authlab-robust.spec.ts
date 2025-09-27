@@ -17,7 +17,7 @@ test.describe('AppFlags AuthLab – robustness (lean)', () => {
     if (baseURL) await expect(page.getByTestId('state-wpurl')).toHaveText(baseURL);
 
     // Normalizer in Program.cs should ensure these params exist in the URL
-    await expect(page).toHaveURL(/auth=(nonce|apppass)/);
+    await expect(page).toHaveURL(/auth=(nonce|App Password)/);
     await expect(page).toHaveURL(/lang=(jp|en)/);
     await expect(page).toHaveURL(/appmode=(basic|full)/);
     await expect(page).toHaveURL(/wpurl=/);
@@ -30,9 +30,9 @@ test.describe('AppFlags AuthLab – robustness (lean)', () => {
     await page.getByTestId('appmode-basic').click();
     await expect(page.getByTestId('state-mode')).toHaveText('Basic');
 
-    // Flip Auth → AppPass (mode should remain Basic)
-    await page.getByTestId('auth-apppass').click();
-    await expect(page.getByTestId('state-auth')).toHaveText('AppPass');
+    // Flip Auth → App Password (mode should remain Basic)
+    await page.getByTestId('auth-App Password').click();
+    await expect(page.getByTestId('state-auth')).toHaveText('App Password');
     await expect(page.getByTestId('state-mode')).toHaveText('Basic');
 
     // Flip Language back and forth, mode/auth should stick
@@ -42,15 +42,15 @@ test.describe('AppFlags AuthLab – robustness (lean)', () => {
     await toJapanese.click();
     await expect(page.getByTestId('state-lang')).toHaveText('Japanese');
     await expect(page.getByTestId('state-mode')).toHaveText('Basic');
-    await expect(page.getByTestId('state-auth')).toHaveText('AppPass');
+    await expect(page.getByTestId('state-auth')).toHaveText('App Password');
 
     await toEnglish.click();
     await expect(page.getByTestId('state-lang')).toHaveText('English');
     await expect(page.getByTestId('state-mode')).toHaveText('Basic');
-    await expect(page.getByTestId('state-auth')).toHaveText('AppPass');
+    await expect(page.getByTestId('state-auth')).toHaveText('App Password');
   });
 
-  test('AppPass precedence over cookies (cookies ignored when AppPass set)', async ({
+  test('App Password precedence over cookies (cookies ignored when App Password set)', async ({
     page,
     blazorURL,
     baseURL,
@@ -61,17 +61,17 @@ test.describe('AppFlags AuthLab – robustness (lean)', () => {
     // Seed WP cookies via admin login
     await loginAsAdmin();
 
-    // Go to AppFlags in AppPass mode with known wpurl
-    const appflags = new URL('appflags?auth=apppass', blazorURL);
+    // Go to AppFlags in App Password mode with known wpurl
+    const appflags = new URL('appflags?auth=App Password', blazorURL);
     if (baseURL) appflags.searchParams.set('wpurl', baseURL);
     await page.goto(appflags.toString());
 
-    // Ensure no stored AppPass → should be Unauthorized despite cookies
+    // Ensure no stored App Password → should be Unauthorized despite cookies
     await page.getByTestId('authlab-clear').click();
     await page.getByTestId('wpdi-run').click();
     await expectStatus(page, /Unauthorized|HTTP (401|403)/);
 
-    // Store valid AppPass → should become OK (because Basic overrides cookies)
+    // Store valid App Password → should become OK (because Basic overrides cookies)
     await page.getByTestId('authlab-user').fill(wpUser);
     await page.getByTestId('authlab-pass').fill(wpAppPwd);
     await page.getByTestId('authlab-save-valid').click();

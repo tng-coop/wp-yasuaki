@@ -23,7 +23,7 @@ async function runQuickCheck(page: any) {
     await expect(page.getByTestId('wpdi-status')).toHaveText(/OK/, { timeout: 15_000 });
 }
 
-async function gotoWpMe(page: any, blazorURL: string, auth: 'apppass' | 'nonce') {
+async function gotoWpMe(page: any, blazorURL: string, auth: 'App Password' | 'nonce') {
     await page.goto(new URL(`wp-me?auth=${auth}`, blazorURL).toString());
     const ok = page.getByTestId('wp-me-ok');
     await expect(ok).toBeVisible({ timeout: 20_000 });
@@ -32,7 +32,7 @@ async function gotoWpMe(page: any, blazorURL: string, auth: 'apppass' | 'nonce')
 }
 
 test.describe('WPDI continues to work across auth switches (single-tab)', () => {
-    test('AppPass → Nonce → AppPass; QuickCheck + /wp-me OK after each switch', async ({
+    test('App Password → Nonce → App Password; QuickCheck + /wp-me OK after each switch', async ({
         page,
         blazorURL,
         baseURL,
@@ -43,17 +43,17 @@ test.describe('WPDI continues to work across auth switches (single-tab)', () => 
         const appflags = new URL('appflags', blazorURL);
         if (baseURL) appflags.searchParams.set('wpurl', baseURL);
 
-        // 1) AppPass with valid creds
+        // 1) App Password with valid creds
         await page.goto(appflags.toString());
-        await page.getByTestId('auth-apppass').click();
-        await expect(page.getByTestId('state-auth')).toHaveText('AppPass');
+        await page.getByTestId('auth-App Password').click();
+        await expect(page.getByTestId('state-auth')).toHaveText('App Password');
 
         await page.getByTestId('authlab-user').fill(wpUser);
         await page.getByTestId('authlab-pass').fill(wpAppPwd);
         await page.getByTestId('authlab-save-valid').click();
 
         await runQuickCheck(page);
-        await gotoWpMe(page, blazorURL, 'apppass');            // navigate same tab
+        await gotoWpMe(page, blazorURL, 'App Password');            // navigate same tab
         await page.goto(appflags.toString());                  // back to flags, same tab
 
         // 2) Switch to Nonce → Unauthorized, then login (server cookies), then OK
@@ -71,12 +71,12 @@ test.describe('WPDI continues to work across auth switches (single-tab)', () => 
         await gotoWpMe(page, blazorURL, 'nonce');
         await page.goto(appflags.toString());
 
-        // 3) Back to AppPass (cookies must be ignored) → OK
-        await page.getByTestId('auth-apppass').click();
-        await expect(page.getByTestId('state-auth')).toHaveText('AppPass');
+        // 3) Back to App Password (cookies must be ignored) → OK
+        await page.getByTestId('auth-App Password').click();
+        await expect(page.getByTestId('state-auth')).toHaveText('App Password');
 
         await runQuickCheck(page);
-        await gotoWpMe(page, blazorURL, 'apppass');
+        await gotoWpMe(page, blazorURL, 'App Password');
     });
 
     test('Rapid flips don’t stale WordPressApiService client', async ({
@@ -86,8 +86,8 @@ test.describe('WPDI continues to work across auth switches (single-tab)', () => 
         if (baseURL) appflags.searchParams.set('wpurl', baseURL);
         await page.goto(appflags.toString());
 
-        // Seed valid AppPass so AppPass path is OK
-        await page.getByTestId('auth-apppass').click();
+        // Seed valid App Password so App Password path is OK
+        await page.getByTestId('auth-App Password').click();
         await page.getByTestId('authlab-user').fill(wpUser);
         await page.getByTestId('authlab-pass').fill(wpAppPwd);
         await page.getByTestId('authlab-save-valid').click();
@@ -97,10 +97,10 @@ test.describe('WPDI continues to work across auth switches (single-tab)', () => 
         await page.goto(appflags.toString());     // back to appflags on same tab
 
         // Flip auth repeatedly; Quick Check must remain OK each time
-        for (const target of ['nonce', 'apppass', 'nonce', 'apppass'] as const) {
+        for (const target of ['nonce', 'App Password', 'nonce', 'App Password'] as const) {
             await page.getByTestId(`auth-${target}`).click();
             await expect(page.getByTestId('state-auth'))
-                .toHaveText(target === 'nonce' ? 'Nonce' : 'AppPass');
+                .toHaveText(target === 'nonce' ? 'Nonce' : 'App Password');
             await page.getByTestId('wpdi-run').click();
             await expect(page.getByTestId('wpdi-status')).toHaveText(/OK/);
         }

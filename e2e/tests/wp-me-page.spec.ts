@@ -1,6 +1,6 @@
 import { test, expect } from '../fixtures/test';
 
-test.describe('Blazor Razor page /wp-me via WPDI (AppPass mode)', () => {
+test.describe('Blazor Razor page /wp-me via WPDI (App Password mode)', () => {
   test('renders current user on /wp-me', async ({ page, blazorURL, wpUser, wpAppPwd }) => {
     // Prime localStorage BEFORE the app loads
     await page.addInitScript(
@@ -11,7 +11,7 @@ test.describe('Blazor Razor page /wp-me via WPDI (AppPass mode)', () => {
       { user: wpUser, pass: wpAppPwd },
     );
 
-    await page.goto(new URL('wp-me?auth=apppass', blazorURL).toString());
+    await page.goto(new URL('wp-me?auth=App Password', blazorURL).toString());
 
     const ok = page.getByTestId('wp-me-ok');
     await expect(ok).toBeVisible({ timeout: 15_000 });

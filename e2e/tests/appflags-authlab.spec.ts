@@ -12,17 +12,17 @@ test.describe('AppFlags Auth Scenarios Lab', () => {
     await expect(page.getByTestId('appflags-page')).toBeVisible();
   });
 
-  test('no AppPass set → Unauthorized in AppPass mode', async ({ page }) => {
-    await page.getByTestId('auth-apppass').click();
+  test('no App Password set → Unauthorized in App Password mode', async ({ page }) => {
+    await page.getByTestId('auth-App Password').click();
     await page.getByTestId('authlab-clear').click();
     await page.getByTestId('wpdi-run').click();
 
     await expectStatus(page, /Unauthorized/);
-    await expect(page.getByTestId('authlab-creds-present')).toHaveText('no');
+    await expect(page.getByTestId('authlab-creds-present')).toHaveText('No');
   });
 
-  test('invalid AppPass saved → Unauthorized', async ({ page, wpUser }) => {
-    await page.getByTestId('auth-apppass').click();
+  test('invalid App Password saved → Unauthorized', async ({ page, wpUser }) => {
+    await page.getByTestId('auth-App Password').click();
     await page.getByTestId('authlab-user').fill(wpUser);
     await page.getByTestId('authlab-pass').fill('DefinitelyWrongPassword');
     await page.getByTestId('authlab-save-invalid').click();
@@ -33,8 +33,8 @@ test.describe('AppFlags Auth Scenarios Lab', () => {
     await expect(page.getByTestId('authlab-status')).toContainText('invalid');
   });
 
-  test('valid AppPass saved → Quick Check OK', async ({ page, wpUser, wpAppPwd }) => {
-    await page.getByTestId('auth-apppass').click();
+  test('valid App Password saved → Quick Check OK', async ({ page, wpUser, wpAppPwd }) => {
+    await page.getByTestId('auth-App Password').click();
     await page.getByTestId('authlab-user').fill(wpUser);
     await page.getByTestId('authlab-pass').fill(wpAppPwd);
     await page.getByTestId('authlab-save-valid').click();
@@ -65,7 +65,7 @@ test.describe('AppFlags Auth Scenarios Lab', () => {
   });
 
   test('force rebuild client re-applies endpoint and auth', async ({ page, wpUser, wpAppPwd }) => {
-    await page.getByTestId('auth-apppass').click();
+    await page.getByTestId('auth-App Password').click();
     await page.getByTestId('authlab-user').fill(wpUser);
     await page.getByTestId('authlab-pass').fill(wpAppPwd);
     await page.getByTestId('authlab-save-valid').click();
