@@ -37,3 +37,4 @@ if [ -f "$BASHRC" ]; then
     echo "export WP_APP_PASSWORD=\"$WP_APP_PASSWORD\"" >> "$BASHRC"
   fi
 fi
+

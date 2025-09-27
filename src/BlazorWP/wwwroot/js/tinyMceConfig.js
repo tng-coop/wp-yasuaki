@@ -39,19 +39,6 @@ window.myTinyMceConfig = {
       fire();
     });
 
-    editor.ui.registry.addButton('customButton', {
-      text: 'Alert',
-      onAction: () => alert('Hello from TinyMCE!')
-    });
-    editor.ui.registry.addButton('showInfoButton', {
-      text: 'Info',
-      onAction: () => {
-        const endpoint = new URLSearchParams(window.location.search).get('wpurl') || '(none)';
-        const user = localStorage.getItem('app_user') || '(none)';
-        alert(`Endpoint: ${endpoint}\nUser: ${user}`);
-      }
-    });
-
     // Helper to build a correct <img> from media_details.sizes
     function buildImageTag(item) {
       const sizes = item.media_details?.sizes || {};
