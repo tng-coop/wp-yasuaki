@@ -5,11 +5,10 @@
     <div class="input-group input-group-sm">
         <span class="input-group-text">Search</span>
         <input class="form-control" placeholder="Title…" @bind="_search" @bind:event="oninput"
-            @onkeypress="@(e => (e.Key == "Enter" ? SearchAsync() : Task.CompletedTask))" />
+               @onkeypress="@(e => (e.Key == "Enter" ? SearchAsync() : Task.CompletedTask))" />
         <button class="btn btn-outline-secondary" @onclick="SearchAsync" title="Search">Go</button>
         <button class="btn btn-outline-secondary" @onclick="RefreshPosts" title="Refresh">↻</button>
-        <button class="btn btn-outline-danger" @onclick="ClearPersonalizationAsync"
-            title="Clear personal settings">Clear</button>
+        <button class="btn btn-outline-danger" @onclick="ClearPersonalizationAsync" title="Clear personal settings">Clear</button>
     </div>
 
     <!-- Paging: per-page + page number -->
@@ -23,8 +22,8 @@
         </select>
 
         <span class="input-group-text">Page</span>
-        <input class="form-control" style="max-width: 5rem" type="number" min="1" value="@_page"
-            @onchange="OnPageChanged" />
+        <input class="form-control" style="max-width: 5rem" type="number" min="1"
+               value="@_page" @onchange="OnPageChanged" />
         <span class="input-group-text">of @_totalPages</span>
     </div>
 
@@ -34,18 +33,20 @@
         <div class="sticky-top bg-body border rounded p-2 d-flex align-items-center gap-2">
             <div class="form-check me-2">
                 <input type="checkbox" class="form-check-input"
-                    checked="@(_selected.Count == _posts.Count && _posts.Count > 0)" @onchange="ToggleSelectAll" />
+                       checked="@(_selected.Count == _posts.Count && _posts.Count > 0)"
+                       @onchange="ToggleSelectAll" />
             </div>
             <span class="small">@_selected.Count selected</span>
 
             <div class="btn-group btn-group-sm">
                 <button class="btn btn-outline-secondary" disabled="@_bulkBusy"
-                    @onclick='() => BulkChangeStatusAsync("publish")'>Approve</button>
+                        @onclick='() => BulkChangeStatusAsync("publish")'>Approve</button>
                 <button class="btn btn-outline-secondary" disabled="@_bulkBusy"
-                    @onclick='() => BulkChangeStatusAsync("pending")'>Review</button>
+                        @onclick='() => BulkChangeStatusAsync("pending")'>Review</button>
                 <button class="btn btn-outline-secondary" disabled="@_bulkBusy"
-                    @onclick='() => BulkChangeStatusAsync("draft")'>Draft</button>
-                <button class="btn btn-outline-danger" disabled="@_bulkBusy" @onclick='BulkTrashAsync'>Trash</button>
+                        @onclick='() => BulkChangeStatusAsync("draft")'>Draft</button>
+                <button class="btn btn-outline-danger" disabled="@_bulkBusy"
+                        @onclick='BulkTrashAsync'>Trash</button>
             </div>
 
             <button class="btn btn-link btn-sm" disabled="@_bulkBusy" @onclick="ClearSelection">Clear</button>
@@ -67,18 +68,19 @@
             @foreach (var p in _posts)
             {
                 <button type="button"
-                    class="list-group-item list-group-item-action @((SelectedId.HasValue && SelectedId.Value == p.Id) ? "active" : null)"
-                    @onclick="() => NavigateToPost(p.Id)">
-                    <div class="form-check form-check-inline me-2" @onclick:stopPropagation="true">
-                        <input class="form-check-input" type="checkbox" checked="@_selected.Contains(p.Id)"
-                            @onchange="e => ToggleRow(p.Id, e.Value is bool b && b)" />
-                    </div>
+                        class="list-group-item list-group-item-action d-flex align-items-start gap-2 @((SelectedId.HasValue && SelectedId.Value == p.Id) ? "active" : null)"
+                        @onclick="() => NavigateToPost(p.Id)">
+                    <input class="form-check-input mt-1 me-2" type="checkbox" @onclick:stopPropagation="true"
+                               checked="@_selected.Contains(p.Id)"
+                               @onchange="e => ToggleRow(p.Id, e.Value is bool b && b)" />
 
-                    <div class="d-flex justify-content-between align-items-baseline">
+                    <div class="flex-grow-1">
+                        <div class="d-flex justify-content-between align-items-baseline">
                         <div class="fw-semibold text-truncate">@p.Title</div>
                         <small class="text-muted">@FormatLocal(p.ModifiedGmt)</small>
                     </div>
                     <small class="text-muted">#@p.Id · @p.Status</small>
+                        </div>
                 </button>
             }
         }
