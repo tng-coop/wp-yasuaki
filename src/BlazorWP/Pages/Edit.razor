@@ -28,7 +28,11 @@
         <EditSave isDirty="_isDirty" Saving="_saving" Status="_status" OnSave="SaveAsync" />
     </RadzenSplitterPane>
 </RadzenSplitter>
+<MediaPopup @ref="_mediaPopup" />
+
 @code {
+    private MediaPopup _mediaPopup = default!;
+
     private string? _originalTitle;
     private CancellationTokenSource? _cts;
 

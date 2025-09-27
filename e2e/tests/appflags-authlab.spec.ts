@@ -13,7 +13,7 @@ test.describe('AppFlags Auth Scenarios Lab', () => {
   });
 
   test('no App Password set → Unauthorized in App Password mode', async ({ page }) => {
-    await page.getByTestId('auth-App Password').click();
+    await page.getByTestId('authlab-pass').click();
     await page.getByTestId('authlab-clear').click();
     await page.getByTestId('wpdi-run').click();
 
@@ -22,7 +22,7 @@ test.describe('AppFlags Auth Scenarios Lab', () => {
   });
 
   test('invalid App Password saved → Unauthorized', async ({ page, wpUser }) => {
-    await page.getByTestId('auth-App Password').click();
+    await page.getByTestId('authlab-pass').click();
     await page.getByTestId('authlab-user').fill(wpUser);
     await page.getByTestId('authlab-pass').fill('DefinitelyWrongPassword');
     await page.getByTestId('authlab-save-invalid').click();
@@ -34,7 +34,7 @@ test.describe('AppFlags Auth Scenarios Lab', () => {
   });
 
   test('valid App Password saved → Quick Check OK', async ({ page, wpUser, wpAppPwd }) => {
-    await page.getByTestId('auth-App Password').click();
+    await page.getByTestId('authlab-pass').click();
     await page.getByTestId('authlab-user').fill(wpUser);
     await page.getByTestId('authlab-pass').fill(wpAppPwd);
     await page.getByTestId('authlab-save-valid').click();
@@ -65,7 +65,7 @@ test.describe('AppFlags Auth Scenarios Lab', () => {
   });
 
   test('force rebuild client re-applies endpoint and auth', async ({ page, wpUser, wpAppPwd }) => {
-    await page.getByTestId('auth-App Password').click();
+    await page.getByTestId('authlab-pass').click();
     await page.getByTestId('authlab-user').fill(wpUser);
     await page.getByTestId('authlab-pass').fill(wpAppPwd);
     await page.getByTestId('authlab-save-valid').click();

@@ -8,6 +8,18 @@ public partial class Edit
     private DotNetObjectReference<Edit>? _objRef;
     private IJSObjectReference? _module;
     [JSInvokable]
+    public async Task OpenMediaPicker(object? opts)
+    {
+      if (_mediaPopup is null)
+      {
+        await JS.InvokeVoidAsync("BlazorBridge.finishPick", (string?)null);
+        return;
+      }
+
+      var html = await _mediaPopup.OpenAsync(multi: false);
+      await JS.InvokeVoidAsync("BlazorBridge.finishPick", html);
+    }
+    [JSInvokable]
     public Task OnEditorDirtyChanged(bool isDirty)
     {
         _isDirty = isDirty;

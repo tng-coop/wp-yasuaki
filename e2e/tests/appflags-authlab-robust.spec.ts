@@ -31,7 +31,7 @@ test.describe('AppFlags AuthLab – robustness (lean)', () => {
     await expect(page.getByTestId('state-mode')).toHaveText('Basic');
 
     // Flip Auth → App Password (mode should remain Basic)
-    await page.getByTestId('auth-App Password').click();
+    await page.getByTestId('authlab-pass').click();
     await expect(page.getByTestId('state-auth')).toHaveText('App Password');
     await expect(page.getByTestId('state-mode')).toHaveText('Basic');
 

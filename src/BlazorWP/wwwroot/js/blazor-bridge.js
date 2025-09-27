@@ -36,5 +36,18 @@ window.BlazorBridge = {
     // Optional: notify Blazor that "Cancel" was used in the save plugin
     onCancel() {
         this._ref?.invokeMethodAsync('OnTinyCancel');
+    },
+    pickMedia(opts) {
+        return new Promise((resolve) => {
+            this._pendingPick = resolve;
+            this._ref?.invokeMethodAsync('OpenMediaPicker', opts || {});
+        });
+    },
+    finishPick(html) {
+        if (this._pendingPick) {
+            this._pendingPick(html || null);
+            this._pendingPick = null;
+        }
     }
+
 };

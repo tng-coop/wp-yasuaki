@@ -45,7 +45,7 @@ test.describe('WPDI continues to work across auth switches (single-tab)', () => 
 
         // 1) App Password with valid creds
         await page.goto(appflags.toString());
-        await page.getByTestId('auth-App Password').click();
+        await page.getByTestId('authlab-pass').click();
         await expect(page.getByTestId('state-auth')).toHaveText('App Password');
 
         await page.getByTestId('authlab-user').fill(wpUser);
@@ -72,7 +72,7 @@ test.describe('WPDI continues to work across auth switches (single-tab)', () => 
         await page.goto(appflags.toString());
 
         // 3) Back to App Password (cookies must be ignored) → OK
-        await page.getByTestId('auth-App Password').click();
+        await page.getByTestId('authlab-pass').click();
         await expect(page.getByTestId('state-auth')).toHaveText('App Password');
 
         await runQuickCheck(page);
@@ -87,7 +87,7 @@ test.describe('WPDI continues to work across auth switches (single-tab)', () => 
         await page.goto(appflags.toString());
 
         // Seed valid App Password so App Password path is OK
-        await page.getByTestId('auth-App Password').click();
+        await page.getByTestId('authlab-pass').click();
         await page.getByTestId('authlab-user').fill(wpUser);
         await page.getByTestId('authlab-pass').fill(wpAppPwd);
         await page.getByTestId('authlab-save-valid').click();

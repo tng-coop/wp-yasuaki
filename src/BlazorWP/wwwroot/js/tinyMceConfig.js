@@ -174,9 +174,15 @@ window.myTinyMceConfig = {
     editor.ui.registry.addButton('mediaLibraryButton', {
       text: 'Media',
       onAction: async function () {
-        const result = await fetchMedia(1);
-        openMediaDialog(result.items, result.totalPages);
+        const bookmark = editor.selection.getBookmark(2, true);
+        const html = await window.BlazorBridge.pickMedia({ multi: false });
+        if (html) {
+          editor.focus();
+          editor.selection.moveToBookmark(bookmark);
+          editor.insertContent(html);
+        }
       }
+
     });
   }
 };
