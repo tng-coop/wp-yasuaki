@@ -1,26 +1,28 @@
 @page "/bootstrap-icons-demo"
+@using Microsoft.AspNetCore.Components
+@inject IStringLocalizer<BootstrapIconsDemo> L
 
-<PageTitle>Bootstrap Icons Demo</PageTitle>
+<PageTitle>@L["Title"]</PageTitle>
 
-<h3>Bootstrap Icons Demo</h3>
+<h3>@L["Heading"]</h3>
 
-<p>The Bootstrap Icons library was added via LibMan. Below are a few sample icons using the <code>bi</code> classes.</p>
+<p>@((MarkupString)L["Description"])</p>
 
 <div class="d-flex gap-3 flex-wrap">
     <div class="text-center">
         <i class="bi bi-alarm" style="font-size: 2rem;" aria-hidden="true"></i>
-        <div>alarm</div>
+        <div>@L["AlarmLabel"]</div>
     </div>
     <div class="text-center">
         <i class="bi bi-basket" style="font-size: 2rem;" aria-hidden="true"></i>
-        <div>basket</div>
+        <div>@L["BasketLabel"]</div>
     </div>
     <div class="text-center">
         <i class="bi bi-bezier" style="font-size: 2rem;" aria-hidden="true"></i>
-        <div>bezier</div>
+        <div>@L["BezierLabel"]</div>
     </div>
     <div class="text-center">
         <i class="bi bi-brush" style="font-size: 2rem;" aria-hidden="true"></i>
-        <div>brush</div>
+        <div>@L["BrushLabel"]</div>
     </div>
 </div>
