@@ -1,65 +1,230 @@
-@* Modal media picker owned by Blazor. Shows WP thumbnails, paging, single-select → returns HTML *@
-@using System.Net
-@using System.Text.Json
-@using Editor.WordPress
+@using Microsoft.AspNetCore.Components.Forms
+@using System.Linq
 
 @if (_visible)
 {
-  <div class="mp-backdrop" @onclick="Cancel"></div>
-  <div class="mp-modal" role="dialog" aria-modal="true" aria-label="Media Library">
+  <div class="mp-backdrop" @onclick="() => Cancel()"></div>
+  <div class="mp-modal" role="dialog" aria-modal="true" aria-label="Media Library" tabindex="-1" @onkeydown="HandleKeyDown">
+
+    <!-- Header + Tabs / Toolbar -->
     <div class="mp-header">
       <h3 class="m-0">Media Library</h3>
-      <button class="btn-close" @onclick="Cancel" aria-label="Close"></button>
+      <div class="ms-auto"></div>
+      <ul class="nav nav-tabs nav-tabs-sm" role="tablist" aria-label="Media tabs">
+        <li class="nav-item" role="presentation">
+          <button type="button" class="nav-link @(IsUploadTab ? "active" : null)" role="tab" aria-selected="@IsUploadTab"
+                  @onclick='() => SwitchTab("upload")'>
+            Upload files
+          </button>
+        </li>
+        <li class="nav-item" role="presentation">
+          <button type="button" class="nav-link @(!IsUploadTab ? "active" : null)" role="tab" aria-selected="@(!IsUploadTab)"
+                  @onclick='() => SwitchTab("library")'>
+            Media Library
+          </button>
+        </li>
+      </ul>
     </div>
 
+    <!-- Body -->
     <div class="mp-body">
       @if (_error is not null)
       {
         <div class="alert alert-danger mb-2">@_error</div>
       }
 
-      <div class="mp-grid">
-        @if (_items.Count == 0 && _busy)
-        {
-          <div class="text-muted p-3">Loading…</div>
-        }
-        else if (_items.Count == 0)
-        {
-          <div class="text-muted p-3">No media</div>
-        }
-        else
-        {
-          @foreach (var i in _items)
+      @if (IsUploadTab)
+      {
+        <!-- Upload tab -->
+        <div class="mp-upload flex-column d-flex gap-2">
+          <div class="mp-drop" @ondragover:preventDefault @ondrop:preventDefault>
+            <div class="text-center">
+              <div class="fw-semibold mb-1">Drag & drop files to upload</div>
+              <div class="text-muted small">or</div>
+              <label class="btn btn-primary btn-sm mt-2">
+                Select files
+                <InputFile OnChange="OnFilesSelected" multiple />
+              </label>
+            </div>
+          </div>
+          <div class="small text-muted">Max 20 MB per file. Images, PDF, audio, video are supported by WordPress.</div>
+          @if (_uploadStatus is not null)
           {
-            var selected = _selected?.id == i.id;
-            <button type="button" class="mp-tile @(selected ? "selected" : null)"
-                    title="@AltOrTitle(i)"
-                    @onclick="() => Select(i)"
-                    @ondblclick="Confirm">
-              @if (!string.IsNullOrEmpty(Thumb(i)))
-              {
-                <img src="@Thumb(i)" alt="@AltOrTitle(i)" />
-              }
-              else
-              {
-                <div class="mp-placeholder">@i.mime_type</div>
-              }
-              @if (IsPdf(i)) { <span class="mp-badge">PDF</span> }
-            </button>
+            <div class="small">@((MarkupString)_uploadStatus)</div>
           }
-        }
-      </div>
+        </div>
+      }
+      else
+      {
+        <!-- Library tab -->
+        <div class="mp-toolbar d-flex flex-wrap align-items-center gap-2 mb-2" role="region" aria-label="Library filters">
+          <div class="input-group input-group-sm" style="max-width: 420px;">
+            <span class="input-group-text">Search</span>
+            <input class="form-control" placeholder="Title, alt, caption…" @bind="_search" @bind:event="oninput"
+                   @onkeypress='@(e => (e.Key == "Enter" ? ApplyFiltersAsync() : Task.CompletedTask))' />
+            <button class="btn btn-outline-secondary" @onclick="ApplyFiltersAsync" title="Search">Go</button>
+            <button class="btn btn-outline-secondary" @onclick="RefreshAsync" title="Refresh">↻</button>
+          </div>
+
+          <div class="input-group input-group-sm" style="max-width: 220px;">
+            <span class="input-group-text">Type</span>
+            <select class="form-select" @bind="_type" @bind:after="ApplyFiltersAsync" aria-label="Filter by type">
+              <option value="all">All media items</option>
+              <option value="image">Images</option>
+              <option value="video">Video</option>
+              <option value="audio">Audio</option>
+              <option value="pdf">PDF / Documents</option>
+            </select>
+          </div>
+
+          <div class="input-group input-group-sm" style="max-width: 220px;">
+            <span class="input-group-text">Month</span>
+            <select class="form-select" @bind="_month" @bind:after="ApplyFiltersAsync" aria-label="Filter by month">
+              <option value="">All dates</option>
+              @foreach (var m in _months)
+              {
+                <option value="@m.Value">@m.Label</option>
+              }
+            </select>
+          </div>
+
+          @if (_multiMode)
+          {
+            <span class="badge text-bg-secondary">Multi‑select enabled</span>
+          }
+
+          <div class="ms-auto d-flex align-items-center gap-2">
+            <!-- Insert options for images (applies to all selections) -->
+            <div class="input-group input-group-sm" style="max-width: 240px;">
+              <span class="input-group-text">Size</span>
+              <select class="form-select" @bind="_imgSize">
+                <option value="Auto">Auto</option>
+                <option value="Thumbnail">Thumbnail</option>
+                <option value="Medium">Medium</option>
+                <option value="Large">Large</option>
+                <option value="Full">Full</option>
+              </select>
+            </div>
+            <div class="input-group input-group-sm" style="max-width: 280px;">
+              <span class="input-group-text">Link to</span>
+              <select class="form-select" @bind="_linkTo">
+                <option value="None">None</option>
+                <option value="MediaFile">Media file</option>
+                <option value="AttachmentPage">Attachment page</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        <!-- Two‑pane layout: grid + details -->
+        <div class="mp-layout">
+          <div class="mp-grid" role="listbox" aria-label="Media items" aria-multiselectable="@_multiMode">
+            @if (_items.Count == 0 && _busy)
+            {
+              <div class="text-muted p-3">Loading…</div>
+            }
+            else if (_items.Count == 0)
+            {
+              <div class="text-muted p-3">No media</div>
+            }
+            else
+            {
+              @foreach (var i in _items)
+              {
+                var isSel = _multiMode ? _multi.Contains(i.id) : (_single?.id == i.id);
+                <button type="button"
+                        class="mp-tile @(isSel ? "selected" : null)"
+                        role="option" aria-selected="@isSel"
+                        title="@AltOrTitle(i)"
+                        @onclick="() => ToggleSelect(i)"
+                        @ondblclick="() => Confirm()">
+                  @if (!string.IsNullOrEmpty(Thumb(i)))
+                  {
+                    <img src="@Thumb(i)" alt="@AltOrTitle(i)" />
+                  }
+                  else
+                  {
+                    <div class="mp-placeholder">@i.mime_type</div>
+                  }
+                  @if (IsPdf(i)) { <span class="mp-badge">PDF</span> }
+                  @if (_multiMode)
+                  {
+                    <span class="mp-check bi bi-check2-circle" aria-hidden="true"></span>
+                  }
+                </button>
+              }
+            }
+          </div>
+
+          <!-- Details side panel (single‑select) -->
+          <aside class="mp-sidebar">
+            @if (_single is null)
+            {
+              <div class="text-muted small">Select an item to view details.</div>
+            }
+            else
+            {
+              <div class="d-flex flex-column gap-2">
+                <div class="ratio ratio-4x3 mb-1 mp-preview">
+                  @if (!string.IsNullOrEmpty(Thumb(_single)))
+                  {
+                    <img src="@Thumb(_single)" alt="@AltOrTitle(_single)" />
+                  }
+                </div>
+                <div class="small text-muted">#@_single.id · @_single.mime_type</div>
+                <div class="small text-muted">@(_single.date_gmt?.ToLocalTime().ToString("yyyy-MM-dd HH:mm") ?? "")</div>
+
+                <label class="form-label mb-1">Alt text</label>
+                <input class="form-control form-control-sm" @bind="_altDraft" @bind:event="oninput" placeholder="Describe the image for accessibility" />
+                <div class="d-flex gap-2">
+                  <button class="btn btn-outline-secondary btn-sm" @onclick="CopyUrl">Copy URL</button>
+                  <a class="btn btn-outline-secondary btn-sm" href="@(_single.source_url)" target="_blank" rel="noopener noreferrer">Open</a>
+                  <button class="btn btn-primary btn-sm" @onclick="SaveAltAsync" disabled="@(_savingAlt)">Save</button>
+                </div>
+
+                @if (_single.media_details?.sizes is not null && _single.media_details.sizes.Count > 0)
+                {
+                  <div class="mt-2">
+                    <div class="fw-semibold small">Available sizes</div>
+                    <ul class="list-unstyled small mb-0">
+                      @foreach (var s in _single.media_details.sizes.OrderBy(kv => kv.Value.width))
+                      {
+                        <li>@s.Key — @s.Value.width×@s.Value.height</li>
+                      }
+                    </ul>
+                  </div>
+                }
+              </div>
+            }
+          </aside>
+        </div>
+
+        <!-- Paging & selection tray -->
+        <div class="d-flex align-items-center gap-2 mt-2">
+<button class="btn btn-outline-secondary btn-sm"
+        disabled="@(_busy || _page >= _totalPages)"
+        @onclick="() => LoadMore()">
+  Load more
+</button>
+
+          <small class="text-muted">Page @_page / @_totalPages</small>
+          <span class="ms-2 small" aria-live="polite">@(_multiMode ? $"{_multi.Count} selected" : (_single is null ? "0 selected" : "1 selected"))</span>
+          @if (_multiMode && _multi.Count > 0)
+          {
+            <button class="btn btn-link btn-sm" @onclick="ClearSelection">Clear</button>
+          }
+        </div>
+      }
     </div>
 
+    <!-- Footer (actions) -->
     <div class="mp-footer">
       <div class="d-flex align-items-center gap-2 w-100">
-        <button class="btn btn-outline-secondary btn-sm"
-                disabled="@(_busy || _page >= _totalPages)"
-                @onclick="LoadMore">Load more</button>
-        <small class="text-muted">Page @_page / @_totalPages</small>
         <span class="flex-grow-1"></span>
-        <button class="btn btn-outline-secondary btn-sm" @onclick="Cancel">Cancel</button>
-        <button class="btn btn-primary btn-sm" disabled="@(_selected is null)" @onclick="Confirm">Insert</button>
+        <button class="btn btn-outline-secondary btn-sm" @onclick="() => Cancel()">Cancel</button>
+        <button class="btn btn-primary btn-sm" disabled="@(!CanInsert)" @onclick="() => Confirm()">
+          @InsertButtonLabel
+        </button>
       </div>
     </div>
   </div>

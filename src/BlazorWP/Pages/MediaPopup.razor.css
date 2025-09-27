@@ -1,16 +1,30 @@
-/* Bootstrap-friendly modal overlay */
+/* Modal shell */
 .mp-backdrop { position: fixed; inset: 0; background: rgba(0,0,0,.5); z-index: 10000; }
 .mp-modal { position: fixed; top: 50%; left: 50%; transform: translate(-50%,-50%);
-  background: #fff; border-radius: 12px; width: min(960px, 92vw); max-height: 85vh;
+  background: #fff; border-radius: 12px; width: min(1040px, 94vw); max-height: 88vh;
   display: flex; flex-direction: column; z-index: 10001; box-shadow: 0 16px 40px rgba(0,0,0,.25); }
 .mp-header { display:flex; align-items:center; gap:8px; padding: 10px 14px; border-bottom: 1px solid #eee; }
 .mp-body { padding: 10px; overflow: hidden; }
+.mp-footer { padding: 10px 12px; border-top: 1px solid #eee; }
+
+/* Upload */
+.mp-upload .mp-drop { border: 2px dashed #c9d4f0; border-radius: 12px; padding: 24px; background: #f8fafc; }
+
+/* Library layout */
+.mp-toolbar .input-group-text { min-width: 64px; }
+.mp-layout { display: grid; grid-template-columns: 1fr 320px; gap: 10px; height: 58vh; }
 .mp-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
-  gap: 10px; overflow: auto; max-height: 56vh; padding: 2px; }
+  gap: 10px; overflow: auto; padding: 2px; border: 1px solid #f1f1f1; border-radius: 8px; }
 .mp-tile { display:block; position: relative; border: 2px solid transparent; border-radius: 10px;
   padding: 2px; background: #fafafa; cursor: pointer; }
 .mp-tile.selected { border-color: #2d6cdf; box-shadow: 0 0 0 2px rgba(45,108,223,.15) inset; }
 .mp-tile img { display:block; width: 100%; height: 120px; object-fit: cover; border-radius: 8px; }
 .mp-placeholder { height: 120px; display:flex; align-items:center; justify-content:center; color:#666; font-size:12px; }
 .mp-badge { position: absolute; left: 8px; top: 8px; font-size: 11px; background: #444; color: #fff; padding: 2px 6px; border-radius: 999px; }
-.mp-footer { padding: 10px 12px; border-top: 1px solid #eee; }
+.mp-check { position: absolute; right: 8px; top: 8px; font-size: 16px; }
+
+.mp-sidebar { border: 1px solid #f1f1f1; border-radius: 8px; padding: 10px; overflow: auto; }
+.mp-preview img { object-fit: cover; width: 100%; height: 100%; border-radius: 6px; }
+
+/* small tabs */
+.nav-tabs-sm .nav-link { padding: .25rem .5rem; font-size: .875rem; }
