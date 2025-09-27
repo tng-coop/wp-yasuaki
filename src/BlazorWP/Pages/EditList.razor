@@ -1,0 +1,36 @@
+@* Left-pane posts viewer *@
+<div class="d-flex flex-column p-2 gap-2 h-100">
+    <div class="input-group input-group-sm">
+        <span class="input-group-text">Search</span>
+        <input class="form-control" placeholder="Title…" @bind="_search" @bind:event="oninput"
+            @onkeypress="@(e => (e.Key == "Enter" ? SearchAsync() : Task.CompletedTask))" />
+        <button class="btn btn-outline-secondary" @onclick="SearchAsync" title="Search">Go</button>
+        <button class="btn btn-outline-secondary" @onclick="RefreshPosts" title="Refresh">↻</button>
+    </div>
+
+    <div class="list-group flex-grow-1 overflow-auto">
+        @if (_loadingPosts)
+        {
+            <div class="list-group-item text-muted">Loading…</div>
+        }
+        else if (_posts.Count == 0)
+        {
+            <div class="list-group-item text-muted">No posts</div>
+        }
+        else
+        {
+            @foreach (var p in _posts)
+            {
+                <button type="button"
+                    class="list-group-item list-group-item-action @((SelectedId.HasValue && SelectedId.Value == p.Id) ? "active" : null)"
+                    @onclick="() => NavigateToPost(p.Id)">
+                    <div class="d-flex justify-content-between align-items-baseline">
+                        <div class="fw-semibold text-truncate">@p.Title</div>
+                        <small class="text-muted">@FormatLocal(p.ModifiedGmt)</small>
+                    </div>
+                    <small class="text-muted">#@p.Id · @p.Status</small>
+                </button>
+            }
+        }
+    </div>
+</div>

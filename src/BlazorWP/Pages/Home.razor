@@ -153,10 +153,6 @@
         {
             verifiedEndpoint = Flags.WpUrl;
             userUrl = verifiedEndpoint;
-            if (!string.IsNullOrEmpty(verifiedEndpoint))
-            {
-                Api.SetEndpoint(verifiedEndpoint);
-            }
 
             var creds = await AppPasswordService.GetAsync();
             if (creds is not null)
