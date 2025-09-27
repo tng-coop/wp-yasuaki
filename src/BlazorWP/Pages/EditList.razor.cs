@@ -1,106 +1,180 @@
 using System;
 using System.Collections.Generic;
 using System.Globalization;
-using System.Net.Http;
+using System.Linq;
 using System.Text.Json;
+using System.Threading;
 using System.Threading.Tasks;
 using Editor.WordPress;
 using Microsoft.AspNetCore.Components;
 
-namespace BlazorWP.Pages
+// WordPressPCL
+using WordPressPCL;
+using WordPressPCL.Models;
+// If you have the exceptions package/version available, uncomment the next line
+// using WordPressPCL.Exceptions;
+
+namespace BlazorWP.Pages;
+
+public partial class EditList : IDisposable
 {
-    public partial class EditList : ComponentBase
+    // From parent Edit.razor
+    [Parameter] public int? SelectedId { get; set; }
+
+    [Inject] private NavigationManager Nav { get; set; } = default!;
+    [Inject] public IWordPressApiService Api { get; set; } = default!;
+
+    private sealed class RenderWrapper { public string? rendered { get; set; } public string? raw { get; set; } }
+    private sealed class PostListItem
     {
-        // From parent Edit.razor
-        [Parameter] public int? SelectedId { get; set; }
+        public int Id { get; set; }
+        public string Title { get; set; } = "";
+        public string? Status { get; set; }
+        public string? ModifiedGmt { get; set; }
+    }
 
-        [Inject] private NavigationManager Nav { get; set; } = default!;
+    private readonly List<PostListItem> _posts = new();
+    private bool _loadingPosts;
+    private string? _search;
+    private string? _error;
 
-        [Inject] public IWordPressApiService Api { get; set; } = default!;
+    private CancellationTokenSource? _loadCts;
 
-        private sealed class RenderWrapper { public string? rendered { get; set; } public string? raw { get; set; } }
-        private sealed class WpListItem
+    private const int PerPage = 50;
+    private static readonly JsonSerializerOptions _jsonOptions = new()
+    {
+        PropertyNameCaseInsensitive = true
+    };
+
+    protected override async Task OnInitializedAsync() => await LoadPostsAsync();
+
+    private Task SearchAsync() => LoadPostsAsync();
+    private Task RefreshPosts() => LoadPostsAsync();
+
+    private void NavigateToPost(int id)
+    {
+        if (id > 0) Nav.NavigateTo($"edit/{id}");
+    }
+
+    private static string FormatLocal(string? modifiedGmt)
+    {
+        if (string.IsNullOrWhiteSpace(modifiedGmt)) return "";
+        if (DateTimeOffset.TryParse(
+                modifiedGmt,
+                CultureInfo.InvariantCulture,
+                DateTimeStyles.AssumeUniversal | DateTimeStyles.AdjustToUniversal,
+                out var utc))
         {
-            public int id { get; set; }
-            public string? status { get; set; }
-            public string? modified_gmt { get; set; }
-            public RenderWrapper? title { get; set; }
+            return utc.ToLocalTime().ToString("yyyy-MM-dd HH:mm");
         }
-        private sealed class PostListItem
+        return modifiedGmt!;
+    }
+
+    private async Task LoadPostsAsync()
+    {
+        // Cancel any in-flight request to avoid overlapping loads
+        _loadCts?.Cancel();
+        _loadCts = new CancellationTokenSource();
+        var ct = _loadCts.Token;
+
+        _loadingPosts = true;
+        _error = null;
+
+        try
         {
-            public int Id { get; set; }
-            public string Title { get; set; } = "";
-            public string? Status { get; set; }
-            public string? ModifiedGmt { get; set; }
-        }
+            _posts.Clear();
 
-        private readonly List<PostListItem> _posts = new();
-        private bool _loadingPosts;
-        private string? _search;
+            var wp = await Api.GetClientAsync(); // WordPressClient (authenticated)
 
-        protected override async Task OnInitializedAsync() => await LoadPostsAsync();
+            var baseRoute = $"wp/v2/posts?context=edit&_fields=id,title,modified_gmt,status&per_page={PerPage}";
+            if (!string.IsNullOrWhiteSpace(_search))
+                baseRoute += "&search=" + Uri.EscapeDataString(_search.Trim());
 
-        private Task SearchAsync() => LoadPostsAsync();
-        private Task RefreshPosts() => LoadPostsAsync();
+            // Preserve your original "any" behavior; if rejected, fall back to explicit statuses
+            var statuses = "any";
+            var page = 1;
 
-        private void NavigateToPost(int id)
-        {
-            if (id > 0) Nav.NavigateTo($"edit/{id}");
-        }
-
-        private static string FormatLocal(string? modifiedGmt)
-        {
-            if (string.IsNullOrWhiteSpace(modifiedGmt)) return "";
-            if (DateTime.TryParse(modifiedGmt, CultureInfo.InvariantCulture,
-                                  DateTimeStyles.AssumeUniversal | DateTimeStyles.AdjustToUniversal,
-                                  out var utc))
+            while (true)
             {
-                return utc.ToLocalTime().ToString("yyyy-MM-dd HH:mm");
-            }
-            return modifiedGmt!;
-        }
+                ct.ThrowIfCancellationRequested();
 
-        private async Task LoadPostsAsync()
-        {
-            _loadingPosts = true;
-            try
-            {
-                _posts.Clear();
+                var route = $"{baseRoute}&status={statuses}&page={page}";
 
-                _ = await Api.GetClientAsync();
-                var http = Api.HttpClient ?? throw new InvalidOperationException("WordPress HttpClient is not initialized.");
-                var q = "/wp-json/wp/v2/posts?context=edit"
-                      + "&per_page=50&status=any"
-                      + "&_fields=id,title,modified_gmt,status";
+                IList<Post>? pagePosts = null;
 
-                if (!string.IsNullOrWhiteSpace(_search))
-                    q += "&search=" + Uri.EscapeDataString(_search.Trim());
-
-                using var resp = await http.GetAsync(q);
-                resp.EnsureSuccessStatusCode();
-
-                await using var stream = await resp.Content.ReadAsStreamAsync();
-                var opts = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
-                var raw = await JsonSerializer.DeserializeAsync<List<WpListItem>>(stream, opts) ?? new();
-
-                foreach (var x in raw)
+                try
                 {
+                    // Uses the same HttpClient/auth as the WordPress client
+                    pagePosts = await wp.CustomRequest.GetAsync<IList<Post>>(route);
+                }
+                catch (Exception ex) // WPException/HttpRequestException/etc.
+                {
+                    // If server rejects "any", retry once with explicit statuses
+                    if (statuses == "any")
+                    {
+                        statuses = "publish,draft,pending,private,future";
+                        continue; // retry this same page with explicit statuses
+                    }
+                    // Otherwise rethrow; it's a real error (auth, network, etc.)
+                    throw new InvalidOperationException($"Failed to load posts: {ex.Message}", ex);
+                }
+
+                if (pagePosts is null || pagePosts.Count == 0)
+                    break;
+
+                foreach (var p in pagePosts)
+                {
+                    // Title: prefer Raw (needs context=edit), then Rendered; guard before Trim()
+                    var titleRaw = p.Title?.Raw ?? p.Title?.Rendered;
+                    var title = string.IsNullOrWhiteSpace(titleRaw) ? "(untitled)" : titleRaw.Trim();
+
+                    // ModifiedGmt: DateTime (non-nullable) in this WPCL version
+                    var modifiedGmt = p.ModifiedGmt.ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ssZ");
+
                     _posts.Add(new PostListItem
                     {
-                        Id = x.id,
-                        Title = (x.title?.raw ?? x.title?.rendered ?? "(untitled)").Trim(),
-                        Status = x.status,
-                        ModifiedGmt = x.modified_gmt
+                        Id = p.Id,
+                        Title = title,
+                        Status = p.Status.ToString().ToLowerInvariant(), // enum -> "publish", "draft", etc.
+                        ModifiedGmt = modifiedGmt
                     });
                 }
-            }
-            finally
-            {
-                _loadingPosts = false;
-                StateHasChanged();
-            }
-        }
 
-        
+
+                // No header access via CustomRequest; use a count heuristic
+                if (pagePosts.Count < PerPage)
+                    break;
+
+                page++;
+            }
+
+            // Ensure newest-first if the API returns unsorted data
+            _posts.Sort((a, b) =>
+            {
+                static DateTime ParseOrMin(string? s) =>
+                    DateTime.TryParse(s, out var dt) ? dt : DateTime.MinValue;
+                return ParseOrMin(b.ModifiedGmt).CompareTo(ParseOrMin(a.ModifiedGmt));
+            });
+
+        }
+        catch (OperationCanceledException)
+        {
+            // Swallow; superseded by a newer request
+        }
+        catch (Exception ex)
+        {
+            _error = ex.Message;
+        }
+        finally
+        {
+            _loadingPosts = false;
+            StateHasChanged();
+        }
+    }
+
+    public void Dispose()
+    {
+        _loadCts?.Cancel();
+        _loadCts?.Dispose();
     }
 }
