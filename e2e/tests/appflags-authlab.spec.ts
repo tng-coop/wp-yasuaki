@@ -29,7 +29,7 @@ test.describe('AppFlags Auth Scenarios Lab', () => {
 
     await page.getByTestId('wpdi-run').click();
     await expectStatus(page, /Unauthorized/);
-    await expect(page.getByTestId('authlab-creds-present')).toHaveText('yes');
+    await expect(page.getByTestId('authlab-creds-present')).toHaveText('Yes');
     await expect(page.getByTestId('authlab-status')).toContainText('invalid');
   });
 
