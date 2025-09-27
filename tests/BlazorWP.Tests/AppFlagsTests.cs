@@ -37,6 +37,7 @@ public class AppFlagsTests : TestContext
         Services.AddSingleton<Microsoft.Extensions.Configuration.IConfiguration>(
             new Microsoft.Extensions.Configuration.ConfigurationBuilder().Build()
         );
+        Services.AddLocalization(options => options.ResourcesPath = "Resources");
     }
 
     [Fact]

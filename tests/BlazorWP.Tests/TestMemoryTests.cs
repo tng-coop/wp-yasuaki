@@ -10,6 +10,8 @@ public class TestMemoryTests : TestContext
     public TestMemoryTests()
     {
         Services.AddSingleton<ILocalStore, MemoryLocalStore>();
+
+        Services.AddLocalization(options => options.ResourcesPath = "Resources");
     }
 
     [Fact]

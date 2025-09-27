@@ -12,6 +12,8 @@ public class WpMeTests : TestContext
         Services.AddSingleton<IWordPressApiService, FakeApiService>();
         Services.AddSingleton<Microsoft.Extensions.Configuration.IConfiguration>(
             new Microsoft.Extensions.Configuration.ConfigurationBuilder().Build());
+
+        Services.AddLocalization(options => options.ResourcesPath = "Resources");
     }
 
     [Fact]
