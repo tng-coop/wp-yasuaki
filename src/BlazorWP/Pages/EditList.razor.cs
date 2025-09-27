@@ -4,6 +4,7 @@ using System.Globalization;
 using System.Linq;
 using System.Net;
 using System.Net.Http;
+using System.Net.Http.Json; // added
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
@@ -42,6 +43,11 @@ public partial class EditList : IDisposable
     private bool _loadingPosts;
     private string? _search;
     private string? _error;
+
+    // ---- Bulk selection state ----
+    private readonly HashSet<int> _selected = new();
+    private bool _bulkBusy;
+    private string? _bulkStatus;
 
     private CancellationTokenSource? _loadCts;
 
@@ -183,6 +189,7 @@ public partial class EditList : IDisposable
 
         try
         {
+            _selected.Clear(); // clear any stale selection when we reload
             _posts.Clear();
 
             // Ensure HttpClient is initialized via your WP service
@@ -294,6 +301,120 @@ public partial class EditList : IDisposable
         if (!string.IsNullOrWhiteSpace(rendered)) return rendered.Trim();
 
         return "(untitled)";
+    }
+
+    // ----- Bulk selection + actions -----
+
+    private void ToggleRow(int id, bool isChecked)
+    {
+        if (isChecked) _selected.Add(id); else _selected.Remove(id);
+    }
+
+    private void ToggleSelectAll(ChangeEventArgs e)
+    {
+        var on = e.Value is bool b && b;
+        if (on)
+        {
+            _selected.Clear();
+            foreach (var p in _posts) _selected.Add(p.Id);
+        }
+        else
+        {
+            _selected.Clear();
+        }
+    }
+
+    private void ClearSelection() => _selected.Clear();
+
+    private async Task BulkChangeStatusAsync(string newStatus)
+    {
+        if (_bulkBusy || _selected.Count == 0) return;
+
+        _bulkBusy = true;
+        _bulkStatus = "Working…";
+        StateHasChanged();
+
+        try
+        {
+            _ = await Api.GetClientAsync();
+            var http = Api.HttpClient ?? throw new InvalidOperationException("WordPress HttpClient is not initialized.");
+
+            var ids = _selected.ToList();
+            int ok = 0, fail = 0;
+            using var gate = new SemaphoreSlim(6); // be polite to WP
+
+            var ops = ids.Select(async id =>
+            {
+                await gate.WaitAsync();
+                try
+                {
+                    var url = $"/wp-json/wp/v2/posts/{id}";
+                    var payload = new { status = newStatus };
+                    using var resp = await http.PostAsJsonAsync(url, payload);
+                    resp.EnsureSuccessStatusCode();
+                    Interlocked.Increment(ref ok);
+                }
+                catch
+                {
+                    Interlocked.Increment(ref fail);
+                }
+                finally { gate.Release(); }
+            });
+
+            await Task.WhenAll(ops);
+            _bulkStatus = $"Updated {ok}/{ids.Count}" + (fail > 0 ? $" ({fail} failed)" : "");
+        }
+        finally
+        {
+            _bulkBusy = false;
+            _selected.Clear();
+            await LoadPageAsync();
+        }
+    }
+
+    private async Task BulkTrashAsync()
+    {
+        if (_bulkBusy || _selected.Count == 0) return;
+
+        _bulkBusy = true;
+        _bulkStatus = "Trashing…";
+        StateHasChanged();
+
+        try
+        {
+            _ = await Api.GetClientAsync();
+            var http = Api.HttpClient ?? throw new InvalidOperationException("WordPress HttpClient is not initialized.");
+
+            var ids = _selected.ToList();
+            int ok = 0, fail = 0;
+            using var gate = new SemaphoreSlim(6);
+
+            var ops = ids.Select(async id =>
+            {
+                await gate.WaitAsync();
+                try
+                {
+                    var url = $"/wp-json/wp/v2/posts/{id}?force=false"; // move to Trash, do not hard-delete
+                    using var resp = await http.DeleteAsync(url);
+                    resp.EnsureSuccessStatusCode();
+                    Interlocked.Increment(ref ok);
+                }
+                catch
+                {
+                    Interlocked.Increment(ref fail);
+                }
+                finally { gate.Release(); }
+            });
+
+            await Task.WhenAll(ops);
+            _bulkStatus = $"Moved to trash {ok}/{ids.Count}" + (fail > 0 ? $" ({fail} failed)" : "");
+        }
+        finally
+        {
+            _bulkBusy = false;
+            _selected.Clear();
+            await LoadPageAsync();
+        }
     }
 
     public void Dispose()
