@@ -72,7 +72,7 @@ test.describe('WPDI continues to work across auth switches (single-tab)', () => 
         await page.goto(appflags.toString());
 
         // 3) Back to App Password (cookies must be ignored) → OK
-        await page.getByTestId('authlab-pass').click();
+        await page.getByTestId('auth-apppass').click();
         await expect(page.getByTestId('state-auth')).toHaveText('App Password');
 
         await runQuickCheck(page);
@@ -97,7 +97,7 @@ test.describe('WPDI continues to work across auth switches (single-tab)', () => 
         await page.goto(appflags.toString());     // back to appflags on same tab
 
         // Flip auth repeatedly; Quick Check must remain OK each time
-        for (const target of ['nonce', 'App Password', 'nonce', 'App Password'] as const) {
+        for (const target of ['nonce', 'apppass', 'nonce', 'apppass'] as const) {
             await page.getByTestId(`auth-${target}`).click();
             await expect(page.getByTestId('state-auth'))
                 .toHaveText(target === 'nonce' ? 'Nonce' : 'App Password');
