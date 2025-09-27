@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <data name="Title" xml:space="preserve"><value>App Flags</value></data>
+  <data name="Heading" xml:space="preserve"><value>Application Flags</value></data>
+  <data name="StateModeLabel" xml:space="preserve"><value>Mode:</value></data>
+  <data name="StateAuthLabel" xml:space="preserve"><value>Auth:</value></data>
+  <data name="StateLanguageLabel" xml:space="preserve"><value>Language:</value></data>
+  <data name="StateWpUrlLabel" xml:space="preserve"><value>WP URL:</value></data>
+  <data name="FeatureHeader" xml:space="preserve"><value>Feature</value></data>
+  <data name="OptionsHeader" xml:space="preserve"><value>Options</value></data>
+  <data name="AppModeLabel" xml:space="preserve"><value>App Mode</value></data>
+  <data name="AuthTypeLabel" xml:space="preserve"><value>Auth Type</value></data>
+  <data name="LanguageLabel" xml:space="preserve"><value>Language</value></data>
+  <data name="SetAppModeTo" xml:space="preserve"><value>Set App Mode to {0}</value></data>
+  <data name="SetAuthTo" xml:space="preserve"><value>Set Auth to {0}</value></data>
+  <data name="SetLanguageTo" xml:space="preserve"><value>Set Language to {0}</value></data>
+  <data name="WpUrlLabel" xml:space="preserve"><value>WordPress URL</value></data>
+  <data name="SaveButton" xml:space="preserve"><value>Save</value></data>
+  <data name="WpUrlHint" xml:space="preserve"><value>Value is applied only on &lt;strong&gt;Save&lt;/strong&gt; (or pressing &lt;kbd&gt;Enter&lt;/kbd&gt;).</value></data>
+  <data name="QuickCheckTitle" xml:space="preserve"><value>WPDI Quick Check</value></data>
+  <data name="QuickCheckAuthLabel" xml:space="preserve"><value>Auth Mode:</value></data>
+  <data name="StatusLabel" xml:space="preserve"><value>Status:</value></data>
+  <data name="IdleStatus" xml:space="preserve"><value>Idle</value></data>
+  <data name="UserLabel" xml:space="preserve"><value>user:</value></data>
+  <data name="LastLabel" xml:space="preserve"><value>last:</value></data>
+  <data name="CheckingEllipsis" xml:space="preserve"><value>Checking…</value></data>
+  <data name="RunCheck" xml:space="preserve"><value>Run check</value></data>
+  <data name="AuthLabTitle" xml:space="preserve"><value>Auth Scenarios Lab</value></data>
+  <data name="AuthLabDescription" xml:space="preserve"><value>Use these controls to simulate or prepare tricky states for tests: missing or invalid App Password, or cookie/nonce not ready (use the WP login link plus your test fixtures to control cookies).</value></data>
+  <data name="AppPassUsernameLabel" xml:space="preserve"><value>AppPass Username</value></data>
+  <data name="AppPassPasswordLabel" xml:space="preserve"><value>AppPass Password</value></data>
+  <data name="SaveAppPassButton" xml:space="preserve"><value>Save AppPass</value></data>
+  <data name="SaveInvalidButton" xml:space="preserve"><value>Save Invalid</value></data>
+  <data name="ClearButton" xml:space="preserve"><value>Clear</value></data>
+  <data name="OpenWpLoginButton" xml:space="preserve"><value>Open WP Login</value></data>
+  <data name="OpenWpAdminButton" xml:space="preserve"><value>Open WP Admin</value></data>
+  <data name="ForceRebuildButton" xml:space="preserve"><value>Force Rebuild Client</value></data>
+  <data name="CredsPresentLabel" xml:space="preserve"><value>Creds present:</value></data>
+  <data name="Yes" xml:space="preserve"><value>Yes</value></data>
+  <data name="No" xml:space="preserve"><value>No</value></data>
+  <data name="AuthLabTip" xml:space="preserve"><value>Tip: For &lt;em&gt;nonce not ready&lt;/em&gt; cases, clear cookies via your test fixture and reload this page, then run the WPDI Quick Check above in &lt;strong&gt;Nonce&lt;/strong&gt; mode.</value></data>
+  <data name="EmptyMask" xml:space="preserve"><value>(empty)</value></data>
+  <data name="CheckingStatus" xml:space="preserve"><value>Checking</value></data>
+  <data name="UnauthorizedStatus" xml:space="preserve"><value>Unauthorized</value></data>
+  <data name="OkStatus" xml:space="preserve"><value>OK</value></data>
+  <data name="HttpStatus" xml:space="preserve"><value>HTTP {0}</value></data>
+  <data name="TooManyRequestsWithRetry" xml:space="preserve"><value>Too many requests. Retry after {0}.</value></data>
+  <data name="TooManyRequests" xml:space="preserve"><value>Too many requests.</value></data>
+  <data name="ErrorStatus" xml:space="preserve"><value>Error</value></data>
+  <data name="AuthLabStatusMissingCreds" xml:space="preserve"><value>Enter both username and password.</value></data>
+  <data name="AuthLabStatusSaved" xml:space="preserve"><value>Saved App Password.</value></data>
+  <data name="AuthLabStatusMissingInvalid" xml:space="preserve"><value>Enter both username and password (an intentionally wrong one will be stored).</value></data>
+  <data name="AuthLabStatusSavedInvalid" xml:space="preserve"><value>Saved intentionally invalid App Password.</value></data>
+  <data name="AuthLabStatusCleared" xml:space="preserve"><value>Cleared stored App Password.</value></data>
+  <data name="AppMode_Basic" xml:space="preserve"><value>Basic</value></data>
+  <data name="AppMode_Full" xml:space="preserve"><value>Full</value></data>
+  <data name="AuthType_Nonce" xml:space="preserve"><value>Nonce</value></data>
+  <data name="AuthType_AppPass" xml:space="preserve"><value>App Password</value></data>
+  <data name="Language_English" xml:space="preserve"><value>English</value></data>
+  <data name="Language_Japanese" xml:space="preserve"><value>Japanese</value></data>
+</root>

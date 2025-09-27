@@ -1,7 +1,10 @@
 @page "/media"
 @inject WpMediaJsInterop MediaJs
+@inject IStringLocalizer<Media> L
 
-    <h3 id="media-library-label" class="px-4 mb-2">Media Library</h3>
+<PageTitle>@L["Title"]</PageTitle>
+
+<h3 id="media-library-label" class="px-4 mb-2">@L["Heading"]</h3>
 
     <!-- overlay (no spinner any more) -->
     <div @ref="overlayEl" class="media-overlay"></div>

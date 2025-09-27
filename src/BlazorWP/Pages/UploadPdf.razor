@@ -8,13 +8,14 @@
 @using System.Net.Http
 @inject UploadPdfJsInterop PdfJs
 @inject IWordPressApiService Api
+@inject IStringLocalizer<UploadPdf> L
 
-<PageTitle>Upload PDF</PageTitle>
+<PageTitle>@L["Title"]</PageTitle>
 
-<h1>Upload PDF</h1>
+<h1>@L["Heading"]</h1>
 @if (client == null)
 {
-    <p>No WordPress endpoint verified. Visit <NavLink href="/">Home</NavLink> first.</p>
+    <p>@L["NoEndpointStart"] <NavLink href="/">@L["HomeLink"]</NavLink>@L["NoEndpointEnd"]</p>
 }
 else
 {
@@ -22,7 +23,7 @@ else
         <InputFile id="file-input" class="form-control" accept="application/pdf" OnChange="OnFileSelected" />
     </div>
     <div class="d-flex align-items-center gap-2 mb-3">
-        <button class="btn btn-primary" @onclick="UploadAsync" disabled="@(_file == null)">Upload to WordPress</button>
+        <button class="btn btn-primary" @onclick="UploadAsync" disabled="@(_file == null)">@L["UploadButton"]</button>
         @if (!string.IsNullOrEmpty(status)) { <span>@status</span> }
     </div>
     @if (isUploading)
@@ -33,18 +34,18 @@ else
     }
     <canvas id="canvas" style="display:none;"></canvas>
     <div class="preview-wrapper">
-        <img id="preview" class="preview-image mb-3" alt="PDF preview" />
+        <img id="preview" class="preview-image mb-3" alt="@L["PreviewAlt"]" />
     </div>
     @if (wpSizes != null)
     {
         <table class="table table-sm">
             <thead>
                 <tr>
-                    <th>Size name</th>
-                    <th>Width (px)</th>
-                    <th>Height (px)</th>
-                    <th>Crop mode</th>
-                    <th>Notes</th>
+                    <th>@L["SizeNameColumn"]</th>
+                    <th>@L["WidthColumn"]</th>
+                    <th>@L["HeightColumn"]</th>
+                    <th>@L["CropModeColumn"]</th>
+                    <th>@L["NotesColumn"]</th>
                 </tr>
             </thead>
             <tbody>
@@ -110,11 +111,11 @@ else
 
         wpSizes = new()
         {
-            new("thumbnail", 150, 150, "hard (cover)", "Preview thumbnail"),
-            new("medium", ScaledWidth(300), ScaledHeight(300), "soft (max)", "Scaled preview"),
-            new("medium_large", ScaledWidth(768), ScaledHeight(768), "soft (max)", "Max width 768"),
-            new("large", ScaledWidth(1024), ScaledHeight(1024), "soft (max)", "Max width 1024"),
-            new("full", w, h, "n/a", "Full first page")
+            new("thumbnail", 150, 150, L["CropHardCover"].Value, L["NotePreviewThumbnail"].Value),
+            new("medium", ScaledWidth(300), ScaledHeight(300), L["CropSoftMax"].Value, L["NoteScaledPreview"].Value),
+            new("medium_large", ScaledWidth(768), ScaledHeight(768), L["CropSoftMax"].Value, L["NoteMaxWidth768"].Value),
+            new("large", ScaledWidth(1024), ScaledHeight(1024), L["CropSoftMax"].Value, L["NoteMaxWidth1024"].Value),
+            new("full", w, h, L["CropFull"].Value, L["NoteFullFirstPage"].Value)
         };
     }
 
@@ -204,12 +205,12 @@ else
 
             var resp = await httpClient!.PostAsync(endpoint, form);
             resp.EnsureSuccessStatusCode();
-            status = "Upload complete";
+            status = L["UploadComplete"].Value;
             uploadProgress = 100;
         }
         catch (Exception ex)
         {
-            status = $"Error: {ex.Message}";
+            status = string.Format(L["ErrorMessage"].Value, ex.Message);
         }
         finally { isUploading = false; }
     }
