@@ -31,6 +31,13 @@
     {
       "library": "bootstrap@5.3.8",
       "destination": "wwwroot/libman/bootstrap"
+    },
+    {
+      "library": "tinymce-i18n@25.9.1",
+      "destination": "wwwroot/libman/tinymce-i18n/",
+      "files": [
+        "langs/ja.js"
+      ]
     }
   ]
 }

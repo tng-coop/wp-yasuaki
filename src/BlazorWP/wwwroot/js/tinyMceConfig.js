@@ -185,3 +185,18 @@ window.setTinyMediaSource = function (url) {
   window.myTinyMceConfig.mediaSource = url || null;
 };
 
+// Auto-localize TinyMCE UI
+(function () {
+  // Your app stores lang as "jp" in query/localStorage; map that to Tiny's "ja"
+  const pref = (new URLSearchParams(location.search).get('lang') || localStorage.getItem('lang') || 'en').toLowerCase();
+  const isJa = pref === 'jp' || pref.startsWith('ja');
+
+  if (isJa) {
+    window.myTinyMceConfig.language = 'ja';
+    // Use locally hosted community language pack
+    window.myTinyMceConfig.language_url = '/libman/tinymce-i18n/langs/ja.js';
+  } else {
+    delete window.myTinyMceConfig.language;
+    delete window.myTinyMceConfig.language_url;
+  }
+})();

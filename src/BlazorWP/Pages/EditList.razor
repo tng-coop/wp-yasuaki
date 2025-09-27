@@ -1,11 +1,30 @@
 @* Left-pane posts viewer *@
 <div class="d-flex flex-column p-2 gap-2 h-100">
+
+    <!-- Search + Clear -->
     <div class="input-group input-group-sm">
         <span class="input-group-text">Search</span>
         <input class="form-control" placeholder="Title…" @bind="_search" @bind:event="oninput"
-            @onkeypress="@(e => (e.Key == "Enter" ? SearchAsync() : Task.CompletedTask))" />
+               @onkeypress="@(e => (e.Key == "Enter" ? SearchAsync() : Task.CompletedTask))" />
         <button class="btn btn-outline-secondary" @onclick="SearchAsync" title="Search">Go</button>
         <button class="btn btn-outline-secondary" @onclick="RefreshPosts" title="Refresh">↻</button>
+        <button class="btn btn-outline-danger" @onclick="ClearPersonalizationAsync" title="Clear personal settings">Clear</button>
+    </div>
+
+    <!-- Paging: per-page + page number -->
+    <div class="input-group input-group-sm">
+        <span class="input-group-text">Per page</span>
+        <select class="form-select" value="@_pageSize" @onchange="OnPageSizeChanged">
+            <option value="10">10</option>
+            <option value="20">20</option>
+            <option value="50">50</option>
+            <option value="100">100</option>
+        </select>
+
+        <span class="input-group-text">Page</span>
+        <input class="form-control" style="max-width: 5rem" type="number" min="1"
+               value="@_page" @onchange="OnPageChanged" />
+        <span class="input-group-text">of @_totalPages</span>
     </div>
 
     <div class="list-group flex-grow-1 overflow-auto">
@@ -22,8 +41,8 @@
             @foreach (var p in _posts)
             {
                 <button type="button"
-                    class="list-group-item list-group-item-action @((SelectedId.HasValue && SelectedId.Value == p.Id) ? "active" : null)"
-                    @onclick="() => NavigateToPost(p.Id)">
+                        class="list-group-item list-group-item-action @((SelectedId.HasValue && SelectedId.Value == p.Id) ? "active" : null)"
+                        @onclick="() => NavigateToPost(p.Id)">
                     <div class="d-flex justify-content-between align-items-baseline">
                         <div class="fw-semibold text-truncate">@p.Title</div>
                         <small class="text-muted">@FormatLocal(p.ModifiedGmt)</small>

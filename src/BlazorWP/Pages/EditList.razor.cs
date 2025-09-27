@@ -2,17 +2,14 @@ using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
+using System.Net;
+using System.Net.Http;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
+using BlazorWP; // LocalStorageJsInterop
 using Editor.WordPress;
 using Microsoft.AspNetCore.Components;
-
-// WordPressPCL
-using WordPressPCL;
-using WordPressPCL.Models;
-// If you have the exceptions package/version available, uncomment the next line
-// using WordPressPCL.Exceptions;
 
 namespace BlazorWP.Pages;
 
@@ -23,8 +20,16 @@ public partial class EditList : IDisposable
 
     [Inject] private NavigationManager Nav { get; set; } = default!;
     [Inject] public IWordPressApiService Api { get; set; } = default!;
+    [Inject] private LocalStorageJsInterop Storage { get; set; } = default!;
 
     private sealed class RenderWrapper { public string? rendered { get; set; } public string? raw { get; set; } }
+    private sealed class WpListItem
+    {
+        public int id { get; set; }
+        public string? status { get; set; }
+        public string? modified_gmt { get; set; }
+        public RenderWrapper? title { get; set; }
+    }
     private sealed class PostListItem
     {
         public int Id { get; set; }
@@ -40,16 +45,35 @@ public partial class EditList : IDisposable
 
     private CancellationTokenSource? _loadCts;
 
-    private const int PerPage = 50;
-    private static readonly JsonSerializerOptions _jsonOptions = new()
+    // Personalization + paging
+    private int _pageSize = 10; // default
+    private int _page = 1;
+    private int _totalPages = 1;
+    private int _totalPosts = 0;
+    private string _orderBy = "modified"; // latest first by default
+    private string _order = "desc";
+
+    private static readonly JsonSerializerOptions _jsonOptions = new() { PropertyNameCaseInsensitive = true };
+
+    // LocalStorage keys
+    private const string KeySearch   = "editlist.search";
+    private const string KeyPageSize = "editlist.pagesize";
+    private const string KeyOrderBy  = "editlist.orderby";
+    private const string KeyOrder    = "editlist.order";
+
+    protected override async Task OnInitializedAsync()
     {
-        PropertyNameCaseInsensitive = true
-    };
+        await LoadPreferencesAsync();
+        await LoadPageAsync();
+    }
 
-    protected override async Task OnInitializedAsync() => await LoadPostsAsync();
+    private Task SearchAsync()
+    {
+        _page = 1; // new search starts at first page
+        return PersistPreferencesThenLoadAsync();
+    }
 
-    private Task SearchAsync() => LoadPostsAsync();
-    private Task RefreshPosts() => LoadPostsAsync();
+    private Task RefreshPosts() => LoadPageAsync();
 
     private void NavigateToPost(int id)
     {
@@ -70,9 +94,86 @@ public partial class EditList : IDisposable
         return modifiedGmt!;
     }
 
-    private async Task LoadPostsAsync()
+    // ----- UI events -----
+
+    private async Task OnPageSizeChanged(ChangeEventArgs e)
     {
-        // Cancel any in-flight request to avoid overlapping loads
+        if (int.TryParse(e.Value?.ToString(), out var n))
+        {
+            _pageSize = Math.Clamp(n, 10, 100);
+            _page = 1;
+            await PersistPreferencesThenLoadAsync();
+        }
+    }
+
+    private async Task OnPageChanged(ChangeEventArgs e)
+    {
+        if (int.TryParse(e.Value?.ToString(), out var p))
+        {
+            _page = Math.Max(1, p);
+            await LoadPageAsync();
+        }
+    }
+
+    private async Task ClearPersonalizationAsync()
+    {
+        try
+        {
+            await Storage.DeleteAsync(KeySearch);
+            await Storage.DeleteAsync(KeyPageSize);
+            await Storage.DeleteAsync(KeyOrderBy);
+            await Storage.DeleteAsync(KeyOrder);
+        }
+        catch { /* ignore JS exceptions */ }
+
+        _search = null;
+        _pageSize = 10;
+        _orderBy = "modified";
+        _order = "desc";
+        _page = 1;
+        await LoadPageAsync();
+    }
+
+    // ----- Prefs -----
+
+    private async Task LoadPreferencesAsync()
+    {
+        try
+        {
+            var savedSearch = await Storage.GetItemAsync(KeySearch);
+            if (!string.IsNullOrEmpty(savedSearch)) _search = savedSearch;
+
+            var savedSize = await Storage.GetItemAsync(KeyPageSize);
+            if (int.TryParse(savedSize, out var size)) _pageSize = Math.Clamp(size, 10, 100);
+
+            var savedOrderBy = await Storage.GetItemAsync(KeyOrderBy);
+            if (!string.IsNullOrWhiteSpace(savedOrderBy)) _orderBy = savedOrderBy!;
+
+            var savedOrder = await Storage.GetItemAsync(KeyOrder);
+            if (string.Equals(savedOrder, "asc", StringComparison.OrdinalIgnoreCase)) _order = "asc";
+        }
+        catch { /* ignore JS exceptions */ }
+    }
+
+    private async Task PersistPreferencesThenLoadAsync()
+    {
+        try
+        {
+            await Storage.SetItemAsync(KeySearch, _search ?? "");
+            await Storage.SetItemAsync(KeyPageSize, _pageSize.ToString(CultureInfo.InvariantCulture));
+            await Storage.SetItemAsync(KeyOrderBy, _orderBy);
+            await Storage.SetItemAsync(KeyOrder, _order);
+        }
+        catch { /* ignore JS exceptions */ }
+
+        await LoadPageAsync();
+    }
+
+    // ----- Data load: SINGLE PAGE ONLY -----
+
+    private async Task LoadPageAsync()
+    {
+        // cancel any in-flight request
         _loadCts?.Cancel();
         _loadCts = new CancellationTokenSource();
         var ct = _loadCts.Token;
@@ -83,94 +184,116 @@ public partial class EditList : IDisposable
         try
         {
             _posts.Clear();
-            var wp = await Api.GetClientAsync()
-                     ?? throw new InvalidOperationException("WordPress client is not initialized.");
 
+            // Ensure HttpClient is initialized via your WP service
+            _ = await Api.GetClientAsync();
+            var http = Api.HttpClient ?? throw new InvalidOperationException("WordPress HttpClient is not initialized.");
 
-            var baseRoute = $"wp/v2/posts?context=edit&_fields=id,title,modified_gmt,status&per_page={PerPage}";
+            var baseQuery = "/wp-json/wp/v2/posts?context=edit"
+                          + $"&_fields=id,title,modified_gmt,status"
+                          + $"&per_page={_pageSize}"
+                          + $"&orderby={_orderBy}&order={_order}";
+
             if (!string.IsNullOrWhiteSpace(_search))
-                baseRoute += "&search=" + Uri.EscapeDataString(_search.Trim());
+                baseQuery += "&search=" + Uri.EscapeDataString(_search.Trim());
 
-            // Preserve your original "any" behavior; if rejected, fall back to explicit statuses
             var statuses = "any";
-            var page = 1;
+            var attempts = 0;
 
             while (true)
             {
                 ct.ThrowIfCancellationRequested();
 
-                var route = $"{baseRoute}&status={statuses}&page={page}";
+                var url = $"{baseQuery}&status={statuses}&page={_page}";
+                using var resp = await http.GetAsync(url, HttpCompletionOption.ResponseHeadersRead, ct);
 
-                IList<Post>? pagePosts = null;
+                // Handle status=any fall-back and invalid page fall-back
+                if (resp.StatusCode == HttpStatusCode.BadRequest)
+                {
+                    var body = await resp.Content.ReadAsStringAsync(ct);
 
-                try
-                {
-                    // Uses the same HttpClient/auth as the WordPress client
-                    pagePosts = await wp.CustomRequest.GetAsync<IList<Post>>(route);
-                }
-                catch (Exception ex) // WPException/HttpRequestException/etc.
-                {
-                    // If server rejects "any", retry once with explicit statuses
-                    if (statuses == "any")
+                    // 1) If "any" is rejected, fall back to explicit statuses once
+                    if (statuses == "any" && attempts < 2)
                     {
                         statuses = "publish,draft,pending,private,future";
-                        continue; // retry this same page with explicit statuses
+                        attempts++;
+                        continue;
                     }
-                    // Otherwise rethrow; it's a real error (auth, network, etc.)
-                    throw new InvalidOperationException($"Failed to load posts: {ex.Message}", ex);
+
+                    // 2) If page is invalid, reset to 1 once
+                    if (_page > 1 && attempts < 3 &&
+                        (body.Contains("rest_post_invalid_page_number", StringComparison.OrdinalIgnoreCase) ||
+                         body.Contains("rest_invalid_page_number", StringComparison.OrdinalIgnoreCase)))
+                    {
+                        _page = 1;
+                        attempts++;
+                        continue;
+                    }
                 }
 
-                if (pagePosts is null || pagePosts.Count == 0)
-                    break;
+                resp.EnsureSuccessStatusCode();
 
-                foreach (var p in pagePosts)
+                // Totals for UI (if headers are present)
+                _totalPosts = TryParseHeader(resp, "X-WP-Total") ?? 0;
+                _totalPages = TryParseHeader(resp, "X-WP-TotalPages") ?? Math.Max(1, _page);
+
+                await using var stream = await resp.Content.ReadAsStreamAsync(ct);
+                var raw = await JsonSerializer.DeserializeAsync<List<WpListItem>>(stream, _jsonOptions, ct) ?? new();
+
+                if (raw.Count == 0 && _page > 1)
                 {
-                    // Title: prefer Raw (needs context=edit), then Rendered; guard before Trim()
-                    var titleRaw = p.Title?.Raw ?? p.Title?.Rendered;
-                    var title = string.IsNullOrWhiteSpace(titleRaw) ? "(untitled)" : titleRaw.Trim();
+                    // Graceful fall back to page 1 if page became meaningless
+                    _page = 1;
+                    attempts++;
+                    if (attempts <= 3) continue;
+                }
 
-                    // ModifiedGmt: DateTime (non-nullable) in this WPCL version
-                    var modifiedGmt = p.ModifiedGmt.ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ssZ");
-
+                foreach (var x in raw)
+                {
                     _posts.Add(new PostListItem
                     {
-                        Id = p.Id,
-                        Title = title,
-                        Status = p.Status.ToString().ToLowerInvariant(), // enum -> "publish", "draft", etc.
-                        ModifiedGmt = modifiedGmt
+                        Id = x.id,
+                        Title = ExtractTitle(x.title),
+                        Status = x.status,
+                        ModifiedGmt = x.modified_gmt
                     });
                 }
 
+                // If server didn’t send totals (rare), guess total pages for label
+                if (_totalPages <= 0)
+                    _totalPages = Math.Max(1, (_posts.Count > 0 ? _page : 1));
 
-                // No header access via CustomRequest; use a count heuristic
-                if (pagePosts.Count < PerPage)
-                    break;
-
-                page++;
+                break; // single-page load finished
             }
-
-            // Ensure newest-first if the API returns unsorted data
-            _posts.Sort((a, b) =>
-            {
-                static DateTime ParseOrMin(string? s) =>
-                    DateTime.TryParse(s, out var dt) ? dt : DateTime.MinValue;
-                return ParseOrMin(b.ModifiedGmt).CompareTo(ParseOrMin(a.ModifiedGmt));
-            });
-
         }
-        catch (OperationCanceledException)
-        {
-            // Swallow; superseded by a newer request
-        }
-        catch (Exception ex)
-        {
-            _error = ex.Message;
-        }
+        catch (OperationCanceledException) { /* ignored */ }
+        catch (Exception ex) { _error = ex.Message; }
         finally
         {
             _loadingPosts = false;
             StateHasChanged();
         }
+    }
+
+    private static int? TryParseHeader(HttpResponseMessage resp, string name)
+    {
+        if (resp.Headers.TryGetValues(name, out var values))
+        {
+            var v = values.FirstOrDefault();
+            if (int.TryParse(v, out var n)) return n;
+        }
+        return null;
+    }
+
+    private static string ExtractTitle(RenderWrapper? title)
+    {
+        var raw = title?.raw;
+        if (!string.IsNullOrWhiteSpace(raw)) return raw.Trim();
+
+        var rendered = title?.rendered;
+        if (!string.IsNullOrWhiteSpace(rendered)) return rendered.Trim();
+
+        return "(untitled)";
     }
 
     public void Dispose()
