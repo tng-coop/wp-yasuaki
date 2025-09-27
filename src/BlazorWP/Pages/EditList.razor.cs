@@ -83,8 +83,9 @@ public partial class EditList : IDisposable
         try
         {
             _posts.Clear();
+            var wp = await Api.GetClientAsync()
+                     ?? throw new InvalidOperationException("WordPress client is not initialized.");
 
-            var wp = await Api.GetClientAsync(); // WordPressClient (authenticated)
 
             var baseRoute = $"wp/v2/posts?context=edit&_fields=id,title,modified_gmt,status&per_page={PerPage}";
             if (!string.IsNullOrWhiteSpace(_search))
