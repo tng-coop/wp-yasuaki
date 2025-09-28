@@ -1,4 +1,4 @@
-// Edit.razor.cs (refactored to file-scoped namespace)
+// Edit.razor.cs (file-scoped namespace; minimal changes to add concurrency token)
 
 using System;
 using System.Collections.Generic;
@@ -18,7 +18,6 @@ public partial class Edit : ComponentBase
     [Inject] private NavigationManager Nav { get; set; } = default!;
     [Inject] public IWordPressApiService Api { get; set; } = default!;
     [Inject] private IWordPressEditingService Editing { get; set; } = default!;   // existing
-    // NOTE: IJSRuntime is assumed to be injected via @inject in the .razor (unchanged)
 
     private bool _isDirty;
     private string? Title;
@@ -62,7 +61,7 @@ public partial class Edit : ComponentBase
 
                 Title = page?.title?.raw ?? page?.title?.rendered ?? "";
                 Content = page?.content?.raw ?? page?.content?.rendered ?? "";
-                _modifiedGmt = page?.modified_gmt; // 🆕 capture token on load
+                _modifiedGmt = page?.modified_gmt;   // 🆕 capture token on load
                 _readOnly = false;
             }
             catch (AuthError ae) when (ae.StatusCode == HttpStatusCode.Forbidden)
@@ -77,7 +76,7 @@ public partial class Edit : ComponentBase
 
                 Title = page?.title?.rendered ?? "";
                 Content = page?.content?.rendered ?? "";
-                _modifiedGmt = page?.modified_gmt; // 🆕 still cache token in RO mode
+                _modifiedGmt = page?.modified_gmt;   // 🆕 still cache token in RO mode
                 _status = "Read-only: you don’t have permission to edit this post.";
                 _readOnly = true;
             }
@@ -146,29 +145,6 @@ public partial class Edit : ComponentBase
         }
     }
 
-    private Task NewPageAsync()
-    {
-        // Minimal: make this a no-ID new draft (creation happens on Save)
-        Id = null;
-        Title = "";
-        Content = "";
-        _modifiedGmt = null; // 🆕 reset token for new draft
-        _status = "New draft (no ID). Fill in and Save.";
-        Nav.NavigateTo("edit", replace: true);
-        return Task.CompletedTask;
-    }
-
-    // Minimal DTOs (match WP field casing; we deserialize case-insensitively)
-    private sealed class WpRender { public string? rendered { get; set; } public string? raw { get; set; } }
-    private sealed class WpPage
-    {
-        public int id { get; set; }
-        public string? status { get; set; }
-        public WpRender? title { get; set; }
-        public WpRender? content { get; set; }
-        public string? modified_gmt { get; set; }
-    }
-
     private async Task ForkAsync()
     {
         if (Id is not int id)
@@ -200,5 +176,28 @@ public partial class Edit : ComponentBase
             if (_list is not null) await _list.RefreshAsync();
             StateHasChanged();
         }
+    }
+
+    private Task NewPageAsync()
+    {
+        // Minimal: make this a no-ID new draft (creation happens on Save)
+        Id = null;
+        Title = "";
+        Content = "";
+        _modifiedGmt = null; // 🆕 reset token for new draft
+        _status = "New draft (no ID). Fill in and Save.";
+        Nav.NavigateTo("edit", replace: true);
+        return Task.CompletedTask;
+    }
+
+    // Minimal DTOs (match WP field casing; we deserialize case-insensitively)
+    private sealed class WpRender { public string? rendered { get; set; } public string? raw { get; set; } }
+    private sealed class WpPage
+    {
+        public int id { get; set; }
+        public string? status { get; set; }
+        public WpRender? title { get; set; }
+        public WpRender? content { get; set; }
+        public string? modified_gmt { get; set; }
     }
 }
