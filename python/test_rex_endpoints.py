@@ -74,16 +74,16 @@ def wp_post_get(pid: int, fields: Optional[str] = None) -> Dict[str, Any]:
     r = S.get(_u(f"/wp-json/wp/v2/posts/{pid}"), params=params, timeout=30)
     return _require_ok(r)
 
+def wp_post_publish(pid: int) -> Dict[str, Any]:
+    r = S.post(_u(f"/wp-json/wp/v2/posts/{pid}"), json={"status": "publish"}, timeout=30)
+    return _require_ok(r)
+
 def rex_fork(source_id: int, status: str = "draft") -> Dict[str, Any]:
     r = S.post(_u("/wp-json/rex/v1/fork"), json={"source_id": source_id, "status": status}, timeout=30)
     return _require_ok(r)
 
 def rex_save(pid: int, data: Dict[str, Any]) -> Dict[str, Any]:
     r = S.post(_u("/wp-json/rex/v1/save"), json={"id": pid, "data": data}, timeout=30)
-    return _require_ok(r)
-
-def rex_publish(staging_id: int) -> Dict[str, Any]:
-    r = S.post(_u("/wp-json/rex/v1/publish"), json={"staging_id": staging_id}, timeout=30)
     return _require_ok(r)
 
 def assert_equal(a: Any, b: Any, msg: str = "") -> None:
@@ -122,16 +122,18 @@ def test_2_save_conflict_creates_fork(orig_id: int) -> int:
     return new_draft_id
 
 def test_3_publish_overwrites_original(staging_id: int, orig_id: int) -> None:
-    print("[3] Publish staging to ORIGINAL via /rex/v1/publish ...")
-    pub_res = rex_publish(staging_id)
-    assert_true(pub_res.get("used_original") is True, "publish should overwrite original when original_post_id present")
-    assert_equal(int(pub_res["published_id"]), orig_id, "published_id should equal original id")
+    print("[3] Publish staging to ORIGINAL via core /wp/v2 ...")
+    wp_post_publish(staging_id)  # MU hook performs swap/untrash
 
-    # Verify title propagated
+    # Verify title propagated to original
     post = wp_post_get(orig_id, fields="id,title,content")
     title = post.get("title", {}).get("rendered", "")
     assert_true("REX Updated via conflict" in title or "REX Updated via conflict" == title, "original title should have been updated")
-    print(f"[3] OK published to original {orig_id} and updated content/title.")
+
+    # Staging should be trashed after swap
+    stg_after = wp_post_get(staging_id, fields="status")
+    assert_equal(stg_after.get("status"), "trash", f"staging should be trashed, got: {stg_after}")
+    print(f"[3] OK published to original {orig_id}, updated content/title, staging trashed.")
 
 def test_4_fork_from_draft_has_no_original() -> int:
     ts = int(time.time())
@@ -148,9 +150,9 @@ def test_4_fork_from_draft_has_no_original() -> int:
 
 def test_5_publish_without_original_publishes_self(staging_id: int) -> None:
     print("[5] Publish a staging that has NO original (should publish itself)...")
-    pub_res = rex_publish(staging_id)
-    assert_true(pub_res.get("used_original") is False, "publish should not use original when none present")
-    assert_equal(int(pub_res["published_id"]), staging_id, "published_id should equal staging id")
+    wp_post_publish(staging_id)
+    after = wp_post_get(staging_id, fields="id,status")
+    assert_equal(after.get("status"), "publish", f"staging should be published: {after}")
     print(f"[5] OK published {staging_id} as itself.")
 
 def main() -> None:

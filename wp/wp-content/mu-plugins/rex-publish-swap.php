@@ -15,14 +15,24 @@ function rex_on_publish_swap($new, $old, $post) {
   $orig_id    = (int) get_post_meta($staging_id, '_rex_original_post_id', true);
   if (!$orig_id) return;                                               // Not a fork → nothing to do
 
+  // If the ORIGINAL was hard-deleted, keep staging published and CLEAR linkage meta.
+  $orig_status = get_post_status($orig_id); // false when post no longer exists
+  if ($orig_status === false) {
+    delete_post_meta($staging_id, '_rex_original_post_id');
+    return; // leave staging as its own published post
+  }
+
   // Capability checks (type-aware).
   $type = get_post_type($orig_id);
-  $caps = get_post_type_object($type)->cap;
+  $pto  = $type ? get_post_type_object($type) : null;
+  if (!$pto) return; // safety
+  $caps = $pto->cap;
+
   if (!current_user_can('edit_post', $orig_id) || !current_user_can($caps->publish_posts)) return;
   if (!current_user_can('delete_post', $staging_id)) return;
 
   // If the original is in trash, bring it back first.
-  if (get_post_status($orig_id) === 'trash') {
+  if ($orig_status === 'trash') {
     if (!current_user_can('delete_post', $orig_id)) return;
     wp_untrash_post($orig_id);
   }

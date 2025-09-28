@@ -118,8 +118,8 @@ def rex_save(pid: int, data: Dict[str, Any]) -> Dict[str, Any]:
     return _require_ok(r)
 
 
-def rex_publish(staging_id: int) -> Dict[str, Any]:
-    r = S.post(_u("/wp-json/rex/v1/publish"), json={"staging_id": staging_id}, timeout=30)
+def wp_post_publish(pid: int) -> Dict[str, Any]:
+    r = S.post(_u(f"/wp-json/wp/v2/posts/{pid}"), json={"status": "publish"}, timeout=30)
     return _require_ok(r)
 
 
@@ -207,11 +207,9 @@ def test_c_publish_untrash_overwrite() -> None:
     # Trash the original
     wp_post_delete(orig_id, force=False)
 
-    # Update staging then publish
+    # Update staging then publish (via core endpoint)
     rex_save(stg_id, {"post_title": f"REX Untrash New {ts}", "post_content": "updated before publish"})
-    pub = rex_publish(stg_id)
-    assert_true(pub.get("used_original") is True)
-    assert_equal(int(pub["published_id"]), orig_id)
+    wp_post_publish(stg_id)
 
     post = wp_post_get(orig_id, fields="id,status,title")
     assert_equal(post.get("status"), "publish")
@@ -234,9 +232,8 @@ def test_d_publish_hard_deleted_original_fallback() -> None:
     # Hard delete original
     wp_post_delete(orig_id, force=True)
 
-    pub = rex_publish(stg_id)
-    assert_true(pub.get("used_original") is False)
-    assert_equal(int(pub["published_id"]), stg_id)
+    # Publish staging via core endpoint
+    wp_post_publish(stg_id)
 
     # Ensure original meta was cleared on the staging post promoted to publish
     post = wp_post_get(stg_id, fields="id,status,title,meta")
