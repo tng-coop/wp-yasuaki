@@ -25,7 +25,8 @@
                 JsConfSrc="myTinyMceConfig" @bind-Value="Content" />
         </div>
 
-        <EditSave isDirty="_isDirty" Saving="_saving" Status="_status" OnSave="SaveAsync" />
+        <EditSave isDirty="_isDirty" Saving="_saving" Status="_status" OnSave="SaveAsync" OnFork="ForkAsync"
+            CanFork="@(Id is int)" Forking="_forking" />
     </RadzenSplitterPane>
 </RadzenSplitter>
 <MediaPopup @ref="_mediaPopup" />
