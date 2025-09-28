@@ -19,7 +19,8 @@ namespace Editor.Tests
     /// <summary>
     /// End-to-end tests for WordPressEditingService against a real WordPress instance.
     /// Env vars required: WP_BASE_URL, WP_USERNAME, WP_APP_PASSWORD.
-    /// No mocks; these tests use the live REX endpoints via the service.
+    /// No mocks; these tests use the live REX endpoints via the service for fork/save,
+    /// and the core WP /wp/v2 endpoint for publish (server-side hook handles swap/trash).
     ///
     /// xUnit v2 note: we "early return" when not configured (tests will show as Passed).
     /// </summary>
@@ -154,9 +155,8 @@ namespace Editor.Tests
             int draftId = saveRes.Id;
             _wp.RegisterPost(draftId); // ensure cleanup of forked draft (later trashed)
 
-            var pubRes = await editing.PublishAsync(draftId);
-            Assert.True(pubRes.UsedOriginal);
-            Assert.Equal(origId, pubRes.PublishedId);
+            // Publish via core endpoint; MU hook performs swap/untrash.
+            await _wp.PublishPostAsync(draftId);
 
             var orig = await _wp.GetPostAsync(origId, "status,title,content");
             Assert.Equal("publish", orig.Status);
@@ -201,9 +201,8 @@ namespace Editor.Tests
                 id: stgId
             );
 
-            var pubRes = await editing.PublishAsync(stgId);
-            Assert.True(pubRes.UsedOriginal);
-            Assert.Equal(origId, pubRes.PublishedId);
+            // Publish via core endpoint; MU hook performs swap/untrash.
+            await _wp.PublishPostAsync(stgId);
 
             var orig = await _wp.GetPostAsync(origId, "status,title");
             Assert.Equal("publish", orig.Status);
@@ -233,9 +232,8 @@ namespace Editor.Tests
 
             await _wp.DeletePostAsync(origId, force: true);
 
-            var pubRes = await editing.PublishAsync(stgId);
-            Assert.False(pubRes.UsedOriginal);
-            Assert.Equal(stgId, pubRes.PublishedId);
+            // Publish via core endpoint; MU hook should clear _rex_original_post_id and keep self published.
+            await _wp.PublishPostAsync(stgId);
 
             var nowPublished = await _wp.GetPostAsync(stgId, "status,meta");
             Assert.Equal("publish", nowPublished.Status);
@@ -422,7 +420,6 @@ namespace Editor.Tests
             return id;
         }
 
-
         public async Task DeletePostAsync(int id, bool force)
         {
             var res = await Client!.DeleteAsync($"wp/v2/posts/{id}?force={(force ? "true" : "false")}").ConfigureAwait(false);
@@ -461,6 +458,13 @@ namespace Editor.Tests
             };
 
             return id;
+        }
+
+        public async Task PublishPostAsync(int id)
+        {
+            // Standard publish via core /wp/v2; MU hook handles swap/untrash/clear-meta.
+            var res = await Client!.PostAsJsonAsync($"wp/v2/posts/{id}", new { status = "publish" }).ConfigureAwait(false);
+            res.EnsureSuccessStatusCode();
         }
     }
 

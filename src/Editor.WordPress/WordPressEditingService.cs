@@ -22,7 +22,6 @@ public interface IWordPressEditingService
         int? id = null,
         string postType = "post",
         CancellationToken ct = default);
-    Task<PublishResponse> PublishAsync(int stagingId, CancellationToken ct = default);
 }
 
 /// <summary>
@@ -83,13 +82,7 @@ public sealed class WordPressEditingService : IWordPressEditingService
 
 
 
-    // 5) Publish Post
-    public async Task<PublishResponse> PublishAsync(int stagingId, CancellationToken ct = default)
-    {
-        var body = new { staging_id = stagingId };
-        var res = await _wp.PostJsonAsync<PublishResponse>("wp-json/rex/v1/publish", body, ct);
-        return res ?? throw new InvalidOperationException("Publish returned no content");
-    }
+
 }
 
 // ===== Request/Responso DTOs =====
