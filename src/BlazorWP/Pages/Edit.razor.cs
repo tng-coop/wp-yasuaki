@@ -1,4 +1,4 @@
-// Edit.razor.cs (file-scoped namespace; minimal changes to add concurrency token)
+// Edit.razor.cs (file-scoped namespace; concurrency token normalized + re-entrancy guards)
 
 using System;
 using System.Collections.Generic;
@@ -17,7 +17,7 @@ public partial class Edit : ComponentBase
 
     [Inject] private NavigationManager Nav { get; set; } = default!;
     [Inject] public IWordPressApiService Api { get; set; } = default!;
-    [Inject] private IWordPressEditingService Editing { get; set; } = default!;   // existing
+    [Inject] private IWordPressEditingService Editing { get; set; } = default!;
 
     private bool _isDirty;
     private string? Title;
@@ -30,8 +30,18 @@ public partial class Edit : ComponentBase
     private bool _applyReadOnlyPending;
     private EditList? _list;
 
-    // 🆕 concurrency token from server (UTC)
+    // Concurrency token from server (UTC)
     private string? _modifiedGmt;
+
+    // Normalize any ISO-ish value to DB-style "YYYY-MM-DD HH:MM:SS"
+    private static string? NormalizeToDbFormat(string? token)
+    {
+        if (string.IsNullOrWhiteSpace(token)) return token;
+        var s = token.Trim().Replace('T', ' ');
+        if (s.EndsWith("Z", StringComparison.OrdinalIgnoreCase)) s = s[..^1];
+        if (s.Length >= 19) s = s.Substring(0, 19);
+        return s;
+    }
 
     protected override async Task OnParametersSetAsync()
     {
@@ -61,7 +71,7 @@ public partial class Edit : ComponentBase
 
                 Title = page?.title?.raw ?? page?.title?.rendered ?? "";
                 Content = page?.content?.raw ?? page?.content?.rendered ?? "";
-                _modifiedGmt = page?.modified_gmt;   // 🆕 capture token on load
+                _modifiedGmt = NormalizeToDbFormat(page?.modified_gmt); // capture normalized token
                 _readOnly = false;
             }
             catch (AuthError ae) when (ae.StatusCode == HttpStatusCode.Forbidden)
@@ -76,7 +86,7 @@ public partial class Edit : ComponentBase
 
                 Title = page?.title?.rendered ?? "";
                 Content = page?.content?.rendered ?? "";
-                _modifiedGmt = page?.modified_gmt;   // 🆕 still cache token in RO mode
+                _modifiedGmt = NormalizeToDbFormat(page?.modified_gmt); // keep token even in RO mode
                 _status = "Read-only: you don’t have permission to edit this post.";
                 _readOnly = true;
             }
@@ -89,7 +99,7 @@ public partial class Edit : ComponentBase
         {
             Title ??= "";
             Content ??= "";
-            _modifiedGmt = null; // 🆕 new draft => no token yet
+            _modifiedGmt = null; // new draft => no token yet
             _readOnly = false;
             _applyReadOnlyPending = true;
         }
@@ -97,11 +107,15 @@ public partial class Edit : ComponentBase
 
     private async Task SaveAsync()
     {
+        if (_saving) return; // re-entrancy guard
         _saving = true;
         _status = null;
+
         try
         {
             // Build the SaveData payload. For creates (no Id) we default to draft.
+            var expectedToSend = Id is int ? NormalizeToDbFormat(_modifiedGmt) : null;
+
             var data = new SaveData(
                 Title: Title ?? "",
                 Content: Content ?? "",
@@ -110,8 +124,7 @@ public partial class Edit : ComponentBase
                 Slug: null,
                 Meta: null,
                 TaxInput: null,
-                // 🆕 send concurrency token on update so server can detect conflicts and fork if needed
-                ExpectedModifiedGmt: Id is int ? _modifiedGmt : null
+                ExpectedModifiedGmt: expectedToSend
             );
 
             // Use the unified service method:
@@ -128,8 +141,8 @@ public partial class Edit : ComponentBase
 
             _status = (res.Forked ?? false) ? $"Saved (forked to #{res.Id})." : "Saved.";
 
-            // 🆕 refresh token from server response (critical for next round-trip)
-            _modifiedGmt = res.ModifiedGmt;
+            // Refresh token from server response (already in DB format)
+            _modifiedGmt = NormalizeToDbFormat(res.ModifiedGmt);
         }
         catch (Exception ex)
         {
@@ -147,6 +160,7 @@ public partial class Edit : ComponentBase
 
     private async Task ForkAsync()
     {
+        if (_forking) return; // re-entrancy guard
         if (Id is not int id)
         {
             _status = "Nothing to fork yet.";
@@ -160,7 +174,7 @@ public partial class Edit : ComponentBase
         {
             var res = await Editing.ForkAsync(id);
             Id = res.Id;
-            _modifiedGmt = res.ModifiedGmt; // 🆕 keep token valid immediately after fork
+            _modifiedGmt = NormalizeToDbFormat(res.ModifiedGmt); // keep token valid immediately after fork
             Nav.NavigateTo($"edit/{res.Id}", replace: true);
             _status = $"Forked to #{res.Id}.";
         }
@@ -184,7 +198,7 @@ public partial class Edit : ComponentBase
         Id = null;
         Title = "";
         Content = "";
-        _modifiedGmt = null; // 🆕 reset token for new draft
+        _modifiedGmt = null; // reset token for new draft
         _status = "New draft (no ID). Fill in and Save.";
         Nav.NavigateTo("edit", replace: true);
         return Task.CompletedTask;
