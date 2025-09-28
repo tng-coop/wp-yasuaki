@@ -27,29 +27,29 @@ window.BlazorBridge = {
             ed.setDirty(!!dirty);      // TinyMCE 6+
         }
     },
-setReadOnly(editorId, ro) {
-  // Remember desired state even if TinyMCE isn't ready yet
-  this._isReadOnly = !!ro;
+    setReadOnly(editorId, ro) {
+        // Remember desired state even if TinyMCE isn't ready yet
+        this._isReadOnly = !!ro;
 
-  const apply = () => {
-    if (typeof window.tinymce === 'undefined') return false;           // TinyMCE script not loaded yet
-    const ed = editorId ? window.tinymce.get(editorId) : window.tinymce.activeEditor;
-    if (!ed) return false;                                             // Editor instance not created yet
+        const apply = () => {
+            if (typeof window.tinymce === 'undefined') return false;           // TinyMCE script not loaded yet
+            const ed = editorId ? window.tinymce.get(editorId) : window.tinymce.activeEditor;
+            if (!ed) return false;                                             // Editor instance not created yet
 
-    const mode = ro ? 'readonly' : 'design';
-    if (ed.mode && typeof ed.mode.set === 'function') ed.mode.set(mode); // TinyMCE 5/6 API
-    else if (typeof ed.setMode === 'function') ed.setMode(mode);         // older API
-    return true;
-  };
+            const mode = ro ? 'readonly' : 'design';
+            if (ed.mode && typeof ed.mode.set === 'function') ed.mode.set(mode); // TinyMCE 5/6 API
+            else if (typeof ed.setMode === 'function') ed.setMode(mode);         // older API
+            return true;
+        };
 
-  // Try now; if not ready, retry briefly until TinyMCE & editor exist
-  if (!apply()) {
-    let tries = 0;
-    const iv = setInterval(() => {
-      if (apply() || ++tries > 100) clearInterval(iv); // ~5s max (100 * 50ms)
-    }, 50);
-  }
-},
+        // Try now; if not ready, retry briefly until TinyMCE & editor exist
+        if (!apply()) {
+            let tries = 0;
+            const iv = setInterval(() => {
+                if (apply() || ++tries > 100) clearInterval(iv); // ~5s max (100 * 50ms)
+            }, 50);
+        }
+    },
 
     isReadOnly() { return !!this._isReadOnly; },
     // Notify Blazor that a save was triggered, passing the HTML
