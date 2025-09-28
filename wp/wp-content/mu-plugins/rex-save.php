@@ -43,7 +43,7 @@ final class REX_Save_API {
                 return current_user_can('edit_posts');
             },
             'args' => [
-                // 👇 id now optional; post_type optional (default 'post')
+                // 👇 id optional; post_type optional (default 'post')
                 'id'        => ['required' => false, 'type' => 'integer'],
                 'post_type' => ['required' => false, 'type' => 'string', 'default' => 'post'],
                 'data'      => ['required' => true,  'type' => 'object'],
@@ -51,13 +51,31 @@ final class REX_Save_API {
         ]);
     }
 
-    /** Determine the root original per spec (3a/3b). */
+    /** Determine the root original. Always fall back to the current post id. */
     private static function root_original_id(int $post_id) : int {
         $orig = (int) get_post_meta($post_id, self::META_ORIGINAL, true);
-        if ($orig) { return $orig; }
-        $p = get_post($post_id);
-        if ($p && $p->post_status === 'publish') { return (int) $p->ID; }
-        return 0;
+        return $orig ?: (int) $post_id;
+    }
+
+    /**
+     * Ensure the DB has a non-zero post_modified_gmt and return it.
+     * If it is zero/empty, set it to "now" and commit via wp_update_post
+     * so future concurrency checks match what we return here.
+     */
+    private static function normalize_modified_gmt(int $post_id) : string {
+        $mgmt = (string) get_post_field('post_modified_gmt', $post_id);
+        if ($mgmt !== '' && $mgmt !== '0000-00-00 00:00:00') {
+            return $mgmt;
+        }
+        $mgmt = current_time('mysql', true);              // UTC
+        $mlocal = get_date_from_gmt($mgmt);               // site timezone string
+        // Persist both modified fields so subsequent reads see exactly this value.
+        wp_update_post([
+            'ID'                => $post_id,
+            'post_modified_gmt' => $mgmt,
+            'post_modified'     => $mlocal,
+        ]);
+        return $mgmt;
     }
 
     /** Duplicate taxonomies from one post to another. */
@@ -105,11 +123,11 @@ final class REX_Save_API {
         // Creation path (no id yet)
         if ($id <= 0) {
             $insert = [
-                'post_type'   => $post_type ?: 'post',
-                'post_status' => array_key_exists('post_status', $data) ? $data['post_status'] : 'draft',
-                'post_title'  => array_key_exists('post_title',  $data) ? $data['post_title']  : '',
-                'post_content'=> array_key_exists('post_content',$data) ? $data['post_content']: '',
-                'post_author' => get_current_user_id(),
+                'post_type'    => $post_type ?: 'post',
+                'post_status'  => array_key_exists('post_status', $data) ? $data['post_status'] : 'draft',
+                'post_title'   => array_key_exists('post_title',  $data) ? $data['post_title']  : '',
+                'post_content' => array_key_exists('post_content',$data) ? $data['post_content']: '',
+                'post_author'  => get_current_user_id(),
             ];
             if (array_key_exists('post_name', $data)) {
                 $insert['post_name'] = $data['post_name'];
@@ -135,13 +153,16 @@ final class REX_Save_API {
                 }
             }
 
+            // Ensure DB has a real modified_gmt and return exactly that.
+            $mgmt = self::normalize_modified_gmt($new_id);
+
             return rest_ensure_response([
-                'id'            => $new_id,
-                'status'        => get_post_status($new_id),
-                'saved'         => true,
-                'forked'        => false,
+                'id'               => $new_id,
+                'status'           => get_post_status($new_id),
+                'saved'            => true,
+                'forked'           => false,
                 'original_post_id' => null,
-                'modified_gmt'  => (string) get_post($new_id)->post_modified_gmt,
+                'modified_gmt'     => $mgmt,
             ]);
         }
 
@@ -158,7 +179,7 @@ final class REX_Save_API {
         // Optional optimistic concurrency using modified_gmt
         $expected = isset($data['expected_modified_gmt']) ? (string) $data['expected_modified_gmt'] : '';
         if ($expected !== '') {
-            $cur_gmt = (string) $existing->post_modified_gmt; // GMT string
+            $cur_gmt = (string) $existing->post_modified_gmt; // must match DB value
             if ($cur_gmt !== $expected) {
                 return self::fork_on_save_failure($id, $data, 'conflict');
             }
@@ -224,13 +245,16 @@ final class REX_Save_API {
             delete_post_meta($new_id, self::META_ORIGINAL);
         }
 
+        // Normalize and persist modified_gmt so the client token will match DB.
+        $mgmt = self::normalize_modified_gmt($new_id);
+
         return rest_ensure_response([
-            'id' => $new_id,
-            'status' => get_post_status($new_id),
-            'forked' => true,
-            'reason' => $reason,
-            'original_post_id' => $root_original_id ?: null,
-            'modified_gmt' => (string) get_post($new_id)->post_modified_gmt,
+            'id'               => $new_id,
+            'status'           => get_post_status($new_id),
+            'forked'           => true,
+            'reason'           => $reason,
+            'original_post_id' => $root_original_id, // always concrete
+            'modified_gmt'     => $mgmt,
         ]);
     }
 }
