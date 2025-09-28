@@ -1,10 +1,14 @@
+using System;
 using System.Collections.Concurrent;
 using System.Net;
+using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using System.Threading.Tasks;
+using Xunit;
 
 // real implementations
 using Editor.WordPress;
@@ -109,9 +113,11 @@ namespace Editor.Tests
             });
 
             var f1 = await editing.ForkAsync(origId);
+            _wp.RegisterPost(f1.Id); // ensure cleanup
             Assert.Equal(origId, f1.OriginalPostId ?? 0);
 
             var f2 = await editing.ForkAsync(f1.Id);
+            _wp.RegisterPost(f2.Id); // ensure cleanup
             Assert.Equal(origId, f2.OriginalPostId ?? 0);
         }
 
@@ -146,6 +152,7 @@ namespace Editor.Tests
             Assert.True(saveRes.Forked);
             Assert.Equal(origId, saveRes.OriginalPostId);
             int draftId = saveRes.Id;
+            _wp.RegisterPost(draftId); // ensure cleanup of forked draft (later trashed)
 
             var pubRes = await editing.PublishAsync(draftId);
             Assert.True(pubRes.UsedOriginal);
@@ -176,6 +183,7 @@ namespace Editor.Tests
 
             var staging = await editing.ForkAsync(origId);
             int stgId = staging.Id;
+            _wp.RegisterPost(stgId); // staging will be trashed on publish; ensure cleanup
 
             await _wp.DeletePostAsync(origId, force: false);
 
@@ -192,7 +200,6 @@ namespace Editor.Tests
                 ),
                 id: stgId
             );
-
 
             var pubRes = await editing.PublishAsync(stgId);
             Assert.True(pubRes.UsedOriginal);
@@ -222,6 +229,7 @@ namespace Editor.Tests
 
             var staging = await editing.ForkAsync(origId);
             int stgId = staging.Id;
+            _wp.RegisterPost(stgId); // staging becomes published; ensure cleanup
 
             await _wp.DeletePostAsync(origId, force: true);
 
@@ -327,6 +335,7 @@ namespace Editor.Tests
             });
 
             var fork = await editing.ForkAsync(origId);
+            _wp.RegisterPost(fork.Id); // ensure cleanup
             var fp = await _wp.GetPostAsync(fork.Id, "id,categories");
             int[] cats = fp.Categories ?? Array.Empty<int>();
             Assert.Contains(catId, cats);
