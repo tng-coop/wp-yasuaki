@@ -51,7 +51,7 @@ public sealed class WordPressEditingService : IWordPressEditingService
     {
         if (data is null) throw new ArgumentNullException(nameof(data));
 
-        // Defensive: never send the server-managed original pointer
+        // strip server-managed marker defensively
         const string OriginalMetaKey = "_rex_original_post_id";
         if (data.Meta is not null && data.Meta.ContainsKey(OriginalMetaKey))
         {
@@ -63,18 +63,24 @@ public sealed class WordPressEditingService : IWordPressEditingService
             };
         }
 
-        // Build payload with exact wire keys. Only include post_type on create.
-        var payload = new Dictionary<string, object?>
+        // Build payload
+        var payload = new Dictionary<string, object?> { ["data"] = data };
+
+        if (id.HasValue)
         {
-            ["id"] = id,
-            ["data"] = data
-        };
-        if (id is null)
+            // UPDATE: include id, omit post_type
+            payload["id"] = id.Value;
+        }
+        else
+        {
+            // CREATE: omit id, include post_type
             payload["post_type"] = string.IsNullOrWhiteSpace(postType) ? "post" : postType;
+        }
 
         var res = await _wp.PostJsonAsync<SaveResponse>("wp-json/rex/v1/save", payload, ct);
         return res ?? throw new InvalidOperationException("Save returned no content");
     }
+
 
 
     // 5) Publish Post
