@@ -15,6 +15,11 @@ CONTRIB_USER="${CONTRIB_USER:-contributor}"
 CONTRIB_EMAIL="${CONTRIB_EMAIL:-contributor@example.com}"
 CONTRIB_PASS="${CONTRIB_PASS:-a}"
 
+# Editor user (override via env if desired)
+EDITOR_USER="${EDITOR_USER:-editor}"
+EDITOR_EMAIL="${EDITOR_EMAIL:-editor@example.com}"
+EDITOR_PASS="${EDITOR_PASS:-a}"
+
 cd "$WP_PATH"
 
 wp db reset --yes 1>&2 || true
@@ -32,13 +37,20 @@ wp user create "$CONTRIB_USER" "$CONTRIB_EMAIL" \
   --role=contributor \
   --user_pass="$CONTRIB_PASS" 1>&2
 
+# Create editor-role user
+wp user create "$EDITOR_USER" "$EDITOR_EMAIL" \
+  --role=editor \
+  --user_pass="$EDITOR_PASS" 1>&2
+
 # Application passwords (porcelain = raw token only)
 export WP_APP_PASSWORD="$(wp user application-password create "$ADMIN_USER" "$APP_NAME" --porcelain)"
 export WP_APP_CONTRIBUTOR="$(wp user application-password create "$CONTRIB_USER" "$APP_NAME" --porcelain)"
+export WP_APP_EDITOR="$(wp user application-password create "$EDITOR_USER" "$APP_NAME" --porcelain)"
 
 if [ -n "${GITHUB_OUTPUT:-}" ]; then
   echo "WP_APP_PASSWORD=$WP_APP_PASSWORD" >> "$GITHUB_OUTPUT"   # <-- keep this key
   echo "WP_APP_CONTRIBUTOR=$WP_APP_CONTRIBUTOR" >> "$GITHUB_OUTPUT"
+  echo "WP_APP_EDITOR=$WP_APP_EDITOR" >> "$GITHUB_OUTPUT"
 fi
 
 # ~/.bashrc update (optional in CI)
@@ -53,5 +65,10 @@ if [ -f "$BASHRC" ]; then
     sed -i.bak "s|^export WP_APP_CONTRIBUTOR=.*|export WP_APP_CONTRIBUTOR=\"$WP_APP_CONTRIBUTOR\"|" "$BASHRC" && rm -f "$BASHRC.bak"
   else
     echo "export WP_APP_CONTRIBUTOR=\"$WP_APP_CONTRIBUTOR\"" >> "$BASHRC"
+  fi
+  if grep -q '^export WP_APP_EDITOR=' "$BASHRC"; then
+    sed -i.bak "s|^export WP_APP_EDITOR=.*|export WP_APP_EDITOR=\"$WP_APP_EDITOR\"|" "$BASHRC" && rm -f "$BASHRC.bak"
+  else
+    echo "export WP_APP_EDITOR=\"$WP_APP_EDITOR\"" >> "$BASHRC"
   fi
 fi
