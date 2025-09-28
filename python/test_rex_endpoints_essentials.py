@@ -1,13 +1,14 @@
 #!/usr/bin/env python3
-# Path: tests/test_rex_endpoints_essentials.py
+# Path: python/test_rex_endpoints_essentials.py
 """
-Additional essential tests for the custom REX WordPress endpoints.
+Essential tests for REX WordPress flows.
 
 Covers:
-- Save success path (no fork, with and without optimistic concurrency)
+- Save success path (no fork, with optimistic concurrency)
 - Fork-of-fork always points to the root original
-- Publish untrashes and overwrites the original
-- Publish with hard-deleted original falls back to publishing staging itself and clears original meta
+- Publish (including pending→publish):
+    * Untrash & overwrite original, then trash staging
+    * Hard-deleted original → publish staging as itself and CLEAR _rex_original_post_id
 - Negative: fork non-existent source -> 404
 - Save ignores client-provided _rex_original_post_id meta
 - Taxonomy copy on fork (categories)
@@ -19,7 +20,7 @@ Optional:
 
 Run:
   pip install -r requirements.txt
-  WP_BASE_URL=https://wp.lan WP_USERNAME=admin WP_APP_PASSWORD=xxxx python tests/test_rex_endpoints_essentials.py
+  WP_BASE_URL=https://wp.lan WP_USERNAME=admin WP_APP_PASSWORD=xxxx python python/test_rex_endpoints_essentials.py
 """
 import os
 import sys
@@ -99,6 +100,11 @@ def wp_post_delete(pid: int, force: bool = False) -> Dict[str, Any]:
     return data
 
 
+def wp_post_publish(pid: int) -> Dict[str, Any]:
+    r = S.post(_u(f"/wp-json/wp/v2/posts/{pid}"), json={"status": "publish"}, timeout=30)
+    return _require_ok(r)
+
+
 def wp_category_create(name: str) -> Dict[str, Any]:
     r = S.post(_u("/wp-json/wp/v2/categories"), json={"name": name}, timeout=30)
     return _require_ok(r)
@@ -115,11 +121,6 @@ def rex_fork_raw(source_id: int, status: str = "draft") -> requests.Response:
 
 def rex_save(pid: int, data: Dict[str, Any]) -> Dict[str, Any]:
     r = S.post(_u("/wp-json/rex/v1/save"), json={"id": pid, "data": data}, timeout=30)
-    return _require_ok(r)
-
-
-def wp_post_publish(pid: int) -> Dict[str, Any]:
-    r = S.post(_u(f"/wp-json/wp/v2/posts/{pid}"), json={"status": "publish"}, timeout=30)
     return _require_ok(r)
 
 
@@ -197,7 +198,7 @@ def test_b_fork_of_fork_points_to_root() -> None:
 
 def test_c_publish_untrash_overwrite() -> None:
     ts = int(time.time())
-    print("[C] Publish should untrash and overwrite original...")
+    print("[C] Publish should untrash and overwrite original (pending→publish included)...")
     orig = wp_post_create({"title": f"REX Untrash {ts}", "content": "live", "status": "publish"})
     orig_id = int(orig["id"])
 
@@ -207,8 +208,12 @@ def test_c_publish_untrash_overwrite() -> None:
     # Trash the original
     wp_post_delete(orig_id, force=False)
 
-    # Update staging then publish (via core endpoint)
-    rex_save(stg_id, {"post_title": f"REX Untrash New {ts}", "post_content": "updated before publish"})
+    # Update staging and mark as PENDING, then publish via core endpoint
+    rex_save(stg_id, {
+        "post_status": "pending",
+        "post_title": f"REX Untrash New {ts}",
+        "post_content": "updated before publish"
+    })
     wp_post_publish(stg_id)
 
     post = wp_post_get(orig_id, fields="id,status,title")
@@ -222,7 +227,7 @@ def test_c_publish_untrash_overwrite() -> None:
 
 def test_d_publish_hard_deleted_original_fallback() -> None:
     ts = int(time.time())
-    print("[D] Publish should fallback to self when original hard-deleted, and clear meta...")
+    print("[D] Publish should fallback to self when original hard-deleted, and clear meta (pending→publish included)...")
     orig = wp_post_create({"title": f"REX HardDel {ts}", "content": "live", "status": "publish"})
     orig_id = int(orig["id"])
 
@@ -232,11 +237,13 @@ def test_d_publish_hard_deleted_original_fallback() -> None:
     # Hard delete original
     wp_post_delete(orig_id, force=True)
 
-    # Publish staging via core endpoint
+    # Mark staging as PENDING then publish via core endpoint
+    rex_save(stg_id, {"post_status": "pending"})
     wp_post_publish(stg_id)
 
     # Ensure original meta was cleared on the staging post promoted to publish
     post = wp_post_get(stg_id, fields="id,status,title,meta")
+    assert_equal(post.get("status"), "publish")
     val = (post.get("meta") or {}).get("_rex_original_post_id")
     assert_true(val in (None, 0, "0", ""), "original meta should be cleared on fallback publish")
     print(f"[D] OK published staging {stg_id} as new and cleared meta")
