@@ -42,6 +42,7 @@ namespace BlazorWP
             builder.Services.AddLocalization(options => options.ResourcesPath = "Resources");
             builder.Services.AddSingleton<LanguageService>();
             builder.Services.AddSingleton<AppFlags>();
+            builder.Services.AddSingleton<IWordPressEditingService, WordPressEditingService>();
 
             builder.Services.AddIndexedDB(db =>
             {

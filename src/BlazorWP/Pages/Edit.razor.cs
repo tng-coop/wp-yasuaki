@@ -14,7 +14,7 @@ namespace BlazorWP.Pages
 
         [Inject] public NavigationManager Nav { get; set; } = default!;
         [Inject] public IWordPressApiService Api { get; set; } = default!;
-
+        [Inject] public IWordPressEditingService Editing { get; set; } = default!;   // <-- added
 
         private bool _isDirty;
         private string? Title;
@@ -39,11 +39,10 @@ namespace BlazorWP.Pages
                 {
                     // Non-existent ID → go to create mode (/edit)
                     Nav.NavigateTo("edit", replace: true);
-                    return; // stop further processing
+                    return;
                 }
 
                 resp.EnsureSuccessStatusCode();
-
 
                 var page = await System.Text.Json.JsonSerializer.DeserializeAsync<WpPage>(
                     await resp.Content.ReadAsStreamAsync(),
@@ -70,61 +69,32 @@ namespace BlazorWP.Pages
             _status = null;
             try
             {
-                _ = await Api.GetClientAsync();
-                var http = Api.HttpClient ?? throw new InvalidOperationException("WordPress HttpClient is not initialized.");
-
-                // Build rex save payload (id omitted when creating)
-                var data = new Dictionary<string, object?>
-                {
-                    ["post_title"] = Title ?? "",
-                    ["post_content"] = Content ?? "",
-                    // leave status null for updates; use "draft" on create below
-                };
-
-                var payload = new Dictionary<string, object?>
-                {
-                    ["data"] = data,
-                    ["post_type"] = "post"
-                };
-
-                if (Id is int id)
-                {
-                    payload["id"] = id;
-                }
-                else
-                {
-                    // creation path
-                    data["post_status"] = "draft";
-                }
-
-                var json = System.Text.Json.JsonSerializer.Serialize(
-                    payload,
-                    new System.Text.Json.JsonSerializerOptions
-                    {
-                        DefaultIgnoreCondition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull
-                    }
+                // Build the SaveData payload. For creates (no Id) we default to draft.
+                var data = new SaveData(
+                    Title: Title ?? "",
+                    Content: Content ?? "",
+                    Excerpt: null,
+                    Status: Id is int ? null : "draft", // create-as-draft; ignored on update
+                    Slug: null,
+                    Meta: null,
+                    TaxInput: null,
+                    ExpectedModifiedGmt: null // add your concurrency token here if you want auto-fork on conflict
                 );
 
-                using var res = await http.PostAsync(
-                    "/wp-json/rex/v1/save",
-                    new System.Net.Http.StringContent(json, System.Text.Encoding.UTF8, "application/json")
-                );
-                res.EnsureSuccessStatusCode();
+                // Use the unified service method:
+                var res = Id is int id
+                    ? await Editing.SaveAsync(data, id: id)           // update existing
+                    : await Editing.SaveAsync(data, postType: "post"); // create new
 
-                using var doc = await System.Text.Json.JsonDocument.ParseAsync(await res.Content.ReadAsStreamAsync());
-                var root = doc.RootElement;
-
-                // Get returned ID and update route if it changed (i.e., creation)
-                var newId = root.GetProperty("id").GetInt32();
-                if (Id != newId)
+                // If a new ID was created, navigate to it
+                if (Id != res.Id)
                 {
-                    Id = newId;
-                    Nav.NavigateTo($"edit/{newId}", replace: true);
+                    Id = res.Id;
+                    Nav.NavigateTo($"edit/{res.Id}", replace: true);
                 }
 
-                _status = root.TryGetProperty("forked", out var f) && f.ValueKind == System.Text.Json.JsonValueKind.True
-                    ? $"Saved (forked to #{newId})."
-                    : "Saved.";
+                _status = (res.Forked ?? false) ? $"Saved (forked to #{res.Id})." : "Saved.";
+
             }
             catch (Exception ex)
             {
