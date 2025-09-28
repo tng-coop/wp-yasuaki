@@ -367,6 +367,7 @@ jobs:
           WP_USERNAME: ${{ env.WP_USERNAME }}
           WP_APP_PASSWORD: ${{ env.WP_APP_PASSWORD }}
           WP_APP_CONTRIBUTOR: ${{ env.WP_APP_CONTRIBUTOR }}
+          WP_APP_CONTRIBUTOR2: ${{ env.WP_APP_CONTRIBUTOR2 }}
           DOTNET_ENVIRONMENT: Development
           DOTNET_CLI_TELEMETRY_OPTOUT: 1
           WP_PATH: ${{ github.workspace }}/wordpress 
