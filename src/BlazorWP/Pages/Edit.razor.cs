@@ -11,6 +11,7 @@ using Editor.Abstractions;
 
 namespace BlazorWP.Pages;
 
+using Microsoft.AspNetCore.Components.Routing;
 public partial class Edit : ComponentBase
 {
     [Parameter] public int? Id { get; set; }
@@ -29,7 +30,26 @@ public partial class Edit : ComponentBase
     private bool _readOnly;
     private bool _applyReadOnlyPending;
     private EditList? _list;
+    private bool _showUnsavedPrompt;
 
+    private Task OnBeforeInternalNavigation(LocationChangingContext ctx)
+    {
+        if (!_isDirty || _saving) return Task.CompletedTask;
+
+        // Block ALL in-app navigations while dirty.
+        if (!string.Equals(Nav.Uri, ctx.TargetLocation, StringComparison.Ordinal))
+        {
+            ctx.PreventNavigation();
+            _showUnsavedPrompt = true;   // simple dialog that tells user to Save or Discard in the editor
+            StateHasChanged();
+        }
+        return Task.CompletedTask;
+    }
+    private void CloseUnsavedPrompt()
+    {
+        _showUnsavedPrompt = false;
+        StateHasChanged();
+    }
     // Concurrency token from server (UTC)
     private string? _modifiedGmt;
 
@@ -238,10 +258,10 @@ public partial class Edit : ComponentBase
         }
         finally
         {
-            _saving = false;
             _isDirty = false;
             await JS.InvokeVoidAsync("BlazorBridge.setDirty", "articleEditor", false);
             if (_list is not null) await _list.RefreshAsync();
+            _saving = false;
             StateHasChanged();
         }
     }

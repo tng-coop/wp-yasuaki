@@ -4,7 +4,12 @@
 @inject BlazorWP.Data.AppFlags Flags
 @using TinyMCE.Blazor
 @inject IJSRuntime JS
+@using Microsoft.AspNetCore.Components.Routing
 
+
+<NavigationLock
+    ConfirmExternalNavigation="@(!_saving && _isDirty)"
+    OnBeforeInternalNavigation="@OnBeforeInternalNavigation" />
 
 <RadzenSplitter>
     <RadzenSplitterPane Size="30%" Min="100px">
@@ -40,7 +45,28 @@
     </RadzenSplitterPane>
 </RadzenSplitter>
 <MediaPopup @ref="_mediaPopup" />
-
+@if (_showUnsavedPrompt)
+{
+    <div class="modal-backdrop show"></div>
+    <div class="modal show d-block" role="dialog" aria-modal="true" aria-labelledby="unsavedTitle">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 id="unsavedTitle" class="modal-title">Unsaved changes</h5>
+                    <button type="button" class="btn-close" aria-label="Close" @onclick="CloseUnsavedPrompt"></button>
+                </div>
+                <div class="modal-body">
+                    <p class="mb-0">
+                        You have unsaved changes. Please <strong>Save</strong> or <strong>Discard</strong> in the editor before leaving this post.
+                    </p>
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-primary" @onclick="CloseUnsavedPrompt">OK</button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
 @code {
     private MediaPopup _mediaPopup = default!;
 
