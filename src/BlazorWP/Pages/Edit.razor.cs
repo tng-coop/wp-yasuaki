@@ -53,7 +53,9 @@ public partial class Edit : ComponentBase
 
                 var page = await System.Text.Json.JsonSerializer.DeserializeAsync<WpPage>(
                     await resp.Content.ReadAsStreamAsync(),
-                    new() { PropertyNameCaseInsensitive = true });
+                    options: new System.Text.Json.JsonSerializerOptions { PropertyNameCaseInsensitive = true },
+                    cancellationToken: System.Threading.CancellationToken.None);
+
 
                 Title = page?.title?.raw ?? page?.title?.rendered ?? "";
                 Content = page?.content?.raw ?? page?.content?.rendered ?? "";
@@ -66,7 +68,9 @@ public partial class Edit : ComponentBase
 
                 var page = await System.Text.Json.JsonSerializer.DeserializeAsync<WpPage>(
                     await ro.Content.ReadAsStreamAsync(),
-                    new() { PropertyNameCaseInsensitive = true });
+                    options: new System.Text.Json.JsonSerializerOptions { PropertyNameCaseInsensitive = true },
+                    cancellationToken: System.Threading.CancellationToken.None);
+
 
                 Title = page?.title?.rendered ?? "";
                 Content = page?.content?.rendered ?? "";
