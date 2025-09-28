@@ -27,13 +27,28 @@ window.myTinyMceConfig = {
 
   setup: function (editor) {
 
-    // report dirty status whenever content changes
+    // Your reporter
     const fire = () => window.BlazorBridge.report(editor.isDirty());
 
-    editor.on('init Change Input Undo Redo SetContent ExecCommand', () => {
+    // Debounced wrapper (calls fire() after 200ms of silence)
+    const debouncedFire = (() => {
+      let t = null;
+      function call() {
+        if (t) clearTimeout(t);
+        t = setTimeout(fire, 200); // tweak delay as needed
+      }
+      call.flush = () => { if (t) { clearTimeout(t); t = null; fire(); } };
+      call.cancel = () => { if (t) { clearTimeout(t); t = null; } };
+      return call;
+    })();
+
+    editor.on('Input', () => {
       console.log('Content changed, dirty=', editor.isDirty());
-      fire();
+      debouncedFire();
     });
+
+    // Make sure the last change isn't lost when leaving the editor
+    editor.on('Blur Remove', () => debouncedFire.flush());
 
     editor.on('RestoreDraft', () => {
       const html = editor.getContent({ format: 'html' });
