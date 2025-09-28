@@ -43,6 +43,94 @@ public partial class Edit : ComponentBase
         return s;
     }
 
+    private bool _reloading;
+
+    private async Task ReloadAsync()
+    {
+        if (_reloading) return;
+        if (Id is not int id)
+        {
+            _status = "Nothing to reload (no post loaded).";
+            StateHasChanged();
+            return;
+        }
+
+        // Confirm if we have unsaved changes
+        if (_isDirty)
+        {
+            var proceed = await JS.InvokeAsync<bool>("confirm",
+                "You have unsaved changes. Discard them and reload the post from the server?");
+            if (!proceed) return;
+        }
+
+        _reloading = true;
+        _status = null;
+
+        try
+        {
+            _ = await Api.GetClientAsync();
+            var http = Api.HttpClient ?? throw new InvalidOperationException("WordPress HttpClient is not initialized.");
+
+            try
+            {
+                // Try edit context first (editable)
+                using var resp = await http.GetAsync($"/wp-json/wp/v2/posts/{id}?context=edit&_fields=id,status,title,content,modified_gmt");
+                resp.EnsureSuccessStatusCode();
+
+                var page = await System.Text.Json.JsonSerializer.DeserializeAsync<WpPage>(
+                    await resp.Content.ReadAsStreamAsync(),
+                    options: new System.Text.Json.JsonSerializerOptions { PropertyNameCaseInsensitive = true },
+                    cancellationToken: System.Threading.CancellationToken.None);
+
+                Title = page?.title?.raw ?? page?.title?.rendered ?? "";
+                Content = page?.content?.raw ?? page?.content?.rendered ?? "";
+                _modifiedGmt = NormalizeToDbFormat(page?.modified_gmt);
+                _readOnly = false;
+            }
+            catch (AuthError ae) when (ae.StatusCode == HttpStatusCode.Forbidden)
+            {
+                // Fallback to read-only fetch
+                using var ro = await http.GetAsync($"/wp-json/wp/v2/posts/{id}?_fields=id,status,title,content,modified_gmt");
+                ro.EnsureSuccessStatusCode();
+
+                var page = await System.Text.Json.JsonSerializer.DeserializeAsync<WpPage>(
+                    await ro.Content.ReadAsStreamAsync(),
+                    options: new System.Text.Json.JsonSerializerOptions { PropertyNameCaseInsensitive = true },
+                    cancellationToken: System.Threading.CancellationToken.None);
+
+                Title = page?.title?.rendered ?? "";
+                Content = page?.content?.rendered ?? "";
+                _modifiedGmt = NormalizeToDbFormat(page?.modified_gmt);
+                _status = "Read-only: you don’t have permission to edit this post.";
+                _readOnly = true;
+            }
+            finally
+            {
+                // Ensure the editor read-only mode gets applied on next render
+                _applyReadOnlyPending = true;
+
+                // Clear dirty & sync TinyMCE's internal dirty state
+                _isDirty = false;
+                _originalTitle = Title; // keep title dirty-check baseline correct
+                await JS.InvokeVoidAsync("BlazorBridge.setDirty", "articleEditor", false);
+
+                if (_list is not null) await _list.RefreshAsync();
+            }
+
+            _status ??= "Reloaded.";
+        }
+        catch (Exception ex)
+        {
+            _status = $"Reload failed: {ex.Message}";
+        }
+        finally
+        {
+            _reloading = false;
+            StateHasChanged();
+        }
+    }
+
+
     protected override async Task OnParametersSetAsync()
     {
         _status = null;

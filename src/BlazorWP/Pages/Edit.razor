@@ -26,9 +26,17 @@
             <Editor Id="articleEditor" ScriptSrc="libman/tinymce/tinymce.min.js" LicenseKey="gpl"
                 JsConfSrc="myTinyMceConfig" @bind-Value="Content" />
         </div>
+<EditSave isDirty="_isDirty"
+          Saving="_saving"
+          Status="_status"
+          OnSave="SaveAsync"
+          OnFork="ForkAsync"
+          CanFork="@(Id is int)"
+          Forking="_forking"
+          ReadOnly="@_readOnly"
+          OnReload="ReloadAsync"
+          Reloading="_reloading" />
 
-        <EditSave isDirty="_isDirty" Saving="_saving" Status="_status" OnSave="SaveAsync" OnFork="ForkAsync"
-            CanFork="@(Id is int)" Forking="_forking" ReadOnly="@_readOnly" />
     </RadzenSplitterPane>
 </RadzenSplitter>
 <MediaPopup @ref="_mediaPopup" />

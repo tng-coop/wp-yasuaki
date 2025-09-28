@@ -3,8 +3,14 @@
     <button class="btn btn-success" @onclick="OnSave" disabled="@(ReadOnly || !isDirty || Saving)">
         @(Saving ? "Saving…" : "Save")
     </button>
+
     <button class="btn btn-outline-secondary" @onclick="OnFork" disabled="@(!CanFork || Saving || Forking)">
         @(Forking ? "Forking…" : "Fork")
+    </button>
+
+    <!-- NEW: Reload button -->
+    <button class="btn btn-outline-primary" @onclick="OnReload" disabled="@(Saving || Forking || Reloading)">
+        @(Reloading ? "Reloading…" : "Reload")
     </button>
 
     @if (!string.IsNullOrEmpty(Status))
@@ -24,9 +30,7 @@
     [Parameter] public bool Forking { get; set; }
     [Parameter] public EventCallback OnFork { get; set; }
 
-    protected override void OnParametersSet()
-    {
-        // optional diagnostics
-        // Console.WriteLine($"[EditSave] isDirty={isDirty} Saving={Saving} Forking={Forking}");
-    }
+    // NEW
+    [Parameter] public bool Reloading { get; set; }
+    [Parameter] public EventCallback OnReload { get; set; }
 }
