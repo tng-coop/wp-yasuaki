@@ -23,6 +23,7 @@ public partial class Edit : ComponentBase
     private string? Content;
 
     private bool _saving;
+    private bool _forking;
     private string? _status;
 
     protected override async Task OnParametersSetAsync()
@@ -130,5 +131,36 @@ public partial class Edit : ComponentBase
         public WpRender? title { get; set; }
         public WpRender? content { get; set; }
         public string? modified_gmt { get; set; }
+    }
+    private async Task ForkAsync()
+    {
+        if (Id is not int id)
+        {
+            _status = "Nothing to fork yet.";
+            StateHasChanged();
+            return;
+        }
+
+
+        _forking = true;
+        _status = null;
+        try
+        {
+            var res = await Editing.ForkAsync(id);
+            Id = res.Id;
+            Nav.NavigateTo($"edit/{res.Id}", replace: true);
+            _status = $"Forked to #{res.Id}.";
+        }
+        catch (Exception ex)
+        {
+            _status = $"Fork failed: {ex.Message}";
+        }
+        finally
+        {
+            _forking = false;
+            _isDirty = false;
+            await JS.InvokeVoidAsync("BlazorBridge.setDirty", "articleEditor", false);
+            StateHasChanged();
+        }
     }
 }
