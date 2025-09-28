@@ -6,6 +6,8 @@
  * Notes:
  *  - Permission callback is coarse (edit_posts). Per-post capability is enforced
  *    inside the handler after confirming the source exists so 404 vs 403 are correct.
+ *  - PATCH: Allow Contributors to fork PUBLISHED posts they can read, without requiring
+ *    edit permission on the SOURCE post. Private/unreadable content remains protected.
  */
 
 if (!defined('ABSPATH')) { exit; }
@@ -89,9 +91,19 @@ final class REX_Fork_API {
         if (!$source) {
             return new WP_Error('not_found', 'Source post not found.', ['status' => 404]);
         }
-        // Enforce per-post permission only after the post is known to exist
-        if (! current_user_can('edit_post', $source_id)) {
-            return new WP_Error('forbidden', 'Cannot edit source post.', ['status' => 403]);
+        // Fork permission model (revised):
+        //  • must be able to CREATE posts of this type (edit_posts/edit_pages/etc.)
+        //  • must be able to READ the source; PUBLISHED content is readable by any logged-in user
+        $pto        = get_post_type_object($source->post_type);
+        $can_create = $pto ? current_user_can($pto->cap->edit_posts) : current_user_can('edit_posts');
+        $is_public  = ($source->post_status === 'publish');
+        $can_read   = $is_public || current_user_can('read_post', $source_id);
+        if (!($can_create && $can_read)) {
+            return new WP_Error(
+                'forbidden',
+                'Cannot fork: insufficient permissions to read source or create posts.',
+                ['status' => 403]
+            );
         }
 
         $new_post = [
