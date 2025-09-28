@@ -92,6 +92,7 @@ public sealed class ForkResponse
     [JsonPropertyName("id")] public int Id { get; init; }
     [JsonPropertyName("status")] public string? Status { get; init; }
     [JsonPropertyName("original_post_id")] public int? OriginalPostId { get; init; }
+    [JsonPropertyName("modified_gmt")] public string? ModifiedGmt { get; init; }
 }
 
 

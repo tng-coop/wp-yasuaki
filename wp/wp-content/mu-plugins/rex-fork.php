@@ -128,6 +128,7 @@ final class REX_Fork_API {
             'id' => $new_id,
             'status' => get_post_status($new_id),
             'original_post_id' => $root_original_id ?: null,
+            'modified_gmt' => (string) get_post($new_id)->post_modified_gmt,
         ]);
     }
 }
