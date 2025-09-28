@@ -52,6 +52,8 @@ wp user create "$EDITOR_USER" "$EDITOR_EMAIL" \
   --role=editor \
   --user_pass="$EDITOR_PASS" 1>&2
 
+wp cap add contributor upload_files edit_others_posts delete_others_posts 1>&2
+
 # Application passwords (porcelain = raw token only)
 export WP_APP_PASSWORD="$(wp user application-password create "$ADMIN_USER" "$APP_NAME" --porcelain)"
 export WP_APP_CONTRIBUTOR="$(wp user application-password create "$CONTRIB_USER" "$APP_NAME" --porcelain)"
