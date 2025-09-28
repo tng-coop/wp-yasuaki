@@ -27,6 +27,15 @@ window.BlazorBridge = {
             ed.setDirty(!!dirty);      // TinyMCE 6+
         }
     },
+    setReadOnly(editorId, ro) {
+        const ed = editorId ? tinymce.get(editorId) : tinymce.activeEditor;
+        if (!ed) { console.warn('[BlazorBridge] editor not found:', editorId); return; }
+        const mode = ro ? 'readonly' : 'design';
+        if (ed.mode && typeof ed.mode.set === 'function') ed.mode.set(mode);
+        else if (typeof ed.setMode === 'function') ed.setMode(mode);
+        this._isReadOnly = !!ro;
+    },
+    isReadOnly() { return !!this._isReadOnly; },
     // Notify Blazor that a save was triggered, passing the HTML
     onSave(html) {
         // Use the stored DotNetObjectReference from init()

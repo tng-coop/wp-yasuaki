@@ -10,6 +10,9 @@ window.myTinyMceConfig = {
   mediaSource: null,
   // TinyMCE "save" plugin callback (prevents default form submit)
   save_onsavecallback: function (editor) {
+    if (window.BlazorBridge?.isReadOnly && window.BlazorBridge.isReadOnly()) {
+      return;
+    }
     const html = editor.getContent({ format: 'html' });
     // Tell Blazor
     window.BlazorBridge?.onSave(html);

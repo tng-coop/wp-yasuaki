@@ -60,6 +60,12 @@ public partial class Edit
 
             await JS.InvokeVoidAsync("setTinyMediaSource", Flags.WpUrl);
         }
+
+        if (_applyReadOnlyPending)
+        {
+            _applyReadOnlyPending = false;
+            await JS.InvokeVoidAsync("BlazorBridge.setReadOnly", "articleEditor", _readOnly);
+        }
     }
     // ✅ Must be public AND [JSInvokable] to be called from JS
     [JSInvokable]

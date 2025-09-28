@@ -7,6 +7,7 @@ using Microsoft.AspNetCore.Components;
 using Microsoft.JSInterop;
 using Editor.WordPress;
 using System.Net;
+using Editor.Abstractions;
 
 namespace BlazorWP.Pages;
 
@@ -25,6 +26,8 @@ public partial class Edit : ComponentBase
     private bool _saving;
     private bool _forking;
     private string? _status;
+    private bool _readOnly;
+    private bool _applyReadOnlyPending;
     private EditList? _list;
 
     protected override async Task OnParametersSetAsync()
@@ -33,37 +36,54 @@ public partial class Edit : ComponentBase
 
         if (Id is int id)
         {
-            // Load existing page
             _ = await Api.GetClientAsync();
             var http = Api.HttpClient ?? throw new InvalidOperationException("WordPress HttpClient is not initialized.");
 
-            using var resp = await http.GetAsync($"/wp-json/wp/v2/posts/{id}?context=edit&_fields=id,status,title,content,modified_gmt");
-
-            if (resp.StatusCode == HttpStatusCode.NotFound)
+            try
             {
-                // Non-existent ID → go to create mode (/edit)
-                Nav.NavigateTo("edit", replace: true);
-                return;
+                using var resp = await http.GetAsync($"/wp-json/wp/v2/posts/{id}?context=edit&_fields=id,status,title,content,modified_gmt");
+
+                if (resp.StatusCode == HttpStatusCode.NotFound)
+                {
+                    Nav.NavigateTo("edit", replace: true);
+                    return;
+                }
+
+                resp.EnsureSuccessStatusCode();
+
+                var page = await System.Text.Json.JsonSerializer.DeserializeAsync<WpPage>(
+                    await resp.Content.ReadAsStreamAsync(),
+                    new() { PropertyNameCaseInsensitive = true });
+
+                Title = page?.title?.raw ?? page?.title?.rendered ?? "";
+                Content = page?.content?.raw ?? page?.content?.rendered ?? "";
+                _readOnly = false;
             }
-
-            resp.EnsureSuccessStatusCode();
-
-            var page = await System.Text.Json.JsonSerializer.DeserializeAsync<WpPage>(
-                await resp.Content.ReadAsStreamAsync(),
-                new System.Text.Json.JsonSerializerOptions { PropertyNameCaseInsensitive = true }
-            );
-
-            if (page is not null)
+            catch (AuthError ae) when (ae.StatusCode == HttpStatusCode.Forbidden)
             {
-                Title = page.title?.raw ?? page.title?.rendered ?? "";
-                Content = page.content?.raw ?? page.content?.rendered ?? "";
+                using var ro = await http.GetAsync($"/wp-json/wp/v2/posts/{id}?_fields=id,status,title,content,modified_gmt");
+                ro.EnsureSuccessStatusCode();
+
+                var page = await System.Text.Json.JsonSerializer.DeserializeAsync<WpPage>(
+                    await ro.Content.ReadAsStreamAsync(),
+                    new() { PropertyNameCaseInsensitive = true });
+
+                Title = page?.title?.rendered ?? "";
+                Content = page?.content?.rendered ?? "";
+                _status = "Read-only: you don’t have permission to edit this post.";
+                _readOnly = true;
+            }
+            finally
+            {
+                _applyReadOnlyPending = true;
             }
         }
         else
         {
-            // Keep whatever is in the editor; default to empty strings
             Title ??= "";
             Content ??= "";
+            _readOnly = false;
+            _applyReadOnlyPending = true;
         }
     }
 
