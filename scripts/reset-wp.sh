@@ -15,6 +15,11 @@ CONTRIB_USER="${CONTRIB_USER:-contributor}"
 CONTRIB_EMAIL="${CONTRIB_EMAIL:-contributor@example.com}"
 CONTRIB_PASS="${CONTRIB_PASS:-a}"
 
+# Second contributor user (override via env if desired)
+CONTRIB2_USER="${CONTRIB2_USER:-contributor2}"
+CONTRIB2_EMAIL="${CONTRIB2_EMAIL:-contributor2@example.com}"
+CONTRIB2_PASS="${CONTRIB2_PASS:-a}"
+
 # Editor user (override via env if desired)
 EDITOR_USER="${EDITOR_USER:-editor}"
 EDITOR_EMAIL="${EDITOR_EMAIL:-editor@example.com}"
@@ -37,6 +42,11 @@ wp user create "$CONTRIB_USER" "$CONTRIB_EMAIL" \
   --role=contributor \
   --user_pass="$CONTRIB_PASS" 1>&2
 
+# Create second contributor-role user
+wp user create "$CONTRIB2_USER" "$CONTRIB2_EMAIL" \
+  --role=contributor \
+  --user_pass="$CONTRIB2_PASS" 1>&2
+
 # Create editor-role user
 wp user create "$EDITOR_USER" "$EDITOR_EMAIL" \
   --role=editor \
@@ -45,11 +55,13 @@ wp user create "$EDITOR_USER" "$EDITOR_EMAIL" \
 # Application passwords (porcelain = raw token only)
 export WP_APP_PASSWORD="$(wp user application-password create "$ADMIN_USER" "$APP_NAME" --porcelain)"
 export WP_APP_CONTRIBUTOR="$(wp user application-password create "$CONTRIB_USER" "$APP_NAME" --porcelain)"
+export WP_APP_CONTRIBUTOR2="$(wp user application-password create "$CONTRIB2_USER" "$APP_NAME" --porcelain)"
 export WP_APP_EDITOR="$(wp user application-password create "$EDITOR_USER" "$APP_NAME" --porcelain)"
 
 if [ -n "${GITHUB_OUTPUT:-}" ]; then
   echo "WP_APP_PASSWORD=$WP_APP_PASSWORD" >> "$GITHUB_OUTPUT"   # <-- keep this key
   echo "WP_APP_CONTRIBUTOR=$WP_APP_CONTRIBUTOR" >> "$GITHUB_OUTPUT"
+  echo "WP_APP_CONTRIBUTOR2=$WP_APP_CONTRIBUTOR2" >> "$GITHUB_OUTPUT"
   echo "WP_APP_EDITOR=$WP_APP_EDITOR" >> "$GITHUB_OUTPUT"
 fi
 
@@ -65,6 +77,11 @@ if [ -f "$BASHRC" ]; then
     sed -i.bak "s|^export WP_APP_CONTRIBUTOR=.*|export WP_APP_CONTRIBUTOR=\"$WP_APP_CONTRIBUTOR\"|" "$BASHRC" && rm -f "$BASHRC.bak"
   else
     echo "export WP_APP_CONTRIBUTOR=\"$WP_APP_CONTRIBUTOR\"" >> "$BASHRC"
+  fi
+  if grep -q '^export WP_APP_CONTRIBUTOR2=' "$BASHRC"; then
+    sed -i.bak "s|^export WP_APP_CONTRIBUTOR2=.*|export WP_APP_CONTRIBUTOR2=\"$WP_APP_CONTRIBUTOR2\"|" "$BASHRC" && rm -f "$BASHRC.bak"
+  else
+    echo "export WP_APP_CONTRIBUTOR2=\"$WP_APP_CONTRIBUTOR2\"" >> "$BASHRC"
   fi
   if grep -q '^export WP_APP_EDITOR=' "$BASHRC"; then
     sed -i.bak "s|^export WP_APP_EDITOR=.*|export WP_APP_EDITOR=\"$WP_APP_EDITOR\"|" "$BASHRC" && rm -f "$BASHRC.bak"
