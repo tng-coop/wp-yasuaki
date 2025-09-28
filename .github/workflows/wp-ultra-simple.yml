@@ -109,7 +109,7 @@ jobs:
           echo "::add-mask::$ADMIN_APP"
           {
             echo "WP_APP_PASSWORD=$ADMIN_APP"
-            echo "WP_APP_CONTRIBUTOR='${{ steps.reset.outputs.WP_APP_CONTRIBUTOR }}'
+            echo "WP_APP_CONTRIBUTOR='${{ steps.reset.outputs.WP_APP_CONTRIBUTOR }}'"
             echo "WP_APP_CONTRIBUTOR2='${{ steps.reset.outputs.WP_APP_CONTRIBUTOR2 }}'"
             echo "WP_USERNAME=${{ env.ADMIN_USER }}"
             echo "WP_BASE_URL=${{ env.WP_BASE_URL }}"
