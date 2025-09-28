@@ -25,6 +25,7 @@ public partial class Edit : ComponentBase
     private bool _saving;
     private bool _forking;
     private string? _status;
+    private EditList? _list;
 
     protected override async Task OnParametersSetAsync()
     {
@@ -107,6 +108,7 @@ public partial class Edit : ComponentBase
             _saving = false;
             _isDirty = false;
             await JS.InvokeVoidAsync("BlazorBridge.setDirty", "articleEditor", false);
+            if (_list is not null) await _list.RefreshAsync();
             StateHasChanged();
         }
     }
@@ -160,6 +162,7 @@ public partial class Edit : ComponentBase
             _forking = false;
             _isDirty = false;
             await JS.InvokeVoidAsync("BlazorBridge.setDirty", "articleEditor", false);
+            if (_list is not null) await _list.RefreshAsync();
             StateHasChanged();
         }
     }

@@ -22,7 +22,7 @@ public partial class EditList : IDisposable
     [Inject] private NavigationManager Nav { get; set; } = default!;
     [Inject] public IWordPressApiService Api { get; set; } = default!;
     [Inject] private LocalStorageJsInterop Storage { get; set; } = default!;
-
+    public Task RefreshAsync() => LoadPageAsync();
     private sealed class RenderWrapper { public string? rendered { get; set; } public string? raw { get; set; } }
     private sealed class WpListItem
     {
@@ -62,10 +62,10 @@ public partial class EditList : IDisposable
     private static readonly JsonSerializerOptions _jsonOptions = new() { PropertyNameCaseInsensitive = true };
 
     // LocalStorage keys
-    private const string KeySearch   = "editlist.search";
+    private const string KeySearch = "editlist.search";
     private const string KeyPageSize = "editlist.pagesize";
-    private const string KeyOrderBy  = "editlist.orderby";
-    private const string KeyOrder    = "editlist.order";
+    private const string KeyOrderBy = "editlist.orderby";
+    private const string KeyOrder = "editlist.order";
 
     protected override async Task OnInitializedAsync()
     {

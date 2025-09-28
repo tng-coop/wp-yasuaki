@@ -9,7 +9,9 @@
 <RadzenSplitter>
     <RadzenSplitterPane Size="30%" Min="100px">
         <RadzenSplitterPane Size="30%" Min="100px">
-            <EditList SelectedId="Id" />
+            <!-- src/BlazorWP/Pages/Edit.razor -->
+            <EditList @ref="_list" SelectedId="Id" />
+
         </RadzenSplitterPane>
 
     </RadzenSplitterPane>
