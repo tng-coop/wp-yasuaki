@@ -19,7 +19,7 @@
         <EditNew Id="Id" OnNewPage="NewPageAsync" />
         <div class="mb-3 d-flex align-items-center">
             <label class="form-label me-2 mb-0 text-nowrap">Title</label>
-            <input class="form-control flex-grow-1 min-w-0" value="@Title" @oninput="HandleTitleInput" />
+            <input class="form-control flex-grow-1 min-w-0" value="@Title" @oninput="HandleTitleInput" disabled="@_readOnly" />
 
         </div>
         <div id="editorHost" class="editor-host">
@@ -28,7 +28,7 @@
         </div>
 
         <EditSave isDirty="_isDirty" Saving="_saving" Status="_status" OnSave="SaveAsync" OnFork="ForkAsync"
-            CanFork="@(Id is int)" Forking="_forking" />
+            CanFork="@(Id is int)" Forking="_forking" ReadOnly="@_readOnly" />
     </RadzenSplitterPane>
 </RadzenSplitter>
 <MediaPopup @ref="_mediaPopup" />

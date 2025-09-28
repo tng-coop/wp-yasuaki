@@ -1,6 +1,6 @@
 @* File: src/BlazorWP/Pages/EditSave.razor *@
 <div class="d-flex align-items-center gap-2 mb-3">
-    <button class="btn btn-success" @onclick="OnSave" disabled="@(!isDirty || Saving)">
+    <button class="btn btn-success" @onclick="OnSave" disabled="@(ReadOnly || !isDirty || Saving)">
         @(Saving ? "Saving…" : "Save")
     </button>
     <button class="btn btn-outline-secondary" @onclick="OnFork" disabled="@(!CanFork || Saving || Forking)">
@@ -14,6 +14,7 @@
 </div>
 
 @code {
+    [Parameter] public bool ReadOnly { get; set; }
     [Parameter] public bool isDirty { get; set; }
     [Parameter] public bool Saving { get; set; }
     [Parameter] public string? Status { get; set; }
