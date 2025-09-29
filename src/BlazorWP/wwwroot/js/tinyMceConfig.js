@@ -96,10 +96,11 @@ window.myTinyMceConfig = {
       return call;
     })();
 
-    editor.on('Input', () => {
-      console.log('Content changed, dirty=', editor.isDirty());
-      debouncedFire();
-    });
+editor.on('input undo redo ObjectResized', (e) => {
+  console.log('Event fired:', e.type, 'dirty=', editor.isDirty());
+
+  debouncedFire();
+});
 
     // Make sure the last change isn't lost when leaving the editor
     editor.on('Blur Remove', () => debouncedFire.flush());

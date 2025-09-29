@@ -54,7 +54,7 @@ public partial class Edit
         if (firstRender)
         {
             // ✅ assign to fields (not locals)
-            _module = await JS.InvokeAsync<IJSObjectReference>("import", "/js/blazor-bridge.js");
+            _module = await JS.InvokeAsync<IJSObjectReference>("import", "./js/blazor-bridge.js");
             _objRef = DotNetObjectReference.Create(this);
             await JS.InvokeVoidAsync("BlazorBridge.init", _objRef);
 
