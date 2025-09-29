@@ -4,7 +4,7 @@
         @(Saving ? "Saving…" : "Save")
     </button>
 
-    <button class="btn btn-outline-secondary" @onclick="OnFork" disabled="@(!CanFork || Saving || Forking)">
+    <button class="btn btn-outline-secondary" @onclick="OnFork" disabled="@(!CanFork || Saving || Forking || isDirty)">
         @(Forking ? "Forking…" : "Fork")
     </button>
 
