@@ -4,6 +4,7 @@
 #   export WP_BASE_URL=https://wp.lan
 #   export WP_USERNAME=admin
 #   export WP_APP_PASSWORD=MivGtw7W7S6z7RTWqJmkbGCu
+#   python import_addresses_rest.py              # uses office.csv next to this script
 #   python import_addresses_rest.py /path/to/offices.csv
 
 import csv, os, sys, re, requests
@@ -85,11 +86,23 @@ def upsert(row: Dict[str,str], pid: Optional[int]) -> int:
     return int(r.json()["id"])
 
 def main():
-    if len(sys.argv) != 2:
-        print("Usage: import_addresses_rest.py /path/to/offices.csv", file=sys.stderr); sys.exit(1)
-    csv_path = sys.argv[1]
+    # default to office.csv in the same directory as this script,
+    # but allow overriding via a CLI argument
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    default_csv = os.path.join(script_dir, "offices.csv")
+
+    if len(sys.argv) >= 2:
+        csv_path = sys.argv[1]
+    else:
+        csv_path = default_csv
+
     if not os.path.exists(csv_path):
-        print(f"CSV not found: {csv_path}", file=sys.stderr); sys.exit(1)
+        print(
+            f"CSV not found: {csv_path}\n"
+            "Tip: place 'offices.csv' next to this script or pass an explicit path.",
+            file=sys.stderr
+        )
+        sys.exit(1)
 
     # quick probe (also checks auth)
     probe = S.get(API, params={"per_page":1, "context":"edit", "_fields":"id"})
