@@ -172,19 +172,41 @@ add_action('admin_head', function () {
 });
 
 // ==============================
-// (Optional) Minimal taxonomy registration for testing
-// Comment out if your theme/plugins already register the taxonomy.
+// REST support + minimal taxonomy registration for testing
+// Comment out the registration callback if your theme/plugins already handle it.
 // ==============================
-/*
-add_action('init', function () {
-    if (!taxonomy_exists(BUA_TAXONOMY)) {
-        register_taxonomy(BUA_TAXONOMY, ['post'], [
-            'label'             => 'Branches',
-            'public'            => true,
-            'hierarchical'      => false,
-            'rewrite'           => ['slug' => 'branch', 'with_front' => false],
-            'show_admin_column' => true,
-        ]);
+
+// Ensure the taxonomy is REST-enabled even if registered elsewhere.
+add_filter('register_taxonomy_args', function ($args, $taxonomy) {
+    if ($taxonomy !== BUA_TAXONOMY) {
+        return $args;
     }
+
+    $args['show_in_rest'] = true;
+    if (empty($args['rest_base'])) {
+        $args['rest_base'] = BUA_TAXONOMY;
+    }
+    if (empty($args['rest_controller_class'])) {
+        $args['rest_controller_class'] = 'WP_REST_Terms_Controller';
+    }
+
+    return $args;
+}, 10, 2);
+
+// Register the taxonomy if nothing else has done so.
+add_action('init', function () {
+    if (taxonomy_exists(BUA_TAXONOMY)) {
+        return;
+    }
+
+    register_taxonomy(BUA_TAXONOMY, ['post'], [
+        'label'                => 'Branches',
+        'public'               => true,
+        'hierarchical'         => false,
+        'rewrite'              => ['slug' => 'branch', 'with_front' => false],
+        'show_admin_column'    => true,
+        'show_in_rest'         => true,
+        'rest_base'            => BUA_TAXONOMY,
+        'rest_controller_class'=> 'WP_REST_Terms_Controller',
+    ]);
 }, 5);
-*/
