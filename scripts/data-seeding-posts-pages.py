@@ -1,551 +1,478 @@
 #!/usr/bin/env python3
-# -*- coding: utf-8 -*-
 """
-Idempotent seeder (only --update flag)
+Seed WordPress pages and posts per branch and automatically embed a **no-API Google Map**
+for each branch's address. This version also shows the **branch name** and other fields
+from `scripts/offices.csv` (Office, TEL, FAX, Email, URL, Work).
 
-Zero-arg:
-  - Ensures a parent Category with slug "branch" exists.
-  - If no children, seeds branch categories from scripts/offices.csv (slug "branch-<ID>", name "Office").
-  - For each branch (child category), ensures EXACTLY:
-      • 1 Page   with slug: <term.slug>-page
-      • 3 Posts  with slugs: <term.slug>-post-1..3
-    Posts are attached to the branch via the "categories" field.
-  - Each page includes an Addresses section when Address data is found.
+Auth uses the WordPress REST API (Application Passwords recommended).
 
---update:
-  - Recomputes title/content for pages and posts and updates ONLY IF changed.
-  - Also ensures post categories include the branch term.
+ENV VARS (typical):
+  WP_BASE_URL           e.g. https://example.com or https://example.com/wordpress
+  WP_USERNAME           WP user with permission to publish posts/pages
+  WP_APP_PASSWORD       Application password for that user
 
-Optional templates (no extra flags; place files under scripts/templates/):
-  templates/branch_page.title.txt   # e.g. "{name} Branch Overview"
-  templates/branch_post.title.txt   # e.g. "News #{index} – {name}"
-  templates/branch_page.html        # may include "{addresses_html}"
-  templates/branch_post.html
+OPTIONAL ENV VARS:
+  MAPS_ZOOM             e.g. 15 (adds &z=15 to the embed URL)
+  MAPS_LANG             e.g. ja (adds &hl=ja to the embed URL)
 
-Placeholders:
-  Pages: {name}, {slug}, {term_id}, {addresses_html}
-  Posts: {name}, {slug}, {term_id}, {index}
+INPUT DATA (CSV):
+  scripts/offices.csv   headers: ID, ID2, Office, Address, TEL, FAX, Email, URL, Work
 
-Required env:
-  WP_BASE_URL (no trailing slash), WP_USERNAME, WP_APP_PASSWORD
+USAGE:
+  python3 scripts/data-seeding-posts-pages.py --update
+  # or tweak templates:
+  python3 scripts/data-seeding-posts-pages.py \
+      --page-title "{office} | アクセス" \
+      --page-content "<h2>{office}</h2><p>{address}</p>\n{map_embed}\n{contact_html}"
+
+Notes:
+- If your template omits {map_embed}, the script appends the iframe automatically when an address exists.
+- No Google API key is used. The embed URL is: https://www.google.com/maps?q=...&output=embed
+- **Display addresses keep the 〒 mark.** It is removed only inside the Google Maps iframe query.
 """
-
 from __future__ import annotations
 
 import argparse
+import base64
 import csv
+import json
 import os
 import re
 import sys
-from typing import Any, Dict, List, Optional, Tuple
+import typing as t
+import urllib.parse
+from dataclasses import dataclass
 
-import requests
+import urllib.request
+import urllib.error
 
-# --------------------------- Config & session ---------------------------
+# ---------------------------------------------------------------------------
+# Models
+# ---------------------------------------------------------------------------
 
-WP_BASE_URL = (os.environ.get("WP_BASE_URL") or "").rstrip("/")
-WP_USERNAME = os.environ.get("WP_USERNAME") or ""
-WP_APP_PASSWORD = (os.environ.get("WP_APP_PASSWORD") or "").replace(" ", "")
+@dataclass
+class Branch:
+    slug: str
+    office: str
+    address: str
+    id: str
+    id2: str = ""
+    tel: str = ""
+    fax: str = ""
+    email: str = ""
+    site: str = ""
+    work: str = ""
+    category_id: int | None = None
 
-if not (WP_BASE_URL and WP_USERNAME and WP_APP_PASSWORD):
-    print("Set WP_BASE_URL, WP_USERNAME, WP_APP_PASSWORD", file=sys.stderr, flush=True)
-    sys.exit(1)
+# ---------------------------------------------------------------------------
+# Utils
+# ---------------------------------------------------------------------------
 
-API_ROOT = f"{WP_BASE_URL}/wp-json/wp/v2"
-PAGES_ENDPOINT = f"{API_ROOT}/pages"
-POSTS_ENDPOINT = f"{API_ROOT}/posts"
-CATEGORIES_ENDPOINT = f"{API_ROOT}/categories"
-ADDRESS_ENDPOINT = f"{API_ROOT}/address"  # Address CPT REST base
+def _slugify(text: str) -> str:
+    text = text.strip().lower()
+    text = re.sub(r"[^a-z0-9]+", "-", text)
+    text = re.sub(r"-+", "-", text).strip("-")
+    return text or "x"
 
-SESSION = requests.Session()
-SESSION.auth = (WP_USERNAME, WP_APP_PASSWORD)
-SESSION.headers.update(
-    {"Accept": "application/json", "Content-Type": "application/json; charset=utf-8"}
-)
+def _map_query_address(addr: str) -> str:
+    """Prepare address for Google Maps query: remove '〒', flatten newlines, collapse spaces."""
+    addr = (addr or '').replace('〒', '')
+    addr = addr.replace('\r\n', ' ').replace('\r', ' ').replace('\n', ' ')
+    addr = re.sub(r'\s+', ' ', addr).strip()
+    return addr
 
-REQUEST_TIMEOUT = 20  # seconds
+def _here(*parts: str) -> str:
+    return os.path.join(os.path.dirname(os.path.abspath(__file__)), *parts)
 
-# --------------------------- Helpers ---------------------------
-
-SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
-TPL_DIR = os.path.join(SCRIPT_DIR, "templates")
-
-def _slugify(s: str) -> str:
-    s = (s or "").strip()
-    s = re.sub(r"[^a-zA-Z0-9_-]+", "-", s)
-    s = re.sub(r"-{2,}", "-", s).strip("-").lower()
-    return s
-
-def _csv_path() -> Optional[str]:
-    """Return scripts/offices.csv if it exists."""
-    p = os.path.join(SCRIPT_DIR, "offices.csv")
+def _csv_path(cli_path: str | None) -> str | None:
+    if cli_path:
+        return cli_path if os.path.exists(cli_path) else None
+    p = _here("offices.csv")
     return p if os.path.exists(p) else None
 
-def _read_file_or_blank(path: Optional[str]) -> str:
-    if not path or not os.path.exists(path):
-        return ""
-    try:
-        with open(path, "r", encoding="utf-8") as f:
-            return f.read()
-    except Exception as e:
-        print(f"[WARN] Could not read template file '{path}': {e}", file=sys.stderr)
-        return ""
-
-def _tpl(path_in_templates: str, default_text: str) -> str:
-    return _read_file_or_blank(os.path.join(TPL_DIR, path_in_templates)) or default_text
-
-def _render(tpl: str, **ctx) -> str:
-    try:
-        return tpl.format(**ctx)
-    except Exception:
-        return tpl
-
-def _normalize_html(s: Optional[str]) -> str:
-    if not s:
-        return ""
-    return re.sub(r"\s+", " ", s).strip()
-
-# --------------------------- Categories (branch) ---------------------------
-
-def ensure_parent_branch_category() -> int:
-    r = SESSION.get(
-        CATEGORIES_ENDPOINT,
-        params={"slug": "branch", "_fields": "id,slug"},
-        timeout=REQUEST_TIMEOUT,
-    )
-    r.raise_for_status()
-    items = r.json() if isinstance(r.json(), list) else []
-    if items:
-        pid = int(items[0]["id"])
-        print(f"[INFO] Using parent category 'Branch' (id={pid}).", flush=True)
-        return pid
-
-    r = SESSION.post(
-        CATEGORIES_ENDPOINT,
-        json={"name": "Branch", "slug": "branch", "parent": 0},
-        timeout=REQUEST_TIMEOUT,
-    )
-    r.raise_for_status()
-    pid = int(r.json()["id"])
-    print(f"[OK] Created parent category 'Branch' (id={pid}).", flush=True)
-    return pid
-
-def fetch_branch_children(parent_id: int) -> List[Dict[str, Any]]:
-    """Return all child categories (include term meta; need context=edit for meta)."""
-    out: List[Dict[str, Any]] = []
-    page = 1
-    while True:
-        r = SESSION.get(
-            CATEGORIES_ENDPOINT,
-            params={
-                "parent": parent_id,
-                "per_page": 100,
-                "page": page,
-                "context": "edit",
-                "_fields": "id,slug,name,meta",
-            },
-            timeout=REQUEST_TIMEOUT,
-        )
-        r.raise_for_status()
-        batch = r.json() or []
-        if not batch:
-            break
-        out.extend(batch)
-        if len(batch) < 100:
-            break
-        page += 1
-    return out
-
-def ensure_child_category(name: str, slug: str, parent_id: int) -> int:
-    r = SESSION.get(
-        CATEGORIES_ENDPOINT,
-        params={"slug": slug, "parent": parent_id, "_fields": "id,slug"},
-        timeout=REQUEST_TIMEOUT,
-    )
-    r.raise_for_status()
-    items = r.json() if isinstance(r.json(), list) else []
-    if items:
-        return int(items[0]["id"])
-
-    r = SESSION.post(
-        CATEGORIES_ENDPOINT,
-        json={"name": name, "slug": slug, "parent": parent_id},
-        timeout=REQUEST_TIMEOUT,
-    )
-    r.raise_for_status()
-    tid = int(r.json()["id"])
-    print(f"[OK] Created branch category '{name}' (slug={slug}, id={tid}).", flush=True)
-    return tid
-
-def ensure_children_from_offices_csv(parent_id: int) -> None:
-    """
-    If no child branches exist yet, create them from scripts/offices.csv.
-    Uses columns: ID, Office   -> slug: branch-<ID>, name: Office
-    """
-    csv_path = _csv_path()
+def load_address_book(csv_path: str | None) -> dict[str, Branch]:
+    """Load branches from scripts/offices.csv. Headers: ID, ID2, Office, Address, TEL, FAX, Email, URL, Work"""
+    book: dict[str, Branch] = {}
     if not csv_path:
-        print("[INFO] No branch children found and scripts/offices.csv is missing; nothing to create.", flush=True)
-        return
-
+        return book
     with open(csv_path, newline="", encoding="utf-8") as f:
         rdr = csv.DictReader(f)
-        required = {"ID", "Office"}
-        if not required.issubset(set(rdr.fieldnames or [])):
-            print(f"[WARN] offices.csv missing required headers {sorted(required)}; found {rdr.fieldnames or []}", flush=True)
-            return
-
-        created = 0
         for row in rdr:
             code = (row.get("ID") or "").strip()
-            name = (row.get("Office") or "").strip()
-            if not code or not name:
+            if not code:
                 continue
             slug = f"branch-{_slugify(code)}"
-            ensure_child_category(name, slug, parent_id)
-            created += 1
+            office = (row.get("Office") or code).strip()
+            # Keep original address for display (may include 〒)
+            addr = (row.get("Address") or "").strip()
+            b = Branch(
+                slug=slug,
+                office=office,
+                address=addr,
+                id=code,
+                id2=(row.get("ID2") or "").strip(),
+                tel=(row.get("TEL") or "").strip(),
+                fax=(row.get("FAX") or "").strip(),
+                email=(row.get("Email") or "").strip(),
+                site=(row.get("URL") or "").strip(),
+                work=(row.get("Work") or "").strip(),
+            )
+            book[slug] = b
+    return book
 
-        if created:
-            print(f"[INFO] Ensured {created} branch categories from offices.csv.", flush=True)
+# ---------------------------------------------------------------------------
+# WP REST client (urllib)
+# ---------------------------------------------------------------------------
 
-# --------------------------- Content fetch / upsert ---------------------------
-
-def get_single_item(endpoint: str, slug: str) -> Optional[int]:
-    """Return page/post ID by slug, or None if absent."""
-    r = SESSION.get(endpoint, params={"slug": slug, "_fields": "id,slug,status"}, timeout=REQUEST_TIMEOUT)
-    r.raise_for_status()
-    items = r.json()
-    if not items:
-        return None
-    if isinstance(items, dict):
-        return int(items.get("id")) if items.get("id") else None
-    return int(items[0]["id"])
-
-def get_item_raw(endpoint: str, item_id: int) -> Dict[str, Any]:
-    """Fetch raw title & content for comparison (context=edit)."""
-    r = SESSION.get(
-        f"{endpoint}/{item_id}",
-        params={"context": "edit", "_fields": "title,content,categories"},
-        timeout=REQUEST_TIMEOUT,
-    )
-    r.raise_for_status()
-    data = r.json() or {}
-    title_raw = (data.get("title") or {}).get("raw") or ""
-    content_raw = (data.get("content") or {}).get("raw") or ""
-    cats = data.get("categories") or []
-    return {"title": title_raw, "content": content_raw, "categories": cats}
-
-# --------------------------- Addresses for a branch ---------------------------
-
-def _fetch_address(aid: int) -> Optional[Dict[str, Any]]:
-    try:
-        r = SESSION.get(
-            f"{ADDRESS_ENDPOINT}/{aid}",
-            params={"context": "edit", "_fields": "id,link,title,meta"},
-            timeout=REQUEST_TIMEOUT,
-        )
-        if r.status_code == 404:
-            return None
-        r.raise_for_status()
-        a = r.json() or {}
-        meta = a.get("meta") or {}
-        return {
-            "id": a.get("id"),
-            "title": (a.get("title") or {}).get("rendered") or (a.get("title") or {}).get("raw") or "",
-            "url": a.get("link") or "",
-            "address": meta.get("address", ""),
-            "tel": meta.get("tel", ""),
-            "fax": meta.get("fax", ""),
-            "email": meta.get("email", ""),
-            "site": meta.get("url", ""),
-            "work": meta.get("work", ""),
+class WP:
+    def __init__(self, base_url: str, username: str, app_password: str):
+        base = base_url.rstrip("/")
+        self.base = base
+        token = base64.b64encode(f"{username}:{app_password}".encode()).decode()
+        self.headers = {
+            "Authorization": f"Basic {token}",
+            "Content-Type": "application/json",
+            "Accept": "application/json",
         }
-    except requests.HTTPError:
-        return None
 
-def _fetch_address_by_slug(addr_slug: str) -> Optional[Dict[str, Any]]:
-    """Fallback: resolve Address by slug (e.g., address-d01) if term meta is absent."""
-    try:
-        r = SESSION.get(
-            ADDRESS_ENDPOINT,
-            params={"slug": addr_slug, "context": "edit", "_fields": "id,link,title,meta"},
-            timeout=REQUEST_TIMEOUT,
-        )
-        if r.status_code == 404:
-            return None
-        r.raise_for_status()
-        items = r.json() if isinstance(r.json(), list) else []
-        if not items:
-            return None
-        a = items[0]
-        meta = a.get("meta") or {}
-        return {
-            "id": a.get("id"),
-            "title": (a.get("title") or {}).get("rendered") or (a.get("title") or {}).get("raw") or "",
-            "url": a.get("link") or "",
-            "address": meta.get("address", ""),
-            "tel": meta.get("tel", ""),
-            "fax": meta.get("fax", ""),
-            "email": meta.get("email", ""),
-            "site": meta.get("url", ""),
-            "work": meta.get("work", ""),
-        }
-    except requests.HTTPError:
-        return None
+    def _url(self, route: str) -> str:
+        route = route.lstrip("/")
+        return f"{self.base}/wp-json/wp/v2/{route}"
 
-def addresses_for_term(term: Dict[str, Any]) -> List[Dict[str, Any]]:
-    meta = term.get("meta") or {}
-    ids: List[int] = []
-    # primary single ID
-    apid = meta.get("address_post_id")
-    if apid:
+    def _req(self, method: str, route: str, params: dict | None = None, body: dict | None = None) -> dict | list:
+        url = self._url(route)
+        if params:
+            url += ("?" + urllib.parse.urlencode(params))
+        data: bytes | None = None
+        if body is not None:
+            data = json.dumps(body).encode("utf-8")
+        req = urllib.request.Request(url, data=data, method=method.upper(), headers=self.headers)
         try:
-            ids.append(int(apid))
-        except Exception:
-            pass
-    # optional multiple
-    apids = meta.get("address_post_ids")
-    if isinstance(apids, list):
-        for x in apids:
+            with urllib.request.urlopen(req) as resp:
+                raw = resp.read()
+                if not raw:
+                    return {}
+                return json.loads(raw.decode("utf-8"))
+        except urllib.error.HTTPError as e:
             try:
-                ids.append(int(x))
+                err = e.read().decode("utf-8")
             except Exception:
-                pass
-    elif isinstance(apids, str):
-        for x in re.split(r"[,\s]+", apids.strip()):
-            if x.isdigit():
-                ids.append(int(x))
+                err = str(e)
+            raise RuntimeError(f"WP {method} {route} -> {e.code} {e.reason}: {err}")
 
-    seen, out = set(), []
-    for aid in ids:
-        if aid in seen:
-            continue
-        a = _fetch_address(aid)
-        if a:
-            out.append(a)
-            seen.add(aid)
-
-    if out:
+    # ---- pagination ----
+    def _paged(self, route: str, **params) -> list[dict]:
+        out: list[dict] = []
+        page = 1
+        while True:
+            p = dict(params)
+            p.setdefault("per_page", 100)
+            p["page"] = page
+            try:
+                data = self._req("GET", route, p)
+            except RuntimeError as e:
+                if "rest_post_invalid_page_number" in str(e):
+                    break
+                raise
+            if not isinstance(data, list) or not data:
+                break
+            out.extend(t.cast(list[dict], data))
+            if len(data) < p["per_page"]:
+                break
+            page += 1
         return out
 
-    # Fallback if meta missing: derive Address by slug convention
-    slug = (term.get("slug") or "").strip().lower()
-    if slug.startswith("branch-"):
-        code = slug[len("branch-"):]
-        guess = _fetch_address_by_slug(f"address-{code}")
-        if guess:
-            return [guess]
-    return []
+    # ---- taxonomy ----
+    def get_category_by_slug(self, slug: str) -> dict | None:
+        arr = self._req("GET", "categories", {"slug": slug})
+        return arr[0] if isinstance(arr, list) and arr else None
 
-def build_addresses_html(term: Dict[str, Any], section_title: str = "所在地 / 連絡先") -> str:
-    addrs = addresses_for_term(term)
-    if not addrs:
+    def ensure_category(self, slug: str, name: str) -> dict:
+        cat = self.get_category_by_slug(slug)
+        if cat:
+            return cat
+        body = {"slug": slug, "name": name}
+        return t.cast(dict, self._req("POST", "categories", body=body))
+
+    def list_branch_categories(self) -> list[dict]:
+        cats = self._paged("categories")
+        return [c for c in cats if isinstance(c.get("slug"), str) and c["slug"].startswith("branch-")]
+
+    # ---- content ----
+    def get_by_slug(self, kind: str, slug: str) -> dict | None:
+        arr = self._req("GET", kind, {"slug": slug})
+        return arr[0] if isinstance(arr, list) and arr else None
+
+    def create(self, kind: str, body: dict) -> dict:
+        return t.cast(dict, self._req("POST", kind, body=body))
+
+    def update(self, kind: str, post_id: int, body: dict) -> dict:
+        return t.cast(dict, self._req("POST", f"{kind}/{post_id}", body=body))
+
+# ---------------------------------------------------------------------------
+# Google Maps (no API) + contact HTML
+# ---------------------------------------------------------------------------
+
+def maps_iframe_no_api(address: str) -> str:
+    """Google Maps iframe without API key, using q= and output=embed.
+
+    Emits exactly these attributes:
+      width="600" height="450" style="border:0" loading="lazy"
+      allowfullscreen referrerpolicy="no-referrer-when-downgrade"
+    """
+    if not address:
         return ""
-    li = []
-    for a in addrs:
-        pieces = []
-        if a["address"]:
-            pieces.append(f'<div class="addr">{a["address"]}</div>')
-        telfax = []
-        if a["tel"]:
-            telfax.append(f'TEL: <a href="tel:{a["tel"]}">{a["tel"]}</a>')
-        if a["fax"]:
-            telfax.append(f'FAX: {a["fax"]}')
-        if telfax:
-            pieces.append(f'<div class="telfax">{" / ".join(telfax)}</div>')
-        if a["email"]:
-            pieces.append(f'<div class="email">Email: <a href="mailto:{a["email"]}">{a["email"]}</a></div>')
-        if a["site"]:
-            pieces.append(f'<div class="site"><a href="{a["site"]}" target="_blank" rel="noopener">公式サイト</a></div>')
-        if a["work"]:
-            pieces.append(f'<div class="work">{a["work"]}</div>')
-        title = a["title"] or ""
-        title_html = f"<strong>{title}</strong><br>" if title else ""
-        li.append(f"<li>{title_html}{''.join(pieces)}</li>")
+    q = urllib.parse.quote_plus(_map_query_address(address))
+    zoom = (os.environ.get("MAPS_ZOOM") or "").strip()
+    lang = (os.environ.get("MAPS_LANG") or "").strip()
+    params = ["output=embed"]
+    if zoom.isdigit():
+        params.append(f"z={zoom}")
+    if lang:
+        params.append("hl=" + urllib.parse.quote_plus(lang))
+    src = f"https://www.google.com/maps?q={q}&" + "&".join(params)
     return (
-        '<div class="branch-addresses">\n'
-        f'  <h3>{section_title}</h3>\n'
-        '  <ul>\n    ' + "\n    ".join(li) + '\n  </ul>\n'
-        '</div>\n'
+        "<iframe\n"
+        "  width=\"600\" height=\"450\" style=\"border:0\"\n"
+        "  loading=\"lazy\" allowfullscreen\n"
+        "  referrerpolicy=\"no-referrer-when-downgrade\"\n"
+        f"  src=\"{src}\">\n"
+        "</iframe>"
     )
 
-# --------------------------- Templates ---------------------------
+def contact_block_html(b: Branch) -> str:
+    items: list[str] = []
+    if b.address:
+        items.append(f'<div class="addr">{b.address}</div>')
+    tf: list[str] = []
+    if b.tel:
+        tf.append(f'TEL: <a href="tel:{b.tel}">{b.tel}</a>')
+    if b.fax:
+        tf.append(f'FAX: {b.fax}')
+    if tf:
+        items.append('<div class="telfax">' + " / ".join(tf) + '</div>')
+    if b.email:
+        items.append(f'<div class="email">Email: <a href="mailto:{b.email}">{b.email}</a></div>')
+    if b.site:
+        items.append(f'<div class="site"><a href="{b.site}" target="_blank" rel="noopener">公式サイト</a></div>')
+    if b.work:
+        items.append(f'<div class="work">{b.work}</div>')
+    if not items:
+        return ""
+    return '<div class="branch-contact">\n' + "\n".join(items) + '\n</div>'
 
-DEFAULT_PAGE_TITLE_TPL = "{name}"
-DEFAULT_POST_TITLE_TPL = "{name} Branch Update #{index}"
-DEFAULT_PAGE_HTML = (
-    "<p>Welcome to the {name} branch page.</p>\n"
-    "<p>This page provides an overview and sample content for the {name} branch.</p>\n"
-    "{addresses_html}"
-)
-DEFAULT_POST_HTML = (
-    "<p>This is sample post {index} for the {name} branch.</p>\n"
-    "<p>It demonstrates assigning content to the branch category.</p>"
-)
+# ---------------------------------------------------------------------------
+# Template rendering
+# ---------------------------------------------------------------------------
 
-def resolve_templates():
-    page_title_tpl = _tpl("branch_page.title.txt", DEFAULT_PAGE_TITLE_TPL)
-    post_title_tpl = _tpl("branch_post.title.txt", DEFAULT_POST_TITLE_TPL)
-    page_content_tpl = _tpl("branch_page.html", DEFAULT_PAGE_HTML)
-    post_content_tpl = _tpl("branch_post.html", DEFAULT_POST_HTML)
-    return page_title_tpl, page_content_tpl, post_title_tpl, post_content_tpl
+def render_template(tpl: str, **ctx) -> str:
+    try:
+        return tpl.format(**ctx)
+    except KeyError as e:
+        missing = e.args[0]
+        raise SystemExit(f"Template missing key {{{missing}}}. Available: {sorted(ctx.keys())}")
 
-def build_page_payload(term: Dict[str, Any], page_title_tpl: str, page_content_tpl: str) -> Dict[str, Any]:
-    slug = term.get("slug") or "branch"
-    ctx = {"name": term.get("name") or "Branch", "slug": slug, "term_id": term.get("id")}
-    addresses_html = build_addresses_html(term)  # default title inside
-    content = _render(page_content_tpl, **ctx, addresses_html=addresses_html)
-    if "{addresses_html}" not in page_content_tpl and addresses_html:
-        content = content.rstrip() + "\n\n" + addresses_html
+# ---------------------------------------------------------------------------
+# Payload builders
+# ---------------------------------------------------------------------------
+
+def build_page_payload(b: Branch, title_tpl: str, content_tpl: str) -> dict:
+    id_display = b.id + (f" ({b.id2})" if b.id2 else "")
+    ctx = {
+        "office": b.office,
+        "slug": b.slug,
+        "id": id_display,
+        "id2": b.id2,
+        "address": b.address,
+        "tel": b.tel,
+        "fax": b.fax,
+        "email": b.email,
+        "site": b.site,
+        "work": b.work,
+        "map_embed": maps_iframe_no_api(b.address),
+        "contact_html": contact_block_html(b),
+    }
+    title = render_template(title_tpl, **ctx)
+    content = render_template(content_tpl, **ctx)
+    if b.address and "{map_embed}" not in content_tpl:
+        content = content + "\n" + ctx["map_embed"]
+    if ctx["contact_html"] and "{contact_html}" not in content_tpl:
+        content = content + "\n" + ctx["contact_html"]
     return {
         "status": "publish",
-        "slug": f"{slug}-page",
-        "title": _render(page_title_tpl, **ctx),
+        "slug": f"{b.slug}-page",
+        "title": title,
         "content": content,
     }
 
-def build_post_payload(term: Dict[str, Any], index: int, post_title_tpl: str, post_content_tpl: str) -> Dict[str, Any]:
-    slug = term.get("slug") or "branch"
-    ctx = {"name": term.get("name") or "Branch", "slug": slug, "term_id": term.get("id"), "index": index}
-    return {
-        "status": "publish",
-        "slug": f"{slug}-post-{index}",
-        "title": _render(post_title_tpl, **ctx),
-        "content": _render(post_content_tpl, **ctx),
-        "categories": [term.get("id")] if term.get("id") is not None else [],
+def build_post_payload(b: Branch, index: int, title_tpl: str, content_tpl: str) -> dict:
+    id_display = b.id + (f" ({b.id2})" if b.id2 else "")
+    ctx = {
+        "office": b.office,
+        "slug": b.slug,
+        "id": id_display,
+        "id2": b.id2,
+        "address": b.address,
+        "index": index,
+        "map_embed": maps_iframe_no_api(b.address),
+        "contact_html": contact_block_html(b),
     }
+    title = render_template(title_tpl, **ctx)
+    content = render_template(content_tpl, **ctx)
+    if b.address and "{map_embed}" not in content_tpl:
+        content = content + "\n" + ctx["map_embed"]
+    if ctx["contact_html"] and "{contact_html}" not in content_tpl:
+        content = content + "\n" + ctx["contact_html"]
+    body = {
+        "status": "publish",
+        "slug": f"{b.slug}-post-{index}",
+        "title": title,
+        "content": content,
+    }
+    if b.category_id is not None:
+        body["categories"] = [b.category_id]
+    return body
 
-# --------------------------- Ensure (create / update) ---------------------------
+# ---------------------------------------------------------------------------
+# Upsert logic
+# ---------------------------------------------------------------------------
 
-def ensure_page(term: Dict[str, Any], update: bool, page_title_tpl: str, page_content_tpl: str) -> Tuple[str, str]:
-    payload = build_page_payload(term, page_title_tpl, page_content_tpl)
-    slug = payload["slug"]
-    existing_id = get_single_item(PAGES_ENDPOINT, slug)
-    if not existing_id:
-        r = SESSION.post(PAGES_ENDPOINT, json=payload, timeout=REQUEST_TIMEOUT)
-        r.raise_for_status()
-        return "created", f"created (post_id={int(r.json()['id'])})"
-
-    if not update:
-        return "skipped", f"exists (post_id={existing_id})"
-
-    cur = get_item_raw(PAGES_ENDPOINT, existing_id)
-    need_title   = _normalize_html(cur["title"])   != _normalize_html(payload["title"])
-    need_content = _normalize_html(cur["content"]) != _normalize_html(payload["content"])
-    if not (need_title or need_content):
-        return "skipped", f"up-to-date (post_id={existing_id})"
-
-    delta: Dict[str, Any] = {}
-    if need_title:   delta["title"]   = payload["title"]
-    if need_content: delta["content"] = payload["content"]
-    r = SESSION.post(f"{PAGES_ENDPOINT}/{existing_id}", json=delta, timeout=REQUEST_TIMEOUT)
-    r.raise_for_status()
-    return "updated", f"updated (post_id={existing_id}, fields={','.join(delta.keys())})"
-
-def ensure_posts(term: Dict[str, Any], update: bool, post_title_tpl: str, post_content_tpl: str) -> Tuple[int, int, int]:
-    created = updated = skipped = 0
-    for i in range(1, 4):
-        payload = build_post_payload(term, i, post_title_tpl, post_content_tpl)
-        slug = payload["slug"]
-        existing_id = get_single_item(POSTS_ENDPOINT, slug)
-        if not existing_id:
-            r = SESSION.post(POSTS_ENDPOINT, json=payload, timeout=REQUEST_TIMEOUT)
-            r.raise_for_status()
-            created += 1
-            print(f"    [OK] {slug} created (post_id={int(r.json()['id'])}).", flush=True)
-            continue
-
-        if not update:
-            skipped += 1
-            print(f"    [SKIP] {slug} exists (post_id={existing_id}).", flush=True)
-            continue
-
-        cur = get_item_raw(POSTS_ENDPOINT, existing_id)
-        need_title   = _normalize_html(cur["title"])   != _normalize_html(payload["title"])
-        need_content = _normalize_html(cur["content"]) != _normalize_html(payload["content"])
-        want_cats = set(payload["categories"])
-        have_cats = set(cur.get("categories") or [])
-        need_cats = bool(want_cats - have_cats)
-
-        if not (need_title or need_content or need_cats):
-            skipped += 1
-            print(f"    [OK] {slug} up-to-date (post_id={existing_id}).", flush=True)
-            continue
-
-        delta: Dict[str, Any] = {}
-        if need_title:   delta["title"]   = payload["title"]
-        if need_content: delta["content"] = payload["content"]
-        if need_cats:    delta["categories"] = list(have_cats | want_cats)
-
-        r = SESSION.post(f"{POSTS_ENDPOINT}/{existing_id}", json=delta, timeout=REQUEST_TIMEOUT)
-        r.raise_for_status()
-        updated += 1
-        print(f"    [OK] {slug} updated (post_id={existing_id}, fields={','.join(delta.keys())}).", flush=True)
-    return created, updated, skipped
-
-# --------------------------- Main ---------------------------
-
-def main() -> None:
-    parser = argparse.ArgumentParser(description="Seed branch pages and posts (idempotent; only --update flag).")
-    parser.add_argument("--update", action="store_true", help="Update existing pages/posts when content/title differ.")
-    args = parser.parse_args()
-
-    update_mode = bool(args.update)
-
-    page_title_tpl, page_content_tpl, post_title_tpl, post_content_tpl = resolve_templates()
-
-    print("[STEP] Ensuring parent 'Branch' category…", flush=True)
-    parent_id = ensure_parent_branch_category()
-
-    print("[STEP] Loading existing branch categories…", flush=True)
-    terms = fetch_branch_children(parent_id)
-
-    if not terms:
-        print("[STEP] No branches found; creating from scripts/offices.csv…", flush=True)
-        ensure_children_from_offices_csv(parent_id)
-        terms = fetch_branch_children(parent_id)
-
-    if not terms:
-        print("[INFO] No branches available and no offices.csv to create from. Nothing to seed.", flush=True)
-        return
-
-    print(f"[INFO] Loaded {len(terms)} branch term(s). Update mode: {update_mode}", flush=True)
-
-    pages_created = pages_updated = pages_skipped = 0
-    posts_created = posts_updated = posts_skipped = 0
-
-    for term in terms:
-        name = term.get("name") or term.get("slug") or "branch"
-        print(f"[TERM] {name} (id={term.get('id')}, slug={term.get('slug')})", flush=True)
-
-        status, msg = ensure_page(term, update_mode, page_title_tpl, page_content_tpl)
-        if status == "created":
-            pages_created += 1
-        elif status == "updated":
-            pages_updated += 1
+def upsert_page(wp: WP, payload: dict, update: bool, dry_run: bool = False) -> int | None:
+    slug = payload.get("slug")
+    assert slug, "page payload requires slug"
+    existing = wp.get_by_slug("pages", slug)
+    if existing:
+        if update:
+            if dry_run:
+                print(f"DRY-RUN: would UPDATE page {slug} (id={existing['id']})")
+                return existing["id"]
+            r = wp.update("pages", existing["id"], payload)
+            print(f"Updated page {slug} (id={r['id']})")
+            return r["id"]
         else:
-            pages_skipped += 1
-        print(f"  [PAGE] {msg}", flush=True)
+            print(f"Skip existing page {slug} (id={existing['id']})")
+            return existing["id"]
+    else:
+        if dry_run:
+            print(f"DRY-RUN: would CREATE page {slug}")
+            return None
+        r = wp.create("pages", payload)
+        print(f"Created page {slug} (id={r['id']})")
+        return r["id"]
 
-        c, u, s = ensure_posts(term, update_mode, post_title_tpl, post_content_tpl)
-        posts_created += c
-        posts_updated += u
-        posts_skipped += s
+def upsert_post(wp: WP, payload: dict, update: bool, dry_run: bool = False) -> int | None:
+    slug = payload.get("slug")
+    assert slug, "post payload requires slug"
+    existing = wp.get_by_slug("posts", slug)
+    if existing:
+        if update:
+            if dry_run:
+                print(f"DRY-RUN: would UPDATE post {slug} (id={existing['id']})")
+                return existing["id"]
+            r = wp.update("posts", existing["id"], payload)
+            print(f"Updated post {slug} (id={r['id']})")
+            return r["id"]
+        else:
+            print(f"Skip existing post {slug} (id={existing['id']})")
+            return existing["id"]
+    else:
+        if dry_run:
+            print(f"DRY-RUN: would CREATE post {slug}")
+            return None
+        r = wp.create("posts", payload)
+        print(f"Created post {slug} (id={r['id']})")
+        return r["id"]
 
-    print("\nSummary:", flush=True)
-    print(f"  Pages - created: {pages_created}, updated: {pages_updated}, skipped: {pages_skipped}", flush=True)
-    print(f"  Posts  - created: {posts_created}, updated: {posts_updated}, skipped: {posts_skipped}", flush=True)
+# ---------------------------------------------------------------------------
+# Discover branches (from CSV + existing categories)
+# ---------------------------------------------------------------------------
+
+def discover_branches(wp: WP, csv_path: str | None) -> list[Branch]:
+    book = load_address_book(csv_path)
+    # Index existing branch categories in WP
+    existing = {c["slug"]: c for c in wp.list_branch_categories()}
+
+    branches: list[Branch] = []
+
+    # Ensure categories for branches from CSV
+    for slug, b in book.items():
+        cat = existing.get(slug)
+        if not cat:
+            try:
+                cat = wp.ensure_category(slug, b.office)
+                print(f"Created category {slug} (id={cat['id']})")
+            except RuntimeError as e:
+                print(f"WARNING: could not create category {slug}: {e}")
+                cat = None
+        cid = cat["id"] if cat else None
+        b.category_id = cid
+        branches.append(b)
+
+    # Also include any branch categories present in WP that aren't in CSV
+    for slug, cat in existing.items():
+        if slug in book:
+            continue
+        nm = cat.get("name") or slug
+        branches.append(Branch(slug=slug, office=str(nm), address="", id=slug.replace("branch-", ""), category_id=cat.get("id")))
+
+    branches.sort(key=lambda x: x.slug)
+    return branches
+
+# ---------------------------------------------------------------------------
+# Main
+# ---------------------------------------------------------------------------
+
+def run(argv: list[str]) -> int:
+    ap = argparse.ArgumentParser(description="Seed branch pages & posts with no-API Google Maps + full contact info.")
+    ap.add_argument("--base", default=os.environ.get("WP_BASE_URL", ""), help="WP base URL (env: WP_BASE_URL)")
+    ap.add_argument("--user", default=os.environ.get("WP_USERNAME", ""), help="WP username (env: WP_USERNAME)")
+    ap.add_argument("--password", default=os.environ.get("WP_APP_PASSWORD", ""), help="WP application password (env: WP_APP_PASSWORD)")
+    ap.add_argument("--csv", default=None, help="Path to offices.csv (default: scripts/offices.csv)")
+    ap.add_argument("--posts-per-branch", type=int, default=1, help="How many posts to create per branch")
+    ap.add_argument("--update", action="store_true", help="Update existing pages/posts if present")
+    ap.add_argument("--dry-run", action="store_true", help="Print actions without modifying WP")
+
+    ap.add_argument("--page-title", default="{office}", help="Page title template")
+    ap.add_argument("--page-content", default=(
+        "<h2>{office}</h2>\n"
+        "<p><strong>ID:</strong> {id}</p>\n"
+        "<p><strong>住所:</strong> {address}</p>\n"
+        "{map_embed}\n"
+        "{contact_html}"
+    ), help="Page content HTML template")
+
+    ap.add_argument("--post-title", default="{office} | お知らせ #{index}", help="Post title template")
+    ap.add_argument("--post-content", default=(
+        "<p>{office} の更新情報 #{index}</p>\n"
+        "{map_embed}"
+    ), help="Post content HTML template")
+
+    args = ap.parse_args(argv)
+
+    if not args.base or not args.user or not args.password:
+        ap.error("--base, --user, and --password (or WP_* envs) are required")
+
+    csv_path = _csv_path(args.csv)
+    if not csv_path:
+        print("WARNING: offices.csv not found; proceeding without addresses.")
+
+    wp = WP(args.base, args.user, args.password)
+    branches = discover_branches(wp, csv_path)
+
+    print(f"Found {len(branches)} branches")
+    for br in branches:
+        page_payload = build_page_payload(br, args.page_title, args.page_content)
+        upsert_page(wp, page_payload, update=args.update, dry_run=args.dry_run)
+        for i in range(1, args.posts_per_branch + 1):
+            post_payload = build_post_payload(br, i, args.post_title, args.post_content)
+            upsert_post(wp, post_payload, update=args.update, dry_run=args.dry_run)
+
+    print("✅ Done.")
+    return 0
 
 if __name__ == "__main__":
     try:
-        main()
-    except requests.HTTPError as e:
-        try:
-            data = e.response.json()
-        except Exception:
-            data = e.response.text if e.response is not None else ""
-        print(f"[HTTP ERROR] {e} :: {data}", file=sys.stderr, flush=True)
-        sys.exit(1)
-    except Exception as e:
-        print(f"[ERROR] {type(e).__name__}: {e}", file=sys.stderr, flush=True)
-        sys.exit(1)
+        raise SystemExit(run(sys.argv[1:]))
+    except KeyboardInterrupt:
+        raise SystemExit(130)
 
