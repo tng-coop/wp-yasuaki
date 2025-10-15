@@ -91,3 +91,46 @@ if [ -f "$BASHRC" ]; then
     echo "export WP_APP_EDITOR=\"$WP_APP_EDITOR\"" >> "$BASHRC"
   fi
 fi
+
+# --- Front page + Posts page (idempotent) ---
+lookup_page_id() {
+  # find page ID by slug without requiring jq
+  local slug="$1"
+  wp post list --post_type=page --fields=ID,post_name --format=csv \
+    | awk -F',' -v s="$slug" 'NR>1 && $2==s {print $1; exit}'
+}
+
+HOME_ID="$(lookup_page_id home || true)"
+if [ -z "${HOME_ID:-}" ]; then
+  HOME_ID="$(wp post create --post_type=page --post_title='Home' --post_name='home' --post_status=publish --porcelain)"
+fi
+
+BLOG_ID="$(lookup_page_id blog || true)"
+if [ -z "${BLOG_ID:-}" ]; then
+  BLOG_ID="$(wp post create --post_type=page --post_title='Blog' --post_name='blog' --post_status=publish --porcelain)"
+fi
+
+# Reading settings
+wp option update show_on_front page 1>&2
+wp option update page_on_front "$HOME_ID" 1>&2
+wp option update page_for_posts "$BLOG_ID" 1>&2
+echo "[ok] Front page → #$HOME_ID (/home), Posts page → #$BLOG_ID (/blog)" 1>&2
+
+# Export/persist envs expected by scripts/tt25_nav_fix.py
+export WP_BASE_URL="$WP_URL"
+export WP_USERNAME="$ADMIN_USER"
+
+if [ -f "$BASHRC" ]; then
+  if grep -q '^export WP_BASE_URL=' "$BASHRC"; then
+    sed -i.bak "s|^export WP_BASE_URL=.*|export WP_BASE_URL=\"$WP_URL\"|" "$BASHRC"
+  else
+    echo "export WP_BASE_URL=\"$WP_URL\"" >> "$BASHRC"
+  fi
+  if grep -q '^export WP_USERNAME=' "$BASHRC"; then
+    sed -i.bak "s|^export WP_USERNAME=.*|export WP_USERNAME=\"$ADMIN_USER\"|" "$BASHRC"
+  else
+    echo "export WP_USERNAME=\"$ADMIN_USER\"" >> "$BASHRC"
+  fi
+  rm -f "$BASHRC.bak"
+fi
+

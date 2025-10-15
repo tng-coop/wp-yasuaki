@@ -1,0 +1,100 @@
+/* TT25 Debug Borders — thickness >= 2px, labels, and tooltip */
+:root { --tt25-border-w: 3px; --tt25-chip-z: 99998; --tt25-tooltip-z: 99999; }
+
+/* Base positioning for known containers (adds no layout shift) */
+.tt25-debug-borders .wp-site-blocks,
+.tt25-debug-borders main,
+.tt25-debug-borders header,
+.tt25-debug-borders footer,
+.tt25-debug-borders .wp-block,
+.tt25-debug-borders .wp-block-template-part,
+.tt25-debug-borders .wp-block-navigation,
+.tt25-debug-borders .wp-block-group,
+.tt25-debug-borders .wp-block-columns,
+.tt25-debug-borders .wp-block-column,
+.tt25-debug-borders .wp-block-cover,
+.tt25-debug-borders .wp-block-query,
+.tt25-debug-borders .wp-block-post,
+.tt25-debug-borders .wp-block-post-content,
+.tt25-debug-borders .wp-block-post-template { position: relative; }
+
+/* Borders (can be toggled off via JS: body.no-borders) */
+.tt25-debug-borders:not(.no-borders) .wp-site-blocks { outline: var(--tt25-border-w) solid #8e44ad !important; outline-offset:-2px; }
+.tt25-debug-borders:not(.no-borders) main { outline: var(--tt25-border-w) dashed #2980b9 !important; outline-offset:-2px; }
+.tt25-debug-borders:not(.no-borders) .wp-block-template-part[area="header"],
+.tt25-debug-borders:not(.no-borders) header.wp-block-template-part { outline: var(--tt25-border-w) solid #e74c3c !important; outline-offset:-2px; }
+.tt25-debug-borders:not(.no-borders) .wp-block-template-part[area="footer"],
+.tt25-debug-borders:not(.no-borders) footer.wp-block-template-part { outline: var(--tt25-border-w) solid #c0392b !important; outline-offset:-2px; }
+
+.tt25-debug-borders:not(.no-borders) body.page .wp-block-post-content { outline: var(--tt25-border-w) solid #27ae60 !important; outline-offset:-2px; }
+.tt25-debug-borders:not(.no-borders) body.single .wp-block-post-content { outline: var(--tt25-border-w) solid #e67e22 !important; outline-offset:-2px; }
+.tt25-debug-borders:not(.no-borders) .wp-block-query { outline: var(--tt25-border-w) solid #d35400 !important; outline-offset:-2px; }
+.tt25-debug-borders:not(.no-borders) .wp-block-post-template { outline: var(--tt25-border-w) dotted #f39c12 !important; outline-offset:-2px; }
+.tt25-debug-borders:not(.no-borders) .wp-block-navigation { outline: var(--tt25-border-w) solid #f1c40f !important; outline-offset:-2px; }
+.tt25-debug-borders:not(.no-borders) .wp-block-group,
+.tt25-debug-borders:not(.no-borders) .wp-block-columns,
+.tt25-debug-borders:not(.no-borders) .wp-block-column,
+.tt25-debug-borders:not(.no-borders) .wp-block-cover { outline: var(--tt25-border-w) dashed #1abc9c !important; outline-offset:-2px; }
+
+/* Small per-block label chip (can be toggled via body.no-labels) */
+.tt25-debug-borders .tt25-dbg-label {
+  position: absolute; left: 0; top: 0; transform: translateY(-100%);
+  z-index: var(--tt25-chip-z); pointer-events: none;
+  font: 600 10px/1 system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
+  padding: 2px 4px; border-radius: 4px; white-space: nowrap; max-width: 80vw; overflow: hidden; text-overflow: ellipsis;
+  color: #fff; opacity: 0.85;
+}
+.tt25-debug-borders.no-labels .tt25-dbg-label { display: none !important; }
+
+/* Color by origin */
+.tt25-dbg-label.tt25-origin-core { background:#6c5ce7; }
+.tt25-dbg-label.tt25-origin-theme { background:#0984e3; }
+.tt25-dbg-label.tt25-origin-plugin { background:#00b894; }
+.tt25-dbg-label.tt25-origin-thirdparty { background:#00cec9; }
+.tt25-dbg-label.tt25-origin-unknown { background:#636e72; }
+
+/* Floating legend / controls */
+.tt25-dbg-panel {
+  position: fixed; right: 8px; bottom: 8px; z-index: var(--tt25-tooltip-z);
+  background:#111;color:#fff;padding:8px 10px;border-radius:8px;opacity:.92;max-width:320px;
+  box-shadow:0 2px 10px rgba(0,0,0,.35)
+}
+.tt25-dbg-row { display:flex; gap:6px; align-items:center; justify-content:flex-start; margin-bottom:6px; }
+.tt25-dbg-row strong { margin-right:auto; }
+.tt25-dbg-btn { background:#222;border:1px solid #333;border-radius:6px;color:#fff;padding:4px 8px;cursor:pointer;font:500 12px/1 system-ui }
+.tt25-dbg-btn:hover { background:#333; }
+.tt25-dbg-grid { display:grid;grid-template-columns:16px 1fr;gap:6px 8px;align-items:center; }
+.swatch { width:16px;height:12px;border-radius:2px;display:inline-block }
+.swatch.theme { background:#8e44ad }
+.swatch.core  { background:#6c5ce7 }
+.swatch.plugin{ background:#00b894 }
+.swatch.post  { background:#27ae60 }
+.swatch.loop  { background:#d35400 }
+.swatch.nav   { background:#f1c40f }
+.tt25-dbg-hint { margin-top:6px;opacity:.8;font-size:12px }
+
+/* Tooltip */
+#tt25-dbg-tooltip {
+  position: fixed; z-index: var(--tt25-tooltip-z); background:#0e1117; color:#fff; border:1px solid #2d333b;
+  border-radius:8px; padding:8px 10px; font: 12px/1.35 system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
+  max-width: 420px; box-shadow:0 8px 24px rgba(0,0,0,.35)
+}
+#tt25-dbg-tooltip .k { color:#9cdcfe; }
+#tt25-dbg-tooltip .v { color:#d1e7dd; }
+#tt25-dbg-tooltip .muted { opacity:.8 }
+
+/* Body flags from JS */
+.tt25-debug-borders.no-borders .wp-site-blocks,
+.tt25-debug-borders.no-borders main,
+.tt25-debug-borders.no-borders .wp-block,
+.tt25-debug-borders.no-borders .wp-block-template-part,
+.tt25-debug-borders.no-borders .wp-block-navigation,
+.tt25-debug-borders.no-borders .wp-block-group,
+.tt25-debug-borders.no-borders .wp-block-columns,
+.tt25-debug-borders.no-borders .wp-block-column,
+.tt25-debug-borders.no-borders .wp-block-cover,
+.tt25-debug-borders.no-borders .wp-block-query,
+.tt25-debug-borders.no-borders .wp-block-post,
+.tt25-debug-borders.no-borders .wp-block-post-content,
+.tt25-debug-borders.no-borders .wp-block-post-template { outline: none !important; }
+
