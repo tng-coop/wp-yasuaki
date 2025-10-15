@@ -4,8 +4,8 @@
 data-seeding-nav.py
 Build a minimal primary navigation for a block theme:
 - Home
-- Branches (links to /branches/)
-- (Optional) Blog, if a posts page is configured
+- Branches (links to /branches/ via page ID + url)
+- (Optional) Blog (posts page) via page ID + url
 
 Env:
   WP_BASE_URL       e.g. https://wp.lan      (no trailing slash OK)
@@ -14,8 +14,8 @@ Env:
 
 Usage:
   python3 scripts/data-seeding-nav.py
-  # add --no-header-touch if you don't want the script to edit the Header template part
-  # add --no-blog to skip adding the Blog link even if a posts page exists
+    --no-header-touch   Do not modify Header template part
+    --no-blog           Skip Blog link even if a posts page exists
 """
 import os
 import sys
@@ -123,10 +123,20 @@ def get_posts_page_id() -> Optional[int]:
     return None
 
 
+def get_page_link(page_id: int) -> str:
+    """Resolve the canonical permalink for a page ID."""
+    data = wp_get_json(f"pages/{page_id}", _fields="link")
+    link = data.get("link") if isinstance(data, dict) else None
+    if not link:
+        link = f"{BASE}/?p={page_id}"
+    return link
+
+
 # -----------------------
 # Navigation entity (wp_navigation) helpers
 # -----------------------
 def get_or_create_navigation(slug: str = "primary", title: str = "Primary") -> Dict[str, Any]:
+    # context=edit helps ensure we get content as {"raw": "..."} on newer WP
     navs = wp_get_json("navigation", slug=slug, per_page=1, context="edit")
     if navs:
         print(f"[nav-seeder] Found navigation '{slug}': ID {navs[0]['id']}")
@@ -138,7 +148,7 @@ def get_or_create_navigation(slug: str = "primary", title: str = "Primary") -> D
 
 
 def set_navigation_content(nav_id: int, blocks: str) -> Dict[str, Any]:
-    # WP navigation post accepts a string or {"raw": "..."} depending on version.
+    # Use {"raw": "..."} when the REST shape expects it; fall back to plain str otherwise.
     payload_content: Any = blocks
     try:
         current = wp_get_json(f"navigation/{nav_id}", context="edit")
@@ -159,7 +169,7 @@ HEADER_SLUG = "header"
 
 
 def get_header_template_part() -> Optional[Dict[str, Any]]:
-    # Prefer context=edit so we get content.raw
+    # Prefer context=edit so we get content.raw (WordPress 6.3+)
     parts = wp_get_json("template-parts", slug=HEADER_SLUG, per_page=1, context="edit")
     return parts[0] if parts else None
 
@@ -167,7 +177,7 @@ def get_header_template_part() -> Optional[Dict[str, Any]]:
 def _content_to_str_and_shape(content_field: Any) -> Tuple[str, bool]:
     """
     Returns (content_str, is_dict_shape).
-    is_dict_shape=True means the original field was a dict like {"raw": "...", "rendered": "..."}.
+    is_dict_shape=True means the original field was a dict like {"raw": "..."}.
     """
     if isinstance(content_field, dict):
         return (content_field.get("raw") or content_field.get("rendered") or ""), True
@@ -188,7 +198,6 @@ def wire_header_to_navigation_ref(nav_id: int) -> None:
     # 1) Replace the first opening navigation block's attrs to include/overwrite "ref"
     def repl_open(match: re.Match) -> str:
         attrs_str = match.group(1)
-        attrs: Dict[str, Any]
         try:
             attrs = json.loads(attrs_str)
             if not isinstance(attrs, dict):
@@ -233,7 +242,12 @@ def wire_header_to_navigation_ref(nav_id: int) -> None:
 # -----------------------
 # Block content builders
 # -----------------------
-def build_nav_minimal(branches_page_id: int, posts_page_id: Optional[int] = None) -> str:
+def build_nav_minimal(
+    branches_page_id: int,
+    branches_url: str,
+    posts_page_id: Optional[int] = None,
+    posts_url: Optional[str] = None,
+) -> str:
     """
     Returns a string of block-serialized content for the wp_navigation entity.
     Keeps it super simple: Home, Branches, (optional) Blog.
@@ -243,22 +257,22 @@ def build_nav_minimal(branches_page_id: int, posts_page_id: Optional[int] = None
     # Home (Home Link block)
     blocks.append('<!-- wp:home-link {"label":"Home"} /-->')
 
-    # Branches -> /branches/
+    # Branches -> page ID + url (required for clickable items in nav entity)
     branches_attrs = {
         "label": "Branches",
         "type": "page",
         "id": branches_page_id,
-        "url": f"{BASE}/branches/",
+        "url": branches_url,
     }
     blocks.append(f'<!-- wp:navigation-link {json.dumps(branches_attrs, separators=(",",":"))} /-->')
 
-    # Optional Blog link (posts page)
-    if posts_page_id:
+    # Optional Blog link -> posts page ID + url
+    if posts_page_id and posts_url:
         blog_attrs = {
             "label": "Blog",
             "type": "page",
             "id": posts_page_id,
-            "url": f"{BASE}/?p={posts_page_id}",
+            "url": posts_url,
         }
         blocks.append(f'<!-- wp:navigation-link {json.dumps(blog_attrs, separators=(",",":"))} /-->')
 
@@ -276,10 +290,13 @@ def main():
 
     print(f"[nav-seeder] Base: {BASE}")
     branches_page_id = ensure_branches_page()
+    branches_url = get_page_link(branches_page_id)
+
     posts_page_id = None if args.no_blog else get_posts_page_id()
+    posts_url = get_page_link(posts_page_id) if posts_page_id else None
 
     nav = get_or_create_navigation("primary", "Primary")
-    blocks = build_nav_minimal(branches_page_id, posts_page_id)
+    blocks = build_nav_minimal(branches_page_id, branches_url, posts_page_id, posts_url)
     set_navigation_content(nav["id"], blocks)
 
     if not args.no_header_touch:
