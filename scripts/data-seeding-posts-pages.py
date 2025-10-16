@@ -1,7 +1,9 @@
 #!/usr/bin/env python3
 """
 Seed WordPress pages and posts per branch and automatically embed a **no-API Google Map**
-for each branch's address. This version also shows the **branch name** and other fields
+for each branch's address on **pages only** (posts will NOT include maps).
+
+This version still shows the **branch name** and other fields
 from `scripts/offices.csv` (Office, TEL, FAX, Email, URL, Work).
 
 Auth uses the WordPress REST API (Application Passwords recommended).
@@ -26,7 +28,8 @@ USAGE:
       --page-content "<h2>{office}</h2><p>{address}</p>\n{map_embed}\n{contact_html}"
 
 Notes:
-- If your template omits {map_embed}, the script appends the iframe automatically when an address exists.
+- **Pages:** If your page template omits {map_embed}, the script appends the iframe automatically when an address exists.
+- **Posts:** Maps are NOT added (no auto-append, default template has no {map_embed}).
 - No Google API key is used. The embed URL is: https://www.google.com/maps?q=...&output=embed
 - **Display addresses keep the 〒 mark.** It is removed only inside the Google Maps iframe query.
 """
@@ -294,6 +297,7 @@ def build_page_payload(b: Branch, title_tpl: str, content_tpl: str) -> dict:
     }
     title = render_template(title_tpl, **ctx)
     content = render_template(content_tpl, **ctx)
+    # PAGES: auto-append map if the template omitted it and address exists
     if b.address and "{map_embed}" not in content_tpl:
         content = content + "\n" + ctx["map_embed"]
     if ctx["contact_html"] and "{contact_html}" not in content_tpl:
@@ -314,13 +318,12 @@ def build_post_payload(b: Branch, index: int, title_tpl: str, content_tpl: str) 
         "id2": b.id2,
         "address": b.address,
         "index": index,
-        "map_embed": maps_iframe_no_api(b.address),
+        "map_embed": maps_iframe_no_api(b.address),  # available for templates, but NOT auto-appended
         "contact_html": contact_block_html(b),
     }
     title = render_template(title_tpl, **ctx)
     content = render_template(content_tpl, **ctx)
-    if b.address and "{map_embed}" not in content_tpl:
-        content = content + "\n" + ctx["map_embed"]
+    # POSTS: do NOT auto-append map (keep blog/archive clean)
     if ctx["contact_html"] and "{contact_html}" not in content_tpl:
         content = content + "\n" + ctx["contact_html"]
     body = {
@@ -423,7 +426,7 @@ def discover_branches(wp: WP, csv_path: str | None) -> list[Branch]:
 # ---------------------------------------------------------------------------
 
 def run(argv: list[str]) -> int:
-    ap = argparse.ArgumentParser(description="Seed branch pages & posts with no-API Google Maps + full contact info.")
+    ap = argparse.ArgumentParser(description="Seed branch pages & posts (maps on pages only; never on posts).")
     ap.add_argument("--base", default=os.environ.get("WP_BASE_URL", ""), help="WP base URL (env: WP_BASE_URL)")
     ap.add_argument("--user", default=os.environ.get("WP_USERNAME", ""), help="WP username (env: WP_USERNAME)")
     ap.add_argument("--password", default=os.environ.get("WP_APP_PASSWORD", ""), help="WP application password (env: WP_APP_PASSWORD)")
@@ -442,10 +445,8 @@ def run(argv: list[str]) -> int:
     ), help="Page content HTML template")
 
     ap.add_argument("--post-title", default="{office} | お知らせ #{index}", help="Post title template")
-    ap.add_argument("--post-content", default=(
-        "<p>{office} の更新情報 #{index}</p>\n"
-        "{map_embed}"
-    ), help="Post content HTML template")
+    # IMPORTANT: default post content **no map**
+    ap.add_argument("--post-content", default="<p>{office} の更新情報 #{index}</p>\n{contact_html}", help="Post content HTML template")
 
     args = ap.parse_args(argv)
 
@@ -475,4 +476,3 @@ if __name__ == "__main__":
         raise SystemExit(run(sys.argv[1:]))
     except KeyboardInterrupt:
         raise SystemExit(130)
-
