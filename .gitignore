@@ -81,3 +81,5 @@ _audit/
 /wp-*.php
 /xmlrpc.php
 /.htaccess
+
+scripts/s.sh
