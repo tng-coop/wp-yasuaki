@@ -10,6 +10,9 @@ ADMIN_PASS="${ADMIN_PASS:-a}"
 ADMIN_EMAIL="${ADMIN_EMAIL:-admin@example.com}"
 APP_NAME="gha"
 
+# Optional: pin WordPress core version (e.g. 6.6.2). Default = latest stable.
+WP_VERSION="${WP_VERSION:-latest}"
+
 # Contributor user (override via env if desired)
 CONTRIB_USER="${CONTRIB_USER:-contributor}"
 CONTRIB_EMAIL="${CONTRIB_EMAIL:-contributor@example.com}"
@@ -27,6 +30,23 @@ EDITOR_PASS="${EDITOR_PASS:-a}"
 
 cd "$WP_PATH"
 
+# --- Ensure WordPress core is present and up-to-date ---
+if [ ! -f "wp-load.php" ]; then
+  if [ "$WP_VERSION" != "latest" ]; then
+    wp core download --version="$WP_VERSION" 1>&2
+  else
+    wp core download 1>&2
+  fi
+else
+  if [ "$WP_VERSION" != "latest" ]; then
+    # Force to requested version (upgrade or rollback)
+    wp core update --version="$WP_VERSION" --force 1>&2 || true
+  else
+    # Update to latest stable if an update exists (no-op if current)
+    wp core update --force 1>&2 || true
+  fi
+fi
+
 wp db reset --yes 1>&2 || true
 
 wp core install \
@@ -36,6 +56,9 @@ wp core install \
   --admin_password="$ADMIN_PASS" \
   --admin_email="$ADMIN_EMAIL" \
   --skip-email 1>&2
+
+# Bring DB to the latest schema (no-op on fresh installs)
+wp core update-db 1>&2 || true
 
 # Create contributor-role user
 wp user create "$CONTRIB_USER" "$CONTRIB_EMAIL" \
@@ -133,4 +156,3 @@ if [ -f "$BASHRC" ]; then
   fi
   rm -f "$BASHRC.bak"
 fi
-
