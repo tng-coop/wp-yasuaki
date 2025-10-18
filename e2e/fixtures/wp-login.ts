@@ -1,5 +1,5 @@
-import { test as base } from '@playwright/test';
-import type { WPAdmin, WPTempUser } from './wp';
+import { test as base } from './wp';
+import type { WPAdmin, WPTempUser } from './wp'; // <-- add this
 
 type LoginCreds = { username: string; password: string };
 

@@ -1,6 +1,6 @@
 // e2e/fixtures/wp.ts
-import { test as base } from '@playwright/test';
-import type { WPApi } from './common';
+import { test as base } from './index';
+import type { createWpApi } from './wp-api';
 
 export type WPTempUser = {
   id: number;
@@ -10,7 +10,7 @@ export type WPTempUser = {
 export type WPAdmin = WPTempUser;
 
 // What this file NEEDS from others (worker fixtures)
-type Needs = { wpApi: WPApi };
+type Needs = { wpApi: Awaited<ReturnType<typeof createWpApi>> };
 
 // What this file PROVIDES (all worker-scoped)
 type WorkerProvides = {
@@ -39,15 +39,20 @@ export const test = base.extend<{}, WorkerProvides & Needs>({
       const password = uniq('pw_');
       const email = `${username}@example.test`;
 
-      const created = await wpApi.post('/wp/v2/users', {
+      const res = await wpApi.post('users', {
         data: { username, email, password, name: username, role: 'administrator' },
       });
+      if (!res.ok()) {
+        const body = await res.text();
+        throw new Error(`[wpApi] create admin failed: ${res.status()} ${res.statusText()} — ${body.slice(0, 160)}`);
+      }
+      const created: any = await res.json();
 
       const user: WPAdmin = { id: created.id, login: { username, password } };
       await use(user);
 
       try {
-        await wpApi.delete(`/wp/v2/users/${created.id}`, { params: { reassign: 1, force: true } });
+        await wpApi.delete(`users/${created.id}`, { params: { reassign: 1, force: true } });
       } catch {}
     },
     { scope: 'worker' },
@@ -60,15 +65,20 @@ export const test = base.extend<{}, WorkerProvides & Needs>({
       const password = uniq('pw_');
       const email = `${username}@example.test`;
 
-      const created = await wpApi.post('/wp/v2/users', {
+      const res = await wpApi.post('users', {
         data: { username, email, password, name: username, role: 'editor' },
       });
+      if (!res.ok()) {
+        const body = await res.text();
+        throw new Error(`[wpApi] create editor failed: ${res.status()} ${res.statusText()} — ${body.slice(0, 160)}`);
+      }
+      const created: any = await res.json();
 
       const user: WPTempUser = { id: created.id, login: { username, password } };
       await use(user);
 
       try {
-        await wpApi.delete(`/wp/v2/users/${created.id}`, { params: { reassign: 1, force: true } });
+        await wpApi.delete(`users/${created.id}`, { params: { reassign: 1, force: true } });
       } catch {}
     },
     { scope: 'worker' },
@@ -81,15 +91,20 @@ export const test = base.extend<{}, WorkerProvides & Needs>({
       const password = uniq('pw_');
       const email = `${username}@example.test`;
 
-      const created = await wpApi.post('/wp/v2/users', {
+      const res = await wpApi.post('users', {
         data: { username, email, password, name: username, role: 'author' },
       });
+      if (!res.ok()) {
+        const body = await res.text();
+        throw new Error(`[wpApi] create author failed: ${res.status()} ${res.statusText()} — ${body.slice(0, 160)}`);
+      }
+      const created: any = await res.json();
 
       const user: WPTempUser = { id: created.id, login: { username, password } };
       await use(user);
 
       try {
-        await wpApi.delete(`/wp/v2/users/${created.id}`, { params: { reassign: 1, force: true } });
+        await wpApi.delete(`users/${created.id}`, { params: { reassign: 1, force: true } });
       } catch {}
     },
     { scope: 'worker' },
