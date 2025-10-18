@@ -48,7 +48,7 @@ openssl req -newkey rsa:4096 -nodes \
 # --- Create an extensions file for the leaf cert ---
 cat > "${DOMAIN}.ext" <<EOF
 basicConstraints=CA:FALSE
-subjectAltName=DNS:${DOMAIN},DNS:wp.lan,DNS:localhost,IP:127.0.0.1,IP:::1
+subjectAltName=DNS:${DOMAIN},DNS:wp.lan,DNS:localhost,DNS:example.com,DNS:www.example.com,IP:127.0.0.1,IP:::1
 keyUsage=digitalSignature,keyEncipherment
 extendedKeyUsage=serverAuth
 EOF
