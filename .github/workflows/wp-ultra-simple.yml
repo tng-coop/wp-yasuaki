@@ -136,7 +136,7 @@ jobs:
 
       - name: Map dev hostnames to loopback
         run: |
-          echo "127.0.0.1 aspnet.lan wp.lan" | sudo tee -a /etc/hosts
+          echo "127.0.0.1 aspnet.lan example.com" | sudo tee -a /etc/hosts
 
       - name: Export Office CPT rest base
         run: echo "WP_REST_BASE_OFFICE=office-cpt" >> "$GITHUB_ENV"
@@ -176,7 +176,7 @@ jobs:
         shell: bash
         env:
           DOMAIN: aspnet.lan
-          DOMAIN_ALIASES: wp.lan
+          DOMAIN_ALIASES: example.com
           PORT: '443'
           WP_DIR: ${{ github.workspace }}/wordpress
           CERT_DIR: ${{ github.workspace }}/cert
@@ -186,7 +186,7 @@ jobs:
         run: |
           set -euxo pipefail
           curl -I https://aspnet.lan/
-          curl -I https://wp.lan:443/
+          curl -I https://example.com:443/
           curl -fsS https://aspnet.lan/ -o /tmp/index.html
           head -n 20 /tmp/index.html
 
@@ -194,7 +194,7 @@ jobs:
         run: |
           set -euxo pipefail
           curl -fsSI https://aspnet.lan/wp-json/
-          curl -fsSI https://wp.lan:443/wp-json/
+          curl -fsSI https://example.com:443/wp-json/
           curl -fsS  https://aspnet.lan/wp-json/wp/v2 | jq '.namespace'
 
       - name: Verify Office CPT is registered (fail fast)
