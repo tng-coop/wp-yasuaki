@@ -10,7 +10,7 @@ jobs:
     runs-on: ubuntu-latest
     env:
       WP_PATH: wordpress
-      WP_BASE_URL: https://wp.lan
+      WP_BASE_URL: https://example.com
       ADMIN_USER: admin
       ADMIN_PASS: a
       ADMIN_EMAIL: admin@example.com
