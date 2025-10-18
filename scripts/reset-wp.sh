@@ -3,14 +3,8 @@
 set -euo pipefail
 
 WP_PATH="${WP_PATH:-wordpress}"
-
-# Prefer WP_BASE_URL; fallback to WP_URL (back-compat). No silent default.
-WP_URL="${WP_BASE_URL:-${WP_URL:-}}"
-if [ -z "${WP_URL}" ]; then
-  echo "ERROR: Set WP_BASE_URL (or WP_URL), e.g. WP_BASE_URL=https://example.com" >&2
-  exit 1
-fi
-
+# Prefer WP_BASE_URL; fallback to WP_URL (back-compat) then default
+WP_URL="${WP_BASE_URL:-${WP_URL:-https://example.com}}"
 ADMIN_USER="${ADMIN_USER:-admin}"
 ADMIN_PASS="${ADMIN_PASS:-a}"
 ADMIN_EMAIL="${ADMIN_EMAIL:-admin@example.com}"
@@ -42,13 +36,6 @@ wp core install \
   --admin_password="$ADMIN_PASS" \
   --admin_email="$ADMIN_EMAIL" \
   --skip-email 1>&2
-
-# Ensure canonical URL sticks even if a theme/plugin meddles
-wp option update home    "$WP_URL" --skip-plugins --skip-themes 1>&2
-wp option update siteurl "$WP_URL" --skip-plugins --skip-themes 1>&2
-
-# Permalinks + .htaccess (idempotent)
-wp rewrite structure '/%postname%/' --hard 1>&2
 
 # Create contributor-role user
 wp user create "$CONTRIB_USER" "$CONTRIB_EMAIL" \
@@ -147,4 +134,3 @@ if [ -f "$BASHRC" ]; then
   rm -f "$BASHRC.bak"
 fi
 
-echo "[done] Installed WordPress at: $WP_URL" 1>&2
