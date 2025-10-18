@@ -1,8 +1,14 @@
-// e2e/fixtures/index.ts
-import { test as base, expect, mergeTests } from '@playwright/test';
-import { test as common } from './common';
-import { test as wp } from './wp';
-import { test as wpLogin } from './wp-login';
+// e2e/fixtures/index.ts (or wherever you wire fixtures)
+import { test as base, request } from '@playwright/test';
+import { createWpApi } from './wp-api';
 
-export const test = mergeTests(base, common, wp, wpLogin);
-export { expect };
+export const test = base.extend<{
+  wpApi: Awaited<ReturnType<typeof createWpApi>>;
+}>({
+  wpApi: async ({}, use, testInfo) => {
+    const siteBaseURL = String(testInfo.project.use.baseURL || '');
+    const api = await createWpApi(request, siteBaseURL);
+    await use(api);
+  },
+});
+export { expect } from '@playwright/test';
