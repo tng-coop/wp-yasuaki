@@ -44,7 +44,9 @@ export const test = base.extend<{}, WorkerProvides & Needs>({
       });
       if (!res.ok()) {
         const body = await res.text();
-        throw new Error(`[wpApi] create admin failed: ${res.status()} ${res.statusText()} — ${body.slice(0, 160)}`);
+        throw new Error(
+          `[wpApi] create admin failed: ${res.status()} ${res.statusText()} — ${body.slice(0, 160)}`
+        );
       }
       const created: any = await res.json();
 
@@ -70,7 +72,9 @@ export const test = base.extend<{}, WorkerProvides & Needs>({
       });
       if (!res.ok()) {
         const body = await res.text();
-        throw new Error(`[wpApi] create editor failed: ${res.status()} ${res.statusText()} — ${body.slice(0, 160)}`);
+        throw new Error(
+          `[wpApi] create editor failed: ${res.status()} ${res.statusText()} — ${body.slice(0, 160)}`
+        );
       }
       const created: any = await res.json();
 
@@ -96,7 +100,9 @@ export const test = base.extend<{}, WorkerProvides & Needs>({
       });
       if (!res.ok()) {
         const body = await res.text();
-        throw new Error(`[wpApi] create author failed: ${res.status()} ${res.statusText()} — ${body.slice(0, 160)}`);
+        throw new Error(
+          `[wpApi] create author failed: ${res.status()} ${res.statusText()} — ${body.slice(0, 160)}`
+        );
       }
       const created: any = await res.json();
 

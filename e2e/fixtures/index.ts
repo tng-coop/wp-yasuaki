@@ -1,14 +1,39 @@
-// e2e/fixtures/index.ts (or wherever you wire fixtures)
-import { test as base, request } from '@playwright/test';
+// e2e/fixtures/index.ts
+import { test as base, expect, request as pwRequest } from '@playwright/test';
 import { createWpApi } from './wp-api';
 
-export const test = base.extend<{
+type WorkerProvides = {
   wpApi: Awaited<ReturnType<typeof createWpApi>>;
-}>({
-  wpApi: async ({}, use, testInfo) => {
-    const siteBaseURL = String(testInfo.project.use.baseURL || '');
-    const api = await createWpApi(request, siteBaseURL);
-    await use(api);
-  },
+};
+
+export const test = base.extend<{}, WorkerProvides>({
+  wpApi: [
+    async ({}, use) => {
+      const baseURL = process.env.WP_BASE_URL;
+      const user = process.env.WP_USERNAME;
+      const appPass = process.env.WP_APP_PASSWORD?.replace(/\s+/g, '');
+
+      if (!baseURL) throw new Error('WP_BASE_URL is not set');
+      if (!user || !appPass) throw new Error('WP_USERNAME / WP_APP_PASSWORD are required');
+
+      const auth = Buffer.from(`${user}:${appPass}`).toString('base64');
+
+      // Create a request context at WORKER scope (no dependency on test fixtures).
+      const context = await pwRequest.newContext({
+        baseURL,
+        extraHTTPHeaders: {
+          Authorization: `Basic ${auth}`,
+          Accept: 'application/json',
+          'Content-Type': 'application/json',
+        },
+      });
+
+      const api = await createWpApi(context);
+      await use(api);
+      await context.dispose();
+    },
+    { scope: 'worker' },
+  ],
 });
-export { expect } from '@playwright/test';
+
+export { expect };
